@@ -1,0 +1,38 @@
+@page "/mis-solicitudes"
+@attribute [Authorize(Policy = Policies.Comercial)]
+@inherits AppPage
+@inject ISolicitudService Sols
+@inject IUsuarioService Users
+
+<PageTitle>Mis solicitudes · @AppInfo.Nombre</PageTitle>
+
+<section data-screen-label="Mis solicitudes" class="stack">
+    <div class="page-head">
+        <div>
+            <h2 style="margin:0">Mis solicitudes</h2>
+            <div class="sub">Estado de asignación y día de entrega de cada entregable. Solo lectura.</div>
+        </div>
+        <a class="btn btn-primary" href="/solicitar"><Icon Name="plus" Stroke="2" />Nueva solicitud</a>
+    </div>
+    @foreach (var c in _mine)
+    {
+        <SolicitudCardView @key="c.Solicitud.Id" C="c" Names="_names" />
+    }
+    @if (Loaded && _mine.Count == 0)
+    {
+        <div class="empty">Aún no has enviado solicitudes.</div>
+    }
+</section>
+
+@code {
+    List<SolicitudCard> _mine = [];
+    Dictionary<int, string> _names = [];
+
+    protected override ChangeKind[] ReloadOn => [ChangeKind.Requerimientos, ChangeKind.Solicitudes, ChangeKind.Usuarios];
+
+    protected override async Task LoadAsync()
+    {
+        _names = (await Users.ListAsync()).ToDictionary(u => u.Id, u => u.Nombre);
+        _mine = await Sols.MiasAsync(Me);
+    }
+}

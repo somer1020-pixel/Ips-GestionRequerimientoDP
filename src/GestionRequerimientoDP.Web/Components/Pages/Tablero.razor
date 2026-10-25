@@ -1,0 +1,105 @@
+@page "/"
+@attribute [Authorize(Policy = Policies.Gestion)]
+@inherits AppPage
+@inject IRequerimientoService Reqs
+@inject IOkService Ok
+@inject IUsuarioService Users
+
+<PageTitle>@Title · @AppInfo.Nombre</PageTitle>
+
+<section data-screen-label="Tablero" class="stack">
+    <div class="page-head">
+        <div>
+            <h2 style="margin:0">@Title</h2>
+            <div class="sub">
+                @(Me.EsLider ? $"Procesamiento y codificación semana {Fechas.WeekLabel(Cur)} + scripts. Arrastra las tarjetas para cambiar su estado."
+                             : "Solo ves lo que tienes asignado. Arrastra tus tarjetas para actualizar el estado; soltar en OK pide confirmación.")
+            </div>
+            <DueLegend />
+        </div>
+        <div class="page-actions">
+            <input class="form-control" placeholder="Buscar cliente, proyecto, job…" value="@_q" @oninput="e => _q = e.Value?.ToString() ?? string.Empty" style="width:240px" aria-label="Buscar" />
+            @if (Me.EsLider)
+            {
+                <AnalystFilter Analysts="_analysts" Value="Ui.AnFilter" ValueChanged="v => Ui.AnFilter = v" />
+                <Seg T="string" Options="TeamOpts" @bind-Value="_team" />
+            }
+        </div>
+    </div>
+    <div class="kanban">
+        @foreach (var col in Estados)
+        {
+            var cards = Items.Where(r => r.Estado == col).ToList();
+            var over = _dragOver == col;
+            <div @ondragenter="() => _dragOver = col" @ondragover:preventDefault="true" @ondrop="() => Drop(col)" @ondrop:preventDefault="true"
+                 style="display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3);min-height:460px;border:1px solid @(over ? "var(--teal)" : "transparent");border-radius:8px;background:@(over ? "var(--teal-50)" : "var(--neutral-50)")">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                    <div style="display:flex;align-items:center;gap:var(--space-2)">
+                        <span style="width:8px;height:8px;border-radius:50%;background:@Dot(col)"></span>
+                        <h4 style="margin:0">@Reglas.EstadoColumna(col)</h4>
+                    </div>
+                    <span class="tag tag-neutral">@cards.Count</span>
+                </div>
+                @foreach (var r in cards)
+                {
+                    <ReqCard @key="r.Id" R="r" Today="Today" AnalistaNombre="@Name(r.AnalistaId)" StaleDays="Opts.CurrentValue.StaleDays" Compact="Opts.CurrentValue.CompactCards"
+                             Dragging="_dragId == r.Id" OnOpen="Ui.OpenDetail" OnQuickOk="Ui.AskOk" OnDragStart="id => _dragId = id" OnDragEnd="() => { _dragId = null; _dragOver = null; }" />
+                }
+                @if (cards.Count == 0)
+                {
+                    <div style="font-size:13px;color:var(--color-neutral-600);text-align:center;padding:var(--space-6) 0">Sin requerimientos</div>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    static readonly Estado[] Estados = [Estado.Pendiente, Estado.EnCurso, Estado.Ok];
+    static readonly IReadOnlyList<(string, string)> TeamOpts = [("all", "Todos"), ("proc", "Procesamiento"), ("cod", "Codificación"), ("script", "Scripting")];
+
+    List<Requerimiento> _scope = [];
+    Dictionary<int, string> _names = [];
+    List<Usuario> _analysts = [];
+    string _q = "", _team = "all";
+    int? _dragId;
+    Estado? _dragOver;
+
+    string Title => Me.EsLider ? "Tablero de requerimientos" : "Mi tablero";
+    string Name(int? id) => id is { } i && _names.TryGetValue(i, out var n) ? n : "Sin asignar";
+    static string Dot(Estado e) => e switch { Estado.Ok => "var(--color-accent)", Estado.EnCurso => "var(--color-accent-400)", _ => "var(--color-neutral-400)" };
+
+    IEnumerable<Requerimiento> Items
+    {
+        get
+        {
+            var q = Reglas.Norm(_q);
+            return _scope
+                .Where(r => !Me.EsLider || _team == "all" || Reglas.TipoKey(r.Tipo) == _team)
+                .Where(r => !Me.EsLider || Ui.AnFilter is null || r.AnalistaId == Ui.AnFilter)
+                .Where(r => q.Length == 0 || Reglas.Norm($"{r.Cliente} {r.Proyecto} {r.Job} {r.Descripcion} {r.Comercial} {Name(r.AnalistaId)}").Contains(q))
+                .OrderBy(r => r.Fecha).ThenBy(r => r.Job, StringComparer.Ordinal);
+        }
+    }
+
+    protected override async Task LoadAsync()
+    {
+        var users = await Users.ListAsync();
+        _names = users.ToDictionary(u => u.Id, u => u.Nombre);
+        _analysts = users.Where(u => u.Rol == Rol.Analista && u.Activo).ToList();
+        _scope = await Reqs.TableroAsync(Me);
+    }
+
+    async Task Drop(Estado col)
+    {
+        var id = _dragId;
+        _dragId = null;
+        _dragOver = null;
+        if (id is null) return;
+        await Run(async () =>
+        {
+            var res = await Ok.MoveToAsync(Me, id.Value, col);
+            if (res == MoveResult.RequiereOk) Ui.AskOk(id.Value);
+        });
+    }
+}

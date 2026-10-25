@@ -1,0 +1,25 @@
+@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>Error</PageTitle>
+@layout PublicLayout
+
+<main class="portal stack">
+    <h2 style="color:var(--danger)">Ocurrió un error al procesar la solicitud.</h2>
+    @if (ShowRequestId)
+    {
+        <p class="sub">Id de la solicitud: <code>@RequestId</code></p>
+    }
+    <p><a href="/">Volver al inicio</a></p>
+</main>
+
+@code{
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

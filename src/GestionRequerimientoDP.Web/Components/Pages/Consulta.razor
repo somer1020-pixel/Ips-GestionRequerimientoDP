@@ -1,0 +1,90 @@
+@page "/consulta"
+@layout PublicLayout
+@attribute [AllowAnonymous]
+@inject IConsultaService Search
+@inject Microsoft.Extensions.Options.IOptions<AuthOptions> AuthOpts
+@inject NavigationManager Nav
+
+<PageTitle>Consulta de requerimientos · @AppInfo.Nombre</PageTitle>
+
+<div data-screen-label="Consulta pública" style="flex:1;display:flex;flex-direction:column">
+    <header class="topbar">
+        <div class="inner">
+            <div class="brand" style="flex:1"><span class="brand-mark">@AppInfo.Marca</span><span>@AppInfo.Nombre <small>· Consulta de requerimientos</small></span></div>
+            <a class="btn btn-onnavy" href="@(_logged ? "/" : "/cuenta/ingresar")">@(_logged ? "Volver a la app" : $"Ingresar a {AppInfo.Nombre}")</a>
+        </div>
+    </header>
+    <main class="portal" style="width:100%;display:flex;flex-direction:column;gap:var(--space-6)">
+        @if (_blocked)
+        {
+            <div class="empty">Inicia sesión con tu cuenta corporativa para consultar requerimientos.</div>
+        }
+        else
+        {
+            <div>
+                <h2 style="margin:0">¿Ya está asignado mi requerimiento?</h2>
+                <div style="font-size:14px;color:var(--color-neutral-800)">Busca por número de Job, proyecto o cliente para ver quién lo tiene asignado y qué día se entrega cada parte. Vista de solo lectura.</div>
+            </div>
+            <input class="form-control" value="@_q" @oninput="OnInput" placeholder="Ej. 26-033416 · Teletón · Banco Estado" style="min-height:44px;font-size:16px" aria-label="Buscar requerimiento" />
+            <div style="font-size:13px;color:var(--color-neutral-700)">@_res.Hint</div>
+            @foreach (var j in _res.Jobs)
+            {
+                <div class="card blueprint" style="gap:var(--space-3);padding:var(--space-4)">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);flex-wrap:wrap">
+                        <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                            <span class="card-kicker" style="color:var(--color-accent-700)">@j.Job · @j.Cliente</span>
+                            <span class="card-title" style="font-size:20px">@j.Proyecto</span>
+                            <span style="font-size:12px;color:var(--color-neutral-700)">Comercial: @j.Comercial</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                            <span class="@j.StatusCss">@j.Status</span>
+                            <span style="font-size:13px;white-space:nowrap">@j.NextLine</span>
+                        </div>
+                    </div>
+                    <div class="scroll-x">
+                        <table class="table">
+                            <thead><tr><th>Entregable</th><th>Tipo</th><th>Día de entrega</th><th>Asignado a</th><th>Estado</th></tr></thead>
+                            <tbody>
+                                @foreach (var r in j.Filas)
+                                {
+                                    <tr><td>@r.Entregable — @r.Descripcion</td><td class="nowrap">@r.TipoLabel</td><td class="nowrap">@r.Dia</td><td class="nowrap">@r.Asignado</td><td><span class="@r.EstadoCss">@r.Estado</span></td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+            <div style="font-size:12px;color:var(--color-neutral-700)">Para cambios de fecha o prioridad, contacta al líder de Operaciones.</div>
+        }
+    </main>
+</div>
+
+@code {
+    [CascadingParameter] public Task<AuthenticationState> AuthState { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "job")] public string? Job { get; set; }
+
+    string _q = "";
+    bool _logged, _blocked;
+    ConsultaResult _res = new([], 0, "Escribe al menos 3 caracteres.");
+    CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _logged = (await AuthState).User.Identity?.IsAuthenticated == true;
+        _blocked = AuthOpts.Value.ConsultaRequiereSesion && !_logged;
+        if (!_blocked && !string.IsNullOrWhiteSpace(Job)) { _q = Job; _res = await Search.BuscarAsync(_q); }
+    }
+
+    async Task OnInput(ChangeEventArgs e)
+    {
+        _q = e.Value?.ToString() ?? "";
+        _cts?.Cancel();
+        var cts = _cts = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(250, cts.Token);
+            _res = await Search.BuscarAsync(_q, cts.Token);
+        }
+        catch (OperationCanceledException) { }
+    }
+}

@@ -1,0 +1,178 @@
+@page "/atrasos"
+@attribute [Authorize(Policy = Policies.Lider)]
+@inherits AppPage
+@inject IKpiService Kpi
+@inject IUsuarioService Users
+
+<PageTitle>Motivos de atraso · @AppInfo.Nombre</PageTitle>
+
+@if (_v is { } v)
+{
+    <section data-screen-label="Motivos de atraso" class="stack">
+        <div class="page-head">
+            <div>
+                <h2 style="margin:0">Motivos de atraso</h2>
+                <div class="sub">Entregas cerradas después del día comprometido, según el responsable declarado al dar OK: la propia unidad (Procesamiento, Script, Codificación), materiales del área comercial o campo.</div>
+            </div>
+            <button class="btn btn-outline-secondary" @onclick="DownloadAtr"><Icon Name="download" Stroke="1.75" />Descargar atrasos</button>
+        </div>
+        <div class="page-actions">
+            <PeriodNav Value="_p" ValueChanged="SetPeriodo" Large="false" />
+            <Seg T="string" Options="UnitOpts" Value="_unit" ValueChanged="SetUnit" />
+            <AnalystFilter Analysts="_analysts" Value="Ui.AnFilter" ValueChanged="SetAn" />
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--space-4)">
+            @foreach (var k in v.Kpis)
+            {
+                <div class="card" style="gap:4px">
+                    <span class="card-kicker">@k.Label</span>
+                    <span style="font-weight:600;font-size:32px;line-height:1.1;color:@k.Color">@k.Value</span>
+                    <span class="card-meta">@k.Note</span>
+                </div>
+            }
+        </div>
+        <div class="card" style="gap:var(--space-3)">
+            <h4 style="margin:0">¿Quién origina los atrasos?</h4>
+            <div style="display:flex;height:28px;border-radius:6px;overflow:hidden;background:var(--neutral-50)">
+                @foreach (var g in v.Stack)
+                {
+                    <div title="@g.Label: @g.N" style="width:@(g.Pct)%;background:@g.Color"></div>
+                }
+            </div>
+            <div style="display:flex;gap:var(--space-6);flex-wrap:wrap;font-size:13px">
+                @foreach (var g in v.Stack)
+                {
+                    <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:@g.Color"></span>@g.Label · <strong>@g.N</strong> (@g.Pct%) · @g.Dias días prom.</span>
+                }
+            </div>
+            @if (v.Total == 0)
+            {
+                <div style="font-size:14px;color:var(--ink-muted)">Sin entregas atrasadas en este periodo.</div>
+            }
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:var(--space-6)">
+            <div class="stack-3" style="min-width:0">
+                <h4 style="margin:0">Por unidad de Operaciones</h4>
+                <div class="scroll-x">
+                    <table class="table">
+                        <thead><tr><th>Unidad</th><th>Entregas</th><th>Atrasos</th><th>Propio de la unidad</th><th>Comercial</th><th>Campo</th><th>Días prom.</th></tr></thead>
+                        <tbody>
+                            @foreach (var u in v.Unidades)
+                            {
+                                <tr><td style="font-weight:500">@u.Unidad</td><td>@u.Entregas</td><td class="nowrap">@u.Atrasos (@u.Pct%)</td><td>@u.Ops</td><td>@u.Com</td><td>@u.Campo</td><td>@u.Dias</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="stack-3" style="min-width:0">
+                <h4 style="margin:0">Motivos más frecuentes</h4>
+                <div style="display:flex;flex-direction:column">
+                    @foreach (var m in v.Motivos)
+                    {
+                        <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 36px;gap:var(--space-3);align-items:center;padding:7px 0;border-top:1px solid var(--border);font-size:13px">
+                            <div style="display:flex;flex-direction:column;min-width:0"><span style="font-weight:500">@m.Motivo</span><span style="font-size:11px;color:var(--ink-muted)">@m.RespLabel</span></div>
+                            <div style="height:10px;background:var(--neutral-50);border-radius:3px"><div style="height:100%;width:@P(m.Pct);background:@m.Color;border-radius:3px"></div></div>
+                            <span style="text-align:right;font-weight:600">@m.N</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:var(--space-6)">
+            <div class="stack-3" style="min-width:0">
+                <h4 style="margin:0">Atrasos por materiales · por responsable comercial</h4>
+                <div class="scroll-x">
+                    <table class="table">
+                        <thead><tr><th>Responsable comercial</th><th>Atrasos</th><th>Días prom.</th><th>Motivo principal</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in v.Comerciales)
+                            {
+                                <tr><td style="white-space:nowrap;font-weight:500">@c.Nombre</td><td>@c.N</td><td>@c.Dias</td><td style="font-size:13px">@c.Top</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (v.Comerciales.Count == 0)
+                    {
+                        <div style="padding:var(--space-4);font-size:13px;color:var(--ink-muted)">Sin atrasos atribuidos a materiales comerciales.</div>
+                    }
+                </div>
+            </div>
+            <div class="stack-3" style="min-width:0">
+                <h4 style="margin:0">Atrasos de campo · por área</h4>
+                <div class="scroll-x">
+                    <table class="table">
+                        <thead><tr><th>Área de campo</th><th>Atrasos</th><th>Días prom.</th><th>Motivo principal</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in v.Campo)
+                            {
+                                <tr><td style="white-space:nowrap;font-weight:500">@c.Nombre</td><td>@c.N</td><td>@c.Dias</td><td style="font-size:13px">@c.Top</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (v.Campo.Count == 0)
+                    {
+                        <div style="padding:var(--space-4);font-size:13px;color:var(--ink-muted)">Sin atrasos atribuidos a campo.</div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="stack-3">
+            <h4 style="margin:0">Detalle de entregas atrasadas <span style="font-weight:400;font-size:13px;color:var(--ink-muted)">@(v.Total > 100 ? $"· mostrando 100 de {v.Total}" : $"· {v.Total}")</span></h4>
+            <div class="scroll-x">
+                <table class="table">
+                    <thead><tr><th>Día comprometido</th><th>Entregado</th><th>Atraso</th><th>Tipo</th><th>Job</th><th>Proyecto</th><th>Analista</th><th>Materiales recibidos</th><th>Responsable</th><th>Motivo</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in v.Lista)
+                        {
+                            var mt = Reglas.MaterialesTarde(r, r.MaterialesAt);
+                            <tr @key="r.Id" @onclick="() => Ui.OpenDetail(r.Id)" style="cursor:pointer">
+                                <td class="nowrap">@Fechas.FmtD(r.Fecha)</td>
+                                <td class="nowrap">@Fechas.FmtD(Fechas.LocalDate(r.OkAt!.Value))</td>
+                                <td style="white-space:nowrap;font-weight:600;color:var(--danger)">+@Reglas.DiasAtraso(r) d</td>
+                                <td><span class="@Reglas.Tipo(r.Tipo).Css">@Reglas.Tipo(r.Tipo).Short</span></td>
+                                <td style="white-space:nowrap;color:var(--teal-text)">@r.Job</td>
+                                <td>@r.Proyecto</td>
+                                <td class="nowrap">@Name(r.AnalistaId)</td>
+                                <td style="white-space:nowrap;color:@(mt ? "var(--warning)" : "var(--ink-muted)");font-weight:@(mt ? "600" : "400")">@(r.MaterialesAt is { } m ? Fechas.FmtD(m) + (mt ? " · tarde" : "") : "Sin registrar")</td>
+                                <td><span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:@Reglas.RespX(Reglas.EffResp(r)).Color"></span>@Reglas.RespLabel(r)</span></td>
+                                <td style="font-size:13px">@(string.IsNullOrEmpty(r.AtrasoMotivo) ? "—" : r.AtrasoMotivo)@(string.IsNullOrEmpty(r.AtrasoDetalle) ? "" : " — " + r.AtrasoDetalle)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    static readonly IReadOnlyList<(string, string)> UnitOpts = [("all", "Todas"), ("proc", "Procesamiento"), ("script", "Scripting"), ("cod", "Codificación")];
+    AtrasosView? _v;
+    Periodo _p = default!;
+    string _unit = "all";
+    List<Usuario> _analysts = [];
+    Dictionary<int, string> _names = [];
+
+    string Name(int? id) => id is { } i && _names.TryGetValue(i, out var n) ? n : "Sin asignar";
+    static string P(double x) => x.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%";
+
+    protected override async Task LoadAsync()
+    {
+        _p = Ui.Periodo ??= Periodo.De(PeriodoModo.Semana, Cur.AddDays(-7));
+        var users = await Users.ListAsync();
+        _names = users.ToDictionary(u => u.Id, u => u.Nombre);
+        _analysts = users.Where(u => u.Rol == Rol.Analista && u.Activo).ToList();
+        _v = await Kpi.AtrasosAsync(Me, _p, Ui.AnFilter, Endpoints.ExportEndpoints.ParseUnidad(_unit));
+    }
+
+    async Task SetPeriodo(Periodo p) { Ui.Periodo = p; await LoadAsync(); }
+    async Task SetAn(int? a) { Ui.AnFilter = a; await LoadAsync(); }
+    async Task SetUnit(string u) { _unit = u; await LoadAsync(); }
+
+    async Task DownloadAtr()
+    {
+        if (_v!.Total == 0) { Ui.Flash("No hay atrasos en este periodo"); return; }
+        await Download($"/export/atrasos?modo={(_p.Modo == PeriodoModo.Mes ? "mes" : "semana")}&ref={Fechas.Iso(_p.Desde)}&unidad={_unit}{(Ui.AnFilter is { } a ? $"&analista={a}" : "")}");
+    }
+}

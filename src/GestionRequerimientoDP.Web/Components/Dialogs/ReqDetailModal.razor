@@ -1,0 +1,189 @@
+@inherits AppPage
+@inject IRequerimientoService Reqs
+@inject IOkService Ok
+@inject IUsuarioService Users
+
+@if (_r is { } r)
+{
+    var lead = Me.EsLider;
+    var canEdit = lead || r.AnalistaId == Me.Id;
+    <div class="dialog-backdrop" @onclick="Ui.CloseDetail">
+        <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="Detalle del requerimiento" @onclick:stopPropagation="true"
+             style="width:min(620px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)">
+                <div>
+                    <span class="card-kicker" style="color:var(--color-accent-700)">@Reglas.Tipo(r.Tipo).Label · @r.Job</span>
+                    <div class="dialog-title">@r.Proyecto</div>
+                    <div style="font-size:13px;color:var(--color-neutral-800)">@r.Entregable — @r.Descripcion</div>
+                </div>
+                <button class="btn btn-icon btn-outline-secondary" @onclick="Ui.CloseDetail" aria-label="Cerrar"><Icon Name="close" /></button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3);font-size:13px">
+                @foreach (var (k, v) in Facts(r))
+                {
+                    <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:11px;color:var(--color-neutral-700)">@k</span><span>@v</span></div>
+                }
+            </div>
+            @if (lead)
+            {
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+                    <div class="field">
+                        <label>Analista asignado</label>
+                        <select class="form-select" value="@(r.AnalistaId?.ToString() ?? "")" @onchange="SetAnalista">
+                            <option value="">Sin asignar</option>
+                            @foreach (var a in _team)
+                            {
+                                <option value="@a.Id">@a.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>@(r.Tipo == Equipo.Script ? "Fecha compromiso" : "Día de entrega")</label>
+                        <input class="form-control" type="date" value="@Fechas.Iso(r.Fecha)" @onchange="SetFecha" />
+                    </div>
+                </div>
+            }
+            <div class="field">
+                <label>Fecha de recepción de materiales</label>
+                <input class="form-control" type="date" value="@(r.MaterialesAt is { } m ? Fechas.Iso(m) : "")" max="@Fechas.Iso(Today)" @onchange="SetMat" disabled="@(!canEdit)" style="max-width:220px" />
+            </div>
+            @if (Reglas.IsLateOk(r))
+            {
+                <div class="field">
+                    <label>Motivo del atraso · +@Reglas.DiasAtraso(r) días</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+                        <select class="form-select" value="@(r.AtrasoResp?.ToString() ?? "")" @onchange="SetResp" disabled="@(!canEdit)">
+                            <option value="">Sin clasificar</option>
+                            @foreach (var o in Enum.GetValues<AtrasoResponsable>())
+                            {
+                                <option value="@o">@Reglas.RespOptionLabel(o, r.Tipo)</option>
+                            }
+                        </select>
+                        <select class="form-select" value="@r.AtrasoMotivo" @onchange="SetMotivo" disabled="@(!canEdit)">
+                            <option value="">Selecciona…</option>
+                            @if (r.AtrasoResp is { } resp)
+                            {
+                                foreach (var mo in Catalogos.MOTIVOS[resp])
+                                {
+                                    <option value="@mo">@mo</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    @if (r.AtrasoResp == AtrasoResponsable.Campo)
+                    {
+                        <select class="form-select" value="@r.AtrasoCampo" @onchange="SetCampo" disabled="@(!canEdit)" style="margin-top:var(--space-2);max-width:280px">
+                            <option value="">Área de campo…</option>
+                            @foreach (var c in Catalogos.CAMPOS)
+                            {
+                                <option value="@c">@c</option>
+                            }
+                        </select>
+                    }
+                </div>
+            }
+            <div class="field">
+                <label>Estado</label>
+                <Seg T="Estado" Options="EstadoOpts" Value="r.Estado" ValueChanged="Move" Stretch="true" Style="display:flex" />
+            </div>
+            <div class="field">
+                <label>Notas</label>
+                <textarea class="form-control" @onchange="SetNota" disabled="@(!canEdit)" placeholder="Contexto, bloqueos, entregables…" style="min-height:70px">@r.Nota</textarea>
+            </div>
+            @if (r.Estado == Estado.Ok)
+            {
+                <div style="font-size:13px;color:var(--success);background:var(--success-50);border-radius:6px;padding:var(--space-2) var(--space-3)">
+                    ✓ OK de término registrado por @Name(r.OkById) el @Fechas.FmtDT(r.OkAt)@Reglas.OkSuffix(r)@(string.IsNullOrEmpty(r.OkNota) ? "" : $" — \"{r.OkNota}\"")
+                </div>
+            }
+            <div class="dialog-actions" style="justify-content:space-between;flex-wrap:wrap">
+                <div style="display:flex;gap:var(--space-2)">
+                    @if (lead)
+                    {
+                        <button class="btn btn-ghost" @onclick="Remove">Eliminar</button>
+                    }
+                    <button class="btn btn-ghost" @onclick="CopyLink">Copiar enlace de consulta</button>
+                </div>
+                <div style="display:flex;gap:var(--space-2)">
+                    <button class="btn btn-outline-secondary" @onclick="Ui.CloseDetail">Cerrar</button>
+                    @if (r.Estado != Estado.Ok && canEdit)
+                    {
+                        <button class="btn btn-primary" @onclick="() => Ui.AskOk(r.Id)">Dar OK de término</button>
+                    }
+                    @if (r.Estado == Estado.Ok && lead)
+                    {
+                        <button class="btn btn-outline-secondary" @onclick="Reopen">Reabrir</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public int Id { get; set; }
+
+    static readonly IReadOnlyList<(Estado, string)> EstadoOpts = [(Estado.Pendiente, "Pendiente"), (Estado.EnCurso, "En curso"), (Estado.Ok, "OK · Terminado")];
+    Requerimiento? _r;
+    Dictionary<int, string> _names = [];
+    List<Usuario> _team = [];
+
+    string Name(int? id) => id is { } i && _names.TryGetValue(i, out var n) ? n : "Sin asignar";
+
+    IEnumerable<(string, string)> Facts(Requerimiento r) =>
+    [
+        ("Día", Fechas.FmtD(r.Fecha)), ("Cliente", r.Cliente), ("Comercial", string.IsNullOrEmpty(r.Comercial) ? "—" : r.Comercial),
+        ("SL / BU", string.IsNullOrEmpty(r.SL) ? "—" : r.SL), ("Técnica", string.IsNullOrEmpty(r.Tecnica) ? "—" : r.Tecnica), ("Analista", Name(r.AnalistaId)),
+        .. r.Solicitud is { } s ? new[] { ("Solicitud", $"{s.Codigo} · {Fechas.FmtDT(s.CreadaAt)}") } : [],
+    ];
+
+    protected override async Task LoadAsync()
+    {
+        var users = await Users.ListAsync();
+        _names = users.ToDictionary(u => u.Id, u => u.Nombre);
+        _r = await Reqs.GetAsync(Me, Id);
+        if (_r is null) { Ui.CloseDetail(); return; }
+        _team = users.Where(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(_r.Tipo)).ToList();
+    }
+
+    static DateOnly? ParseDate(ChangeEventArgs e) => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var d) ? d : null;
+
+    Task SetAnalista(ChangeEventArgs e) => Run(async () =>
+    {
+        int? an = int.TryParse(e.Value?.ToString(), out var x) ? x : null;
+        var sent = await Reqs.AsignarAsync(Me, Id, an);
+        Ui.Flash(an is null ? "Asignación quitada" : $"Asignado a {Name(an)}{(sent ? " · correo enviado" : "")}");
+    });
+
+    Task SetFecha(ChangeEventArgs e) => Run(async () => { if (ParseDate(e) is { } d) await Reqs.SetFechaAsync(Me, Id, d); });
+    Task SetMat(ChangeEventArgs e) => Run(() => Reqs.SetMaterialesAsync(Me, Id, ParseDate(e)));
+    Task SetNota(ChangeEventArgs e) => Run(() => Reqs.SetNotaAsync(Me, Id, e.Value?.ToString() ?? ""));
+    Task SetResp(ChangeEventArgs e) => Run(() => Reqs.SetAtrasoAsync(Me, Id, Enum.TryParse<AtrasoResponsable>(e.Value?.ToString(), out var v) ? v : null, "", ""));
+    Task SetMotivo(ChangeEventArgs e) => Run(() => Reqs.SetAtrasoAsync(Me, Id, _r!.AtrasoResp, e.Value?.ToString() ?? "", _r.AtrasoCampo));
+    Task SetCampo(ChangeEventArgs e) => Run(() => Reqs.SetAtrasoAsync(Me, Id, _r!.AtrasoResp, _r.AtrasoMotivo, e.Value?.ToString() ?? ""));
+
+    Task Move(Estado e) => Run(async () =>
+    {
+        if (await Ok.MoveToAsync(Me, Id, e) == MoveResult.RequiereOk) Ui.AskOk(Id);
+    });
+
+    Task Reopen() => Run(() => Ok.ReabrirAsync(Me, Id));
+
+    async Task Remove()
+    {
+        if (!await JS.InvokeAsync<bool>("grdp.confirm", $"¿Eliminar {_r!.Job} · {_r.Descripcion}?")) return;
+        await Run(async () =>
+        {
+            var job = _r!.Job;
+            await Reqs.EliminarAsync(Me, Id);
+            Ui.CloseDetail();
+            Ui.Flash($"{job} eliminado");
+        });
+    }
+
+    async Task CopyLink()
+    {
+        var url = $"{Nav.BaseUri}consulta?job={Uri.EscapeDataString(_r!.Job)}";
+        Ui.Flash(await JS.InvokeAsync<bool>("grdp.copy", url) ? "Enlace de consulta copiado" : url);
+    }
+}

@@ -1,0 +1,16 @@
+@* Filtro "Todos los analistas / <nombre>" compartido entre vistas (§3.3b). *@
+<select class="form-select" style="width:auto;min-height:36px" value="@(Value?.ToString() ?? "")" @onchange="Changed" aria-label="Filtrar por analista">
+    <option value="">Todos los analistas</option>
+    @foreach (var a in Analysts)
+    {
+        <option value="@a.Id">@a.Nombre</option>
+    }
+</select>
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<Usuario> Analysts { get; set; } = [];
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+
+    Task Changed(ChangeEventArgs e) => ValueChanged.InvokeAsync(int.TryParse(e.Value?.ToString(), out var id) ? id : null);
+}

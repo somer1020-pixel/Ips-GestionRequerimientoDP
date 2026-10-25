@@ -1,0 +1,68 @@
+@page "/solicitudes"
+@attribute [Authorize(Policy = Policies.Lider)]
+@inherits AppPage
+@inject ISolicitudService Sols
+@inject IUsuarioService Users
+
+<PageTitle>Solicitudes nuevas · @AppInfo.Nombre</PageTitle>
+
+<section data-screen-label="Solicitudes nuevas" class="stack">
+    <div class="page-head">
+        <div>
+            <h2 style="margin:0">Solicitudes de áreas comerciales</h2>
+            <div class="sub">Llegan sin analista. Descárgalas para planificar y luego asígnalas desde Planificación semanal (DP y Codificación) o Scripts.</div>
+        </div>
+        <button class="btn btn-primary" @onclick="DownloadInbox"><Icon Name="download" Stroke="1.75" />Descargar solicitudes</button>
+    </div>
+    <div class="page-actions">
+        <Seg T="string" Options="UnitOpts" @bind-Value="_unit" />
+        <Seg T="string" Options="StateOpts" @bind-Value="_state" />
+        <span class="sub">@Sel.Count(c => c.Abierta) por asignar · @Sel.SelectMany(c => c.Items).Count(r => _state == "all" || r.AnalistaId == null) entregables en la descarga</span>
+    </div>
+    @foreach (var c in Sel)
+    {
+        <SolicitudCardView @key="c.Solicitud.Id" C="c" Names="_names" OnPlan="GoPlan" />
+    }
+    @if (Loaded && Sel.Count == 0)
+    {
+        <div class="empty">No hay solicitudes con este filtro.</div>
+    }
+</section>
+
+@code {
+    static readonly IReadOnlyList<(string, string)> StateOpts = [("pend", "Por asignar"), ("all", "Todas")];
+    List<SolicitudCard> _all = [];
+    Dictionary<int, string> _names = [];
+    string _unit = "all", _state = "pend";
+
+    protected override ChangeKind[] ReloadOn => [ChangeKind.Requerimientos, ChangeKind.Solicitudes, ChangeKind.Usuarios];
+
+    IReadOnlyList<(string, string)> UnitOpts =>
+    [
+        ("all", "Todas"),
+        .. new[] { (Equipo.Procesamiento, "Procesamiento"), (Equipo.Codificacion, "Codificación"), (Equipo.Script, "Scripting") }
+            .Select(x => (Reglas.TipoKey(x.Item1), $"{x.Item2} ({_all.Count(c => c.Abierta && c.Tipo == x.Item1)})")),
+    ];
+
+    List<SolicitudCard> Sel => _all.Where(c => (_unit == "all" || Reglas.TipoKey(c.Tipo) == _unit) && (_state == "all" || c.Abierta)).ToList();
+
+    protected override async Task LoadAsync()
+    {
+        _names = (await Users.ListAsync()).ToDictionary(u => u.Id, u => u.Nombre);
+        _all = await Sols.TodasAsync(Me);
+    }
+
+    void GoPlan(SolicitudCard c)
+    {
+        Ui.AnFilter = null;
+        Nav.NavigateTo(c.Tipo == Equipo.Script ? "/scripts"
+            : $"/planificacion?unidad={Reglas.TipoKey(c.Tipo)}&semana={Fechas.Iso(Fechas.MondayOf(c.First.Fecha))}&q={Uri.EscapeDataString(c.First.Job)}");
+    }
+
+    async Task DownloadInbox()
+    {
+        if (!Sel.SelectMany(c => c.Items).Any(r => _state == "all" || r.AnalistaId == null)) { Ui.Flash("No hay solicitudes para descargar con este filtro"); return; }
+        await Download($"/export/solicitudes?unidad={_unit}&estado={_state}");
+        await LoadAsync();
+    }
+}

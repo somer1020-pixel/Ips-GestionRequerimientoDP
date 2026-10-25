@@ -1,0 +1,51 @@
+@* Tarjeta del kanban (§4 Tablero). *@
+<div class="card blueprint hover-accent" draggable="true" data-req-id="@R.Id"
+     @ondragstart="() => OnDragStart.InvokeAsync(R.Id)" @ondragend="() => OnDragEnd.InvokeAsync()" @onclick="() => OnOpen.InvokeAsync(R.Id)"
+     style="cursor:grab;opacity:@(Dragging ? "0.4" : "1")">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span class="card-kicker" style="color:var(--color-accent-700);overflow:hidden;text-overflow:ellipsis">@R.Job · @R.Entregable</span>
+        <span style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;color:@(Late ? "var(--danger)" : "var(--ink-muted)");font-weight:@(Late ? "700" : "400")">
+            <DueMark R="R" Today="Today" />@DateLabel
+        </span>
+    </div>
+    <div class="card-title">@R.Proyecto</div>
+    @if (!Compact)
+    {
+        <div class="card-body" style="opacity:1;color:var(--color-neutral-800)">@R.Descripcion</div>
+        <div class="card-meta" style="color:var(--color-neutral-700)">@R.Cliente · @R.Comercial</div>
+    }
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:var(--space-2);border-top:1px solid var(--color-divider)">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;min-width:0">
+            <span style="width:22px;height:22px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--teal-50);color:var(--color-accent-800);font-size:10px;font-weight:700">@Reglas.Iniciales(R.AnalistaId is null ? null : AnalistaNombre)</span>
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@AnalistaNombre</span>
+        </div>
+        @if (R.Estado == Estado.EnCurso)
+        {
+            <button class="btn btn-ghost" @onclick="() => OnQuickOk.InvokeAsync(R.Id)" @onclick:stopPropagation="true" style="font-size:13px;padding:2px 6px">
+                <Icon Name="check" Size="14" />Dar OK
+            </button>
+        }
+        @if (R.Estado == Estado.Ok)
+        {
+            <span style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;color:var(--color-accent-700)"><Icon Name="check" Size="13" />@Fechas.FmtDT(R.OkAt)@Reglas.OkSuffix(R)</span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Requerimiento R { get; set; } = default!;
+    [Parameter, EditorRequired] public DateOnly Today { get; set; }
+    [Parameter] public string AnalistaNombre { get; set; } = "Sin asignar";
+    [Parameter] public int StaleDays { get; set; } = 2;
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool Dragging { get; set; }
+    [Parameter] public EventCallback<int> OnOpen { get; set; }
+    [Parameter] public EventCallback<int> OnQuickOk { get; set; }
+    [Parameter] public EventCallback<int> OnDragStart { get; set; }
+    [Parameter] public EventCallback OnDragEnd { get; set; }
+
+    bool Late => Reglas.Atrasado(R, Today);
+    string DateLabel => Late
+        ? (Reglas.SinGestion(R, Today, StaleDays) ? $"Atrasado sin gestión · {Fechas.FmtD(R.Fecha)}" : $"Atrasado · {Fechas.FmtD(R.Fecha)}")
+        : Fechas.FmtD(R.Fecha);
+}

@@ -1,0 +1,18 @@
+@* Ícono de vencimiento: rojo (vence hoy o vencido) o amarillo (vence el próximo día hábil). Solo si no tiene OK. *@
+@if (Reglas.IsDue(R, Today))
+{
+    <span title="@Reglas.AlertTitle(R, Today)" style="display:inline-flex;flex:none">
+        <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--danger)"></circle><path d="M12 6.5v7M12 17.2v.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"></path></svg>
+    </span>
+}
+else if (Reglas.IsWarn(R, Today))
+{
+    <span title="@Reglas.AlertTitle(R, Today)" style="display:inline-flex;flex:none">
+        <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="oklch(0.86 0.17 92)"></circle><path d="M12 6.5V12l3.5 2" stroke="#1d1f20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+    </span>
+}
+
+@code {
+    [Parameter, EditorRequired] public Requerimiento R { get; set; } = default!;
+    [Parameter, EditorRequired] public DateOnly Today { get; set; }
+}

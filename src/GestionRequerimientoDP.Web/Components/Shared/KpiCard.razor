@@ -1,0 +1,9 @@
+<div class="card blueprint">
+    <span class="card-kicker" style="color:var(--color-accent-700)">@K.Label</span>
+    <span class="kpi-value" style="color:@K.Color">@K.Value</span>
+    <span class="card-meta" style="color:var(--color-neutral-700)">@K.Note</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Kpi K { get; set; } = default!;
+}

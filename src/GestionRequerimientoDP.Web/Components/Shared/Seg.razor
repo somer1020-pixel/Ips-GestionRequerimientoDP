@@ -1,0 +1,29 @@
+@typeparam T
+@* Control segmentado (.seg). Equivale a .btn-group + .btn-check de Bootstrap. *@
+<div class="seg" style="@Style" role="radiogroup">
+    @foreach (var o in Options)
+    {
+        <label class="seg-opt" style="@OptStyle" @key="(o.Value, _ver)">
+            <input type="radio" name="@_name" checked="@(EqualityComparer<T>.Default.Equals(o.Value, Value))" @onchange="() => Pick(o.Value)" />@o.Label
+        </label>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<(T Value, string Label)> Options { get; set; } = [];
+    [Parameter] public T Value { get; set; } = default!;
+    [Parameter] public EventCallback<T> ValueChanged { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public bool Stretch { get; set; }
+    readonly string _name = "seg" + Guid.NewGuid().ToString("N")[..8];
+    int _ver;
+    string? OptStyle => Stretch ? "flex:1;justify-content:center" : null;
+
+    async Task Pick(T v)
+    {
+        await ValueChanged.InvokeAsync(v);
+        // Si el padre no aceptó el valor (p. ej. "OK" abre el diálogo de confirmación), se re-crean los radios
+        // para que el navegador vuelva a mostrar la opción vigente.
+        if (!EqualityComparer<T>.Default.Equals(Value, v)) { _ver++; StateHasChanged(); }
+    }
+}

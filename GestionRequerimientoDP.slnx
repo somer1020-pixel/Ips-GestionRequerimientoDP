@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GestionRequerimientoDP.Application/GestionRequerimientoDP.Application.csproj" />
+    <Project Path="src/GestionRequerimientoDP.Domain/GestionRequerimientoDP.Domain.csproj" />
+    <Project Path="src/GestionRequerimientoDP.Infrastructure/GestionRequerimientoDP.Infrastructure.csproj" />
+    <Project Path="src/GestionRequerimientoDP.Web/GestionRequerimientoDP.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GestionRequerimientoDP.Application.Tests/GestionRequerimientoDP.Application.Tests.csproj" />
+    <Project Path="tests/GestionRequerimientoDP.Web.Tests/GestionRequerimientoDP.Web.Tests.csproj" />
+  </Folder>
+</Solution>

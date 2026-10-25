@@ -1,0 +1,42 @@
+@* Tarjeta de solicitud comercial (líder y comercial). Mismos textos de estado que la consulta pública. *@
+<div class="card" style="gap:var(--space-3)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+            <div style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap"><span class="card-kicker">@C.Solicitud.Codigo</span><span class="@Reglas.Tipo(C.Tipo).Css">@Reglas.Tipo(C.Tipo).Label</span></div>
+            <span class="card-title" style="font-size:18px">@C.First.Proyecto</span>
+            <span class="sub">@C.First.Cliente · Job @C.First.Job · Solicitado por @C.SolicitanteNombre el @Fechas.FmtDT(C.Solicitud.CreadaAt)</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <span class="@C.StatusCss">@C.Status</span>
+            <span style="font-size:13px;white-space:nowrap">Requerida para: <strong>@Fechas.FmtD(C.First.Fecha)</strong></span>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(C.Solicitud.Nota))
+    {
+        <div style="font-size:13px;background:var(--neutral-50);border-radius:6px;padding:var(--space-2) var(--space-3)">Nota: @C.Solicitud.Nota</div>
+    }
+    <div class="scroll-x">
+        <table class="table">
+            <thead><tr><th>Entregable</th><th>Descripción</th><th>Día de entrega</th><th>Asignado a</th><th>Estado</th></tr></thead>
+            <tbody>
+                @foreach (var r in C.Items)
+                {
+                    var (est, css) = Reglas.EstadoPublico(r);
+                    <tr><td>@r.Entregable</td><td>@(string.IsNullOrEmpty(r.Descripcion) ? "—" : r.Descripcion)</td><td class="nowrap">@Fechas.FmtD(r.Fecha)</td><td class="nowrap">@(r.AnalistaId is { } a && Names.TryGetValue(a, out var n) ? n : "Por asignar")</td><td><span class="@css">@est</span></td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (OnPlan.HasDelegate && C.Abierta)
+    {
+        <div style="display:flex;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap">
+            <button class="btn btn-primary" @onclick="() => OnPlan.InvokeAsync(C)">Asignar en @(C.Tipo == Equipo.Script ? "Scripts" : "Planificación") →</button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SolicitudCard C { get; set; } = default!;
+    [Parameter] public IReadOnlyDictionary<int, string> Names { get; set; } = new Dictionary<int, string>();
+    [Parameter] public EventCallback<SolicitudCard> OnPlan { get; set; }
+}

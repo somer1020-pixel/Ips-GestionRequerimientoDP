@@ -1,0 +1,179 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject UiState Ui
+@inject IChangeNotifier Changes
+@inject NavigationManager Nav
+@inject IClock Clock
+@inject IRequerimientoService Reqs
+@inject ISolicitudService Sols
+
+@if (Me is null)
+{
+    <div class="empty">Cargando…</div>
+    return;
+}
+
+<div style="min-height:100vh;display:flex;flex-direction:column;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)">
+    <header class="topbar" data-screen-label="Header">
+        <div class="inner">
+            <a class="brand" href="@(Me.EsComercial ? "/solicitar" : "/")"><span class="brand-mark">@AppInfo.Marca</span><span>@AppInfo.Nombre <small class="hide-sm">· @AppInfo.Subtitulo</small></span></a>
+            <div style="flex:1"></div>
+            @if (Me.EsLider)
+            {
+                <button class="btn btn-light" @onclick="OpenNewDefault"><Icon Name="plus" Stroke="2" />Nuevo requerimiento</button>
+            }
+            <div class="user">
+                <span class="avatar">@Reglas.Iniciales(Me.Nombre)</span>
+                <div style="display:flex;flex-direction:column;line-height:1.15">
+                    <span style="font-weight:600;white-space:nowrap">@Me.Nombre</span>
+                    <span style="font-size:12px;opacity:.75;white-space:nowrap">@RolLabel</span>
+                </div>
+            </div>
+            <form method="post" action="/cuenta/salir" style="margin:0">
+                <AntiforgeryToken />
+                <button class="btn btn-onnavy" type="submit" aria-label="Cerrar sesión"><Icon Name="logout" Size="15" Stroke="1.75" />Salir</button>
+            </form>
+        </div>
+    </header>
+    <nav class="mobnav">
+        @foreach (var t in Tabs)
+        {
+            <a class="mob-i" href="@t.Href" aria-current="@(IsCurrent(t) ? "page" : "false")" style="text-decoration:none">@t.Label</a>
+        }
+    </nav>
+    <div class="shell">
+        <aside class="side">
+            <div class="grp lbl">@NavGroup</div>
+            @foreach (var t in Tabs)
+            {
+                <a class="nav-i" href="@t.Href" aria-current="@(IsCurrent(t) ? "page" : "false")" style="text-decoration:none">
+                    <Icon Name="@t.Id" Size="17" Stroke="1.75" Round="true" /><span>@t.Label</span>
+                    @if (t.Count > 0)
+                    {
+                        <span class="cnt">@t.Count</span>
+                    }
+                </a>
+            }
+        </aside>
+        <main class="main-c" style="display:flex;flex-direction:column;gap:var(--space-6)">
+            @if (Me.EsLider && CurrentId != "bandeja" && _solsMine > 0)
+            {
+                <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-3) var(--space-4);border:1px solid var(--warning);background:var(--warning-50);border-radius:6px">
+                    <span style="color:var(--warning)"><Icon Name="bandeja" Size="18" Stroke="1.75" Round="true" /></span>
+                    <span style="font-size:14px;flex:1;min-width:220px">@_solsMine solicitud(es) comercial(es) sin asignar@(Me.Equipos.Count > 0 ? " para " + string.Join(" y ", Me.Equipos.Select(e => Reglas.Tipo(e).Label)) : ""). Descárgalas para planificar y asígnalas.</span>
+                    <a class="btn btn-outline-secondary" href="/solicitudes">Revisar solicitudes</a>
+                </div>
+            }
+            @if (Me.EsAnalista)
+            {
+                <div class="blueprint" style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-4);flex-wrap:wrap">
+                    <span class="card-kicker" style="color:var(--color-accent-700)">Mi carga · @EquipoLabel</span>
+                    <span style="font-size:14px;color:var(--color-neutral-800);flex:1;min-width:240px">@_mineLine</span>
+                    @if (_myNext > 0)
+                    {
+                        <a class="btn btn-outline-secondary" href="/mi-semana?semana=siguiente">Semana siguiente: @_myNext asignados →</a>
+                    }
+                </div>
+            }
+            @Body
+        </main>
+    </div>
+</div>
+
+@if (Ui.DetailId is { } detailId)
+{
+    <ReqDetailModal Id="detailId" @key="detailId" />
+}
+@if (Ui.NewTipo is { } nt)
+{
+    <NewReqModal Tipo="nt" />
+}
+@if (Ui.OkId is { } okId)
+{
+    <OkModal Id="okId" @key="okId" />
+}
+@if (!string.IsNullOrEmpty(Ui.Toast))
+{
+    <div class="toast-box" role="status">@Ui.Toast</div>
+}
+
+@code {
+    [CascadingParameter] public Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    sealed record Tab(string Id, string Label, string Href, int Count);
+
+    UsuarioActual? Me;
+    int _late, _solsMine, _solsTotal, _myNext;
+    string _mineLine = "";
+
+    string RolLabel => Me!.Rol switch
+    {
+        Rol.Lider => "Líder · " + EquipoLabel,
+        Rol.Comercial => "Área comercial",
+        _ => "Analista " + string.Join(" + ", Me.Equipos.Select(e => e switch { Equipo.Script => "Scripting", Equipo.Codificacion => "Codificación", _ => "DP" })),
+    };
+    string EquipoLabel => Me!.EsComercial ? "—" : Me.EsLider && Me.Equipos.Count == 0 ? "Todos" : string.Join(" + ", Me.Equipos.Select(e => Reglas.Tipo(e).EquipoLabel));
+    string NavGroup => Me!.EsLider ? "Gestión de carga" : Me.EsComercial ? "Solicitudes a Operaciones" : "Mi trabajo";
+
+    List<Tab> Tabs => Me!.Rol switch
+    {
+        Rol.Comercial => [new("solnueva", "Nueva solicitud", "/solicitar", 0), new("solmias", "Mis solicitudes", "/mis-solicitudes", 0)],
+        Rol.Lider =>
+        [
+            new("tablero", "Tablero", "/", 0), new("bandeja", "Solicitudes nuevas", "/solicitudes", _solsTotal),
+            new("plan", "Planificación semanal", "/planificacion", 0), new("scripts", "Scripts", "/scripts", 0), new("resumen", "Resumen", "/resumen", _late),
+            new("historico", "Histórico", "/historico", 0), new("atrasos", "Motivos de atraso", "/atrasos", 0), new("notif", "Notificaciones", "/notificaciones", 0),
+            new("usuarios", "Usuarios", "/usuarios", 0),
+        ],
+        _ => [new("tablero", "Mi tablero", "/", 0), new("lista", "Mi semana", "/mi-semana", _late)],
+    };
+
+    string CurrentPath => "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].TrimEnd('/');
+    string CurrentId => Tabs.FirstOrDefault(IsCurrent)?.Id ?? "";
+    bool IsCurrent(Tab t) => t.Href == "/" ? CurrentPath == "/" : CurrentPath.StartsWith(t.Href, StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Me = Claims.ToUsuario((await AuthState).User);
+        if (Me is null) return;
+        Ui.Changed += OnUi;
+        Changes.Changed += OnData;
+        Nav.LocationChanged += OnLocation;
+        await LoadCountersAsync();
+    }
+
+    async Task LoadCountersAsync()
+    {
+        if (Me is null) return;
+        _late = await Reqs.AtrasadosAsync(Me);
+        (_solsMine, _solsTotal) = await Sols.PendientesAsync(Me);
+        if (Me.EsAnalista)
+        {
+            var today = Clock.Today;
+            var cur = Fechas.MondayOf(today);
+            var mine = await Reqs.PropiosAsync(Me);
+            var act = mine.Where(r => r.Estado != Estado.Ok && (r.Tipo == Equipo.Script || Fechas.MondayOf(r.Fecha) <= cur)).ToList();
+            var okWeek = mine.Count(r => r.Estado == Estado.Ok && Reglas.EnSemanaActual(r, today));
+            _mineLine = $"{act.Count(r => r.Estado == Estado.Pendiente)} pendientes · {act.Count(r => r.Estado == Estado.EnCurso)} en curso · {act.Count(r => Reglas.Atrasado(r, today))} atrasados · {okWeek} con OK esta semana.";
+            _myNext = mine.Count(r => Fechas.MondayOf(r.Fecha) == cur.AddDays(7));
+        }
+    }
+
+    void OnUi() => _ = InvokeAsync(StateHasChanged);
+    void OnLocation(object? s, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => _ = InvokeAsync(StateHasChanged);
+
+    void OnData(ChangeKind k)
+    {
+        if (k is ChangeKind.Requerimientos or ChangeKind.Solicitudes)
+            _ = InvokeAsync(async () => { try { await LoadCountersAsync(); StateHasChanged(); } catch { /* circuito cerrado */ } });
+    }
+
+    void OpenNewDefault() => Ui.OpenNew(CurrentId switch { "scripts" => Equipo.Script, "plan" => Ui.PlanUnit, _ => Equipo.Procesamiento });
+
+    public void Dispose()
+    {
+        Ui.Changed -= OnUi;
+        Changes.Changed -= OnData;
+        Nav.LocationChanged -= OnLocation;
+    }
+}

@@ -1,0 +1,92 @@
+@page "/usuarios"
+@attribute [Authorize(Policy = Policies.Lider)]
+@inherits AppPage
+@inject IUsuarioService Users
+
+<PageTitle>Usuarios · @AppInfo.Nombre</PageTitle>
+
+<section data-screen-label="Usuarios" class="stack">
+    <div class="page-head">
+        <div>
+            <h2 style="margin:0">Usuarios y roles</h2>
+            <div class="sub">Líder de equipo: ve y administra toda la planificación. Analista: solo ve y actualiza su carga asignada (puede pertenecer a Procesamiento, Scripting, Codificación o varios). Los usuarios inactivos no reciben asignaciones.</div>
+        </div>
+        <button class="btn btn-primary" @onclick="() => _edit = new UsuarioInput()"><Icon Name="plus" />Nuevo usuario</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-6);padding:6px">
+        @foreach (var (label, count, desc) in RoleCards)
+        {
+            <div class="card blueprint">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="card-title">@label</span><span style="font-family:var(--font-heading);font-weight:600;font-size:24px">@count</span></div>
+                <p class="card-body" style="opacity:1;color:var(--color-neutral-800)">@desc</p>
+            </div>
+        }
+    </div>
+    <div class="scroll-x">
+        <table class="table">
+            <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Equipos</th><th>Carga activa</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var u in Sorted)
+                {
+                    <tr @key="u.Id" style="opacity:@(u.Activo ? "1" : "0.55")">
+                        <td style="font-weight:500;white-space:nowrap">@u.Nombre</td>
+                        <td style="font-size:13px">@u.Email</td>
+                        <td><span class="@(u.Rol switch { Rol.Lider => "be be-info", Rol.Comercial => "be be-navy", _ => "be be-neutral" })">@Reglas.RolLabel(u.Rol)</span></td>
+                        <td>@Reglas.EquipoLabel(u)</td>
+                        <td>@(u.Rol switch { Rol.Analista => _carga.GetValueOrDefault(u.Id).ToString(), Rol.Comercial => $"{_sols.GetValueOrDefault(u.Id)} solicitudes", _ => "—" })</td>
+                        <td><button class="btn btn-ghost" @onclick="() => Toggle(u)" style="font-size:13px;padding:2px 6px">@(u.Activo ? "Activo" : "Inactivo")</button></td>
+                        <td><button class="btn btn-outline-secondary" @onclick="() => _edit = UsuarioInput.From(u)" style="font-size:13px;padding:3px 10px">Editar</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@if (_edit is { } ed)
+{
+    <UserModal Input="ed" OnClose="() => _edit = null" OnSaved="Saved" />
+}
+
+@code {
+    List<Usuario> _users = [];
+    Dictionary<int, int> _carga = [], _sols = [];
+    UsuarioInput? _edit;
+
+    protected override ChangeKind[] ReloadOn => [ChangeKind.Usuarios, ChangeKind.Requerimientos, ChangeKind.Solicitudes];
+
+    IEnumerable<Usuario> Sorted => _users.OrderBy(u => u.Rol switch { Rol.Lider => 0, Rol.Analista => 1, _ => 2 })
+        .ThenBy(u => string.Join(",", u.EquiposOrdenados), StringComparer.Ordinal).ThenBy(u => u.Nombre, StringComparer.CurrentCulture);
+
+    int Act(Equipo e) => _users.Count(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(e));
+
+    IEnumerable<(string, string, string)> RoleCards =>
+    [
+        ("Líder de equipo", _users.Count(u => u.Rol == Rol.Lider && u.Activo).ToString(), "Ve tablero, planificación de procesamiento, codificación y scripting completos. Asigna, balancea, importa, administra usuarios."),
+        ("Comercial", _users.Count(u => u.Rol == Rol.Comercial && u.Activo).ToString(), "Ingresa solicitudes a Operaciones y sigue su estado. No ve la carga de los equipos. Sus solicitudes llegan sin analista al líder del equipo."),
+        ("Analista DP", Act(Equipo.Procesamiento).ToString(), "Solo ve su carga asignada (semana actual y siguiente). Actualiza estado, da OK y descarga su semana."),
+        ("Analista de scripting", Act(Equipo.Script).ToString(), "Solo ve sus scripts asignados. Un analista puede estar en ambos equipos y ver DP + scripts juntos."),
+        ("Analista de codificación", Act(Equipo.Codificacion).ToString(), "Gestiona entregables planificados por semana como DP. Al dar OK registra la cantidad de registros codificados y si fue por IA o Manual."),
+        ("Consulta (sin cuenta)", "—", "Cualquier persona de la organización busca por Job, proyecto o cliente y ve asignación y día de entrega. Solo lectura."),
+    ];
+
+    protected override async Task LoadAsync()
+    {
+        _users = await Users.ListAsync();
+        _carga = await Users.CargaActivaAsync();
+        _sols = await Users.SolicitudesPorComercialAsync();
+    }
+
+    Task Toggle(Usuario u) => Run(async () =>
+    {
+        var warn = await Users.ToggleActivoAsync(Me, u.Id);
+        if (warn != null) Ui.Flash(warn);
+    });
+
+    async Task Saved()
+    {
+        _edit = null;
+        Ui.Flash("Usuario guardado");
+        await LoadAsync();
+    }
+}

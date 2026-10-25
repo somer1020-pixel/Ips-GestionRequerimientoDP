@@ -1,0 +1,15 @@
+@* Semana / Mes con navegación ‹ › (estado compartido entre Histórico y Motivos de atraso). *@
+<Seg T="PeriodoModo" Options="ModeOpts" Value="Value.Modo" ValueChanged="m => Set(Periodo.De(m, Value.Ref))" />
+<div style="display:flex;align-items:center;gap:var(--space-1)">
+    <button class="btn btn-icon btn-outline-secondary" @onclick="() => Set(Value.Shift(-1))" aria-label="Anterior"><Icon Name="left" /></button>
+    <span style="font-family:var(--font-heading);font-weight:600;font-size:@(Large ? "18px" : "16px");min-width:170px;text-align:center;white-space:nowrap">@Value.Label</span>
+    <button class="btn btn-icon btn-outline-secondary" @onclick="() => Set(Value.Shift(1))" aria-label="Siguiente"><Icon Name="right" /></button>
+</div>
+
+@code {
+    static readonly IReadOnlyList<(PeriodoModo, string)> ModeOpts = [(PeriodoModo.Semana, "Semana"), (PeriodoModo.Mes, "Mes")];
+    [Parameter, EditorRequired] public Periodo Value { get; set; } = default!;
+    [Parameter] public EventCallback<Periodo> ValueChanged { get; set; }
+    [Parameter] public bool Large { get; set; } = true;
+    Task Set(Periodo p) => ValueChanged.InvokeAsync(p);
+}

@@ -1,0 +1,90 @@
+@page "/notificaciones"
+@attribute [Authorize(Policy = Policies.Lider)]
+@inherits AppPage
+@inject INotificationService Notif
+
+<PageTitle>Notificaciones · @AppInfo.Nombre</PageTitle>
+
+<section data-screen-label="Notificaciones" class="stack">
+    <div class="page-head">
+        <div>
+            <h2 style="margin:0">Notificaciones por correo</h2>
+            <div class="sub">Registro de correos automáticos (cola de envío). Sin servidor SMTP configurado, los envíos se simulan y quedan registrados aquí.</div>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="RunOverdue"><Icon Name="activity" />Enviar recordatorios de atraso ahora</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--space-6);padding:6px">
+        @foreach (var (title, on, desc) in Rules)
+        {
+            <div class="card blueprint">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="card-title">@title</span><span class="@(on ? "tag tag-accent" : "tag tag-neutral")">@(on ? "Activa" : "Desactivada")</span></div>
+                <p class="card-body" style="opacity:1;color:var(--color-neutral-800)">@desc</p>
+            </div>
+        }
+    </div>
+    <div class="scroll-x">
+        <table class="table">
+            <thead><tr><th>Enviado</th><th>Tipo</th><th>Para</th><th>Asunto</th><th>Estado</th></tr></thead>
+            <tbody>
+                @foreach (var m in _mails)
+                {
+                    <tr @key="m.Id" @onclick="() => _open = _open == m.Id ? null : m.Id" style="cursor:pointer">
+                        <td style="white-space:nowrap;font-size:13px">@Fechas.FmtDT(m.SentAt ?? m.CreatedAt)</td>
+                        <td><span class="@KindCss(m.Kind)">@KindLabel(m.Kind)</span></td>
+                        <td style="font-size:13px">@string.Join(", ", m.ToList)</td>
+                        <td>@m.Subject</td>
+                        <td style="font-size:13px;white-space:nowrap" title="@m.Error">@StatusLabel(m)</td>
+                    </tr>
+                    @if (_open == m.Id)
+                    {
+                        <tr><td colspan="5" style="background:var(--color-neutral-100)">
+                            <div style="font-size:12px;color:var(--color-neutral-700);padding-bottom:6px">Para: @string.Join(", ", m.ToList) · CC: @(m.CcList.Any() ? string.Join(", ", m.CcList) : "—")@(string.IsNullOrEmpty(m.Error) ? "" : " · " + m.Error)</div>
+                            <pre style="margin:0;font-family:var(--font-body);font-size:13px;white-space:pre-wrap;line-height:1.5">@m.Body</pre>
+                        </td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+        @if (Loaded && _mails.Count == 0)
+        {
+            <div class="empty">Aún no se han enviado correos.</div>
+        }
+    </div>
+</section>
+
+@code {
+    List<Notificacion> _mails = [];
+    int? _open;
+
+    protected override ChangeKind[] ReloadOn => [ChangeKind.Notificaciones];
+
+    IEnumerable<(string, bool, string)> Rules
+    {
+        get
+        {
+            var o = Opts.CurrentValue;
+            yield return ("Asignación", o.NotifyAssign, "Al asignar o reasignar (manual, balanceo, importación, nuevo script) se envía un correo al analista con el detalle. Las acciones masivas envían un solo correo por analista.");
+            yield return ("Atraso sin gestión", o.NotifyOverdue, $"Revisión diaria (09:00, hora de Chile): si un requerimiento pasó su día de entrega sin OK y sigue pendiente o lleva {o.StaleDays}+ días sin actualización, se avisa al analista con copia al líder (máximo un aviso por día).");
+            yield return ("Nueva solicitud comercial", true, "Cuando un área comercial envía una solicitud, se avisa al líder del equipo correspondiente (según \"Equipos a cargo\"; si no hay, a todos los líderes) con copia al solicitante. No se asigna analista.");
+        }
+    }
+
+    static string KindLabel(NotificacionKind k) => k switch { NotificacionKind.Atraso => "Atraso sin gestión", NotificacionKind.Solicitud => "Nueva solicitud", _ => "Asignación" };
+    static string KindCss(NotificacionKind k) => k switch { NotificacionKind.Atraso => "be be-danger", NotificacionKind.Solicitud => "be be-warning", _ => "be be-neutral" };
+    static string StatusLabel(Notificacion m) => m.Status switch
+    {
+        NotificacionStatus.Enviado => m.Error.Length > 0 ? "Enviado (simulado)" : "Enviado",
+        NotificacionStatus.Error => "Error · reintentando",
+        NotificacionStatus.Omitido => "Omitido",
+        _ => "En cola",
+    };
+
+    protected override async Task LoadAsync() => _mails = await Notif.ListAsync();
+
+    Task RunOverdue() => Run(async () =>
+    {
+        var n = await Notif.CheckOverdueAsync(true);
+        Ui.Flash(n > 0 ? $"{n} correo(s) de atraso enviados" : "No hay requerimientos atrasados sin gestión");
+        await LoadAsync();
+    });
+}

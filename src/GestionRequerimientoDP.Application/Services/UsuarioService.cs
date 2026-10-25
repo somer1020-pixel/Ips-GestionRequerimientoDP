@@ -1,0 +1,132 @@
+using GestionRequerimientoDP.Domain;
+using Microsoft.EntityFrameworkCore;
+
+namespace GestionRequerimientoDP.Application.Services;
+
+public interface IPasswordService
+{
+    string Hash(string password);
+    bool Verify(string hash, string password);
+}
+
+public sealed class UsuarioInput
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = "";
+    public string Email { get; set; } = "";
+    public Rol Rol { get; set; } = Rol.Analista;
+    public List<Equipo> Equipos { get; set; } = [Equipo.Procesamiento];
+    public string DomainAccount { get; set; } = "";
+    /// <summary>Vacío = no cambiar.</summary>
+    public string Password { get; set; } = "";
+
+    public static UsuarioInput From(Usuario u) => new()
+    {
+        Id = u.Id, Nombre = u.Nombre, Email = u.Email, Rol = u.Rol, Equipos = u.EquiposOrdenados.ToList(), DomainAccount = u.DomainAccount ?? "",
+    };
+}
+
+public interface IUsuarioService
+{
+    Task<List<Usuario>> ListAsync(CancellationToken ct = default);
+    Task<Usuario?> GetAsync(int id, CancellationToken ct = default);
+    Task<Usuario?> FindByEmailAsync(string email, CancellationToken ct = default);
+    Task<Usuario?> FindByDomainAccountAsync(string account, CancellationToken ct = default);
+    Task<Dictionary<int, int>> CargaActivaAsync(CancellationToken ct = default);
+    Task<Dictionary<int, int>> SolicitudesPorComercialAsync(CancellationToken ct = default);
+    Task<Usuario> SaveAsync(UsuarioActual me, UsuarioInput input, CancellationToken ct = default);
+    /// <summary>Activa o desactiva. Devuelve un aviso si quedan requerimientos activos por reasignar.</summary>
+    Task<string?> ToggleActivoAsync(UsuarioActual me, int id, CancellationToken ct = default);
+}
+
+public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier changes, IPasswordService passwords) : IUsuarioService
+{
+    public async Task<List<Usuario>> ListAsync(CancellationToken ct = default)
+    {
+        await using var db = factory.Create();
+        return await db.UsuariosConEquipos().OrderBy(u => u.Id).ToListAsync(ct);
+    }
+
+    public async Task<Usuario?> GetAsync(int id, CancellationToken ct = default)
+    {
+        await using var db = factory.Create();
+        return await db.UsuariosConEquipos().FirstOrDefaultAsync(u => u.Id == id, ct);
+    }
+
+    public async Task<Usuario?> FindByEmailAsync(string email, CancellationToken ct = default)
+    {
+        var e = (email ?? "").Trim().ToLowerInvariant();
+        if (e.Length == 0) return null;
+        await using var db = factory.Create();
+        return await db.UsuariosConEquipos().FirstOrDefaultAsync(u => u.Email.ToLower() == e, ct);
+    }
+
+    public async Task<Usuario?> FindByDomainAccountAsync(string account, CancellationToken ct = default)
+    {
+        var a = (account ?? "").Trim().ToLowerInvariant();
+        if (a.Length == 0) return null;
+        await using var db = factory.Create();
+        return await db.UsuariosConEquipos().FirstOrDefaultAsync(u => u.DomainAccount != null && u.DomainAccount.ToLower() == a, ct);
+    }
+
+    public async Task<Dictionary<int, int>> CargaActivaAsync(CancellationToken ct = default)
+    {
+        await using var db = factory.Create();
+        return await db.Requerimientos.Where(r => r.AnalistaId != null && r.Estado != Estado.Ok)
+            .GroupBy(r => r.AnalistaId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, ct);
+    }
+
+    public async Task<Dictionary<int, int>> SolicitudesPorComercialAsync(CancellationToken ct = default)
+    {
+        await using var db = factory.Create();
+        return await db.Solicitudes.GroupBy(s => s.SolicitanteId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, ct);
+    }
+
+    public async Task<Usuario> SaveAsync(UsuarioActual me, UsuarioInput u, CancellationToken ct = default)
+    {
+        Guard.Lider(me);
+        if (string.IsNullOrWhiteSpace(u.Nombre) || string.IsNullOrWhiteSpace(u.Email)) throw new ReglaException("Nombre y correo son obligatorios.");
+        var email = u.Email.Trim();
+        await using var db = factory.Create();
+        var lower = email.ToLowerInvariant();
+        if (await db.Usuarios.AnyAsync(x => x.Id != u.Id && x.Email.ToLower() == lower, ct)) throw new ReglaException("Ya existe un usuario con ese correo.");
+        if (u.Id == me.Id && u.Rol != Rol.Lider) throw new ReglaException("No puedes quitarte el rol de líder.");
+        var equipos = u.Rol == Rol.Comercial ? [] : u.Equipos.Distinct().ToList();
+        if (u.Rol == Rol.Analista && equipos.Count == 0) throw new ReglaException("Selecciona al menos un equipo.");
+
+        Usuario entity;
+        if (u.Id == 0)
+        {
+            entity = new Usuario { Activo = true };
+            db.Usuarios.Add(entity);
+        }
+        else
+        {
+            entity = await db.Usuarios.Include(x => x.Equipos).FirstOrDefaultAsync(x => x.Id == u.Id, ct) ?? throw new ReglaException("El usuario ya no existe.");
+            entity.Equipos.Clear();
+        }
+        entity.Nombre = u.Nombre.Trim();
+        entity.Email = email;
+        entity.Rol = u.Rol;
+        entity.DomainAccount = string.IsNullOrWhiteSpace(u.DomainAccount) ? null : u.DomainAccount.Trim();
+        entity.Equipos.AddRange(equipos.Select(e => new UsuarioEquipo { Equipo = e }));
+        if (!string.IsNullOrWhiteSpace(u.Password)) entity.PasswordHash = passwords.Hash(u.Password);
+        await db.SaveAsync(ct);
+        changes.Publish(ChangeKind.Usuarios);
+        return entity;
+    }
+
+    public async Task<string?> ToggleActivoAsync(UsuarioActual me, int id, CancellationToken ct = default)
+    {
+        Guard.Lider(me);
+        if (id == me.Id) throw new ReglaException("No puedes desactivar tu propio usuario");
+        await using var db = factory.Create();
+        var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ReglaException("El usuario ya no existe.");
+        u.Activo = !u.Activo;
+        await db.SaveAsync(ct);
+        changes.Publish(ChangeKind.Usuarios);
+        if (u.Activo) return null;
+        var act = await db.Requerimientos.CountAsync(r => r.AnalistaId == id && r.Estado != Estado.Ok, ct);
+        return act > 0 ? $"{u.Nombre} tiene {act} requerimientos activos: reasígnalos" : null;
+    }
+}

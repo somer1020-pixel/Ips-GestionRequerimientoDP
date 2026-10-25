@@ -1,0 +1,345 @@
+@page "/planificacion"
+@attribute [Authorize(Policy = Policies.Lider)]
+@inherits AppPage
+@inject IPlanificacionService Plan
+@inject IBalanceService Balance
+@inject IRequerimientoService Reqs
+@inject IUsuarioService Users
+
+<PageTitle>Planificación semanal · @AppInfo.Nombre</PageTitle>
+
+@if (_v is { } v)
+{
+    var sh = Reglas.Tipo(_unit).Short;
+    <section data-screen-label="Planificación semanal" class="stack">
+        <div class="page-head">
+            <div>
+                <h2 style="margin:0">Planificación semanal · @(_unit == Equipo.Procesamiento ? "Procesamiento de datos" : Reglas.Tipo(_unit).Label)</h2>
+                <div class="sub">@ThursdayLine</div>
+            </div>
+            <div class="page-actions">
+                <Seg T="Equipo" Options="UnitOpts" Value="_unit" ValueChanged="SetUnit" />
+                <select class="form-select" style="width:auto;min-height:36px" value="@(_pfAn is "" or "*" ? "" : _pfAn)" @onchange="OnAnSelect" aria-label="Filtrar por analista">
+                    <option value="">Todos los analistas</option>
+                    @foreach (var a in v.Team)
+                    {
+                        <option value="@a.Id">@a.Nombre</option>
+                    }
+                </select>
+                <Seg T="DateOnly" Options="WeekOpts" Value="_week" ValueChanged="SetWeek" />
+                <button class="btn btn-outline-secondary" @onclick="() => _importOpen = true"><Icon Name="upload" />Importar planilla</button>
+                <button class="btn btn-outline-secondary" @onclick="Suggest"><Icon Name="balance" />Sugerir balanceo</button>
+                <button class="btn btn-outline-secondary" @onclick="@(() => Download($"/export/planificacion?unidad={Reglas.TipoKey(_unit)}&semana={Fechas.Iso(_week)}"))"><Icon Name="download" />Descargar planificación</button>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-6);padding:6px">
+            @foreach (var a in v.Cards)
+            {
+                var sel = _pfAn == a.Analista.Id.ToString();
+                <div class="card blueprint hover-accent" @onclick="() => PickCard(a.Analista.Id)" style="gap:var(--space-3);cursor:pointer;border-color:@(sel ? "var(--color-accent)" : "var(--color-divider)")">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                        <span class="card-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@a.Analista.Nombre</span>
+                        <span class="@a.Css">@a.Label</span>
+                    </div>
+                    <div style="display:flex;align-items:baseline;gap:6px;white-space:nowrap">
+                        <span style="font-family:var(--font-heading);font-weight:600;font-size:32px;line-height:1">@a.N</span>
+                        <span style="font-size:13px;color:var(--color-neutral-700)">/ @a.Cap · @a.Mix</span>
+                    </div>
+                    <div style="height:6px;background:var(--color-neutral-200)"><div style="height:100%;width:@Pct(a.Pct);background:@a.Bar"></div></div>
+                    <div class="card-meta" style="color:var(--color-neutral-700)">@a.Pend pendientes · @a.Curso en curso · @a.Ok con OK</div>
+                </div>
+            }
+        </div>
+
+        <div style="display:flex;gap:var(--space-6);flex-wrap:wrap;font-size:14px;color:var(--color-neutral-800)">
+            <span>Total entregables: <strong>@v.Stats.Total</strong></span>
+            <span>Jobs: <strong>@v.Stats.Jobs</strong></span>
+            <span>Promedio por analista: <strong>@v.Stats.Avg.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)</strong></span>
+            <span>Diferencia máx–mín: <strong>@v.Stats.Spread</strong></span>
+            <span>Sin asignar: <strong>@v.Stats.Unassigned</strong></span>
+        </div>
+
+        @if (_moves is { Count: > 0 } moves)
+        {
+            <div class="blueprint" style="padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+                    <div style="flex:1;min-width:260px">
+                        <h4 style="margin:0">Propuesta de balanceo</h4>
+                        <div class="sub">@moves.Count movimiento(s). Se reasignan jobs completos (todos sus entregables) solo si están pendientes, desde el analista más cargado al menos cargado, hasta que la diferencia sea mínima.</div>
+                    </div>
+                    <div style="display:flex;gap:var(--space-2)">
+                        <button class="btn btn-outline-secondary" @onclick="() => _moves = null">Descartar</button>
+                        <button class="btn btn-primary" @onclick="Apply">Aplicar cambios</button>
+                    </div>
+                </div>
+                @foreach (var m in moves)
+                {
+                    <div style="display:grid;grid-template-columns:130px minmax(0,1fr) auto;gap:var(--space-3);font-size:14px;padding:6px 0;border-top:1px solid var(--color-divider)">
+                        <span style="color:var(--color-accent-700);font-weight:500;white-space:nowrap">@m.Job</span>
+                        <span>@(v.WeekItems.FirstOrDefault(r => r.Id == m.Ids[0])?.Proyecto) · @m.Ids.Count entregable(s)</span>
+                        <span class="nowrap">@(m.From is null ? "Sin asignar" : Name(m.From)) → <strong>@Name(m.To)</strong></span>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="stack-3">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);flex-wrap:wrap">
+                <h4 style="margin:0">Agenda de la semana</h4>
+                <span style="font-size:12px;color:var(--color-neutral-700)">Entregables de la unidad + scripts (S) por analista y día. Haz clic en una celda para filtrar la tabla.</span>
+            </div>
+            <div class="scroll-x">
+                <div style="min-width:640px;display:flex;flex-direction:column;border-top:1px solid var(--color-divider)">
+                    <div style="@AgendaGrid;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-700)">
+                        <span style="padding:8px">Analista</span>
+                        @foreach (var d in v.Days)
+                        {
+                            <span style="padding:8px;text-align:center">@string.Join(' ', Fechas.FmtD(d).Split(' ').Take(2))</span>
+                        }
+                        <span style="padding:8px;text-align:center">Total</span>
+                    </div>
+                    @foreach (var row in v.Agenda)
+                    {
+                        var key = row.AnalistaId?.ToString() ?? "0";
+                        var rowSel = _pfAn == key && _pfDay is null;
+                        <div style="@AgendaGrid;border-top:1px solid var(--color-divider);font-size:14px">
+                            <button class="hover-text" @onclick="() => SetPF(key, null)" style="padding:8px;text-align:left;background:transparent;border:0;font:inherit;color:@(rowSel ? "var(--color-accent-700)" : "var(--color-text)");font-weight:@(rowSel ? "700" : "400");cursor:pointer">@row.Nombre</button>
+                            @foreach (var cell in row.Cells)
+                            {
+                                var sel = _pfAn == key && _pfDay == cell.Day;
+                                <button class="hover-accent" @onclick="() => SetPF(key, cell.Day)" style="margin:3px;padding:6px 0;text-align:center;font:inherit;font-weight:500;cursor:pointer;background:@cell.Bg;color:@(cell.N > 0 ? "var(--ink)" : "var(--ink-muted)");border:1px solid @(sel ? "var(--color-accent-700)" : "transparent")">@cell.Label</button>
+                            }
+                            <span style="padding:8px;text-align:center;font-weight:700">@row.Total</span>
+                        </div>
+                    }
+                    <div style="@AgendaGrid;border-top:1px solid var(--color-divider);font-size:14px">
+                        <button @onclick="ClearPF" style="padding:8px;text-align:left;background:transparent;border:0;font:inherit;color:var(--color-text);font-weight:700;cursor:pointer">Total</button>
+                        @for (var i = 0; i < v.Days.Count; i++)
+                        {
+                            var d = v.Days[i];
+                            var sel = _pfAn == "*" && _pfDay == d;
+                            <button class="hover-accent" @onclick="() => SetPF(AllKey, d)" style="margin:3px;padding:6px 0;text-align:center;font:inherit;font-weight:500;cursor:pointer;background:transparent;color:var(--color-text);border:1px solid @(sel ? "var(--color-accent-700)" : "transparent")">@v.TotalPerDay[i]</button>
+                        }
+                        <span style="padding:8px;text-align:center;font-weight:700">@v.WeekAll.Count()</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stack-3">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+                <h4 style="margin:0">Detalle de entregables</h4>
+                <div class="page-actions">
+                    @if (HasPF)
+                    {
+                        <button class="btn btn-outline-secondary" @onclick="ClearPF" style="font-size:13px">@PFLabel ✕</button>
+                    }
+                    <input class="form-control" placeholder="Buscar cliente, proyecto, job…" value="@_q" @oninput="e => _q = e.Value?.ToString() ?? string.Empty" style="width:240px" aria-label="Buscar en la planificación" />
+                </div>
+            </div>
+            <div class="scroll-x">
+                <table class="table">
+                    <thead><tr><th>Día</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Job</th><th>Entregable</th><th>Descripción</th><th>Comercial</th><th>Analista</th><th>Estado</th><th>Okay</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Rows)
+                        {
+                            <tr @key="r.Id">
+                                <DayCell R="r" Today="Today" />
+                                <td><span class="@Reglas.Tipo(r.Tipo).Css">@Reglas.Tipo(r.Tipo).Short</span></td>
+                                <td>@r.Cliente</td>
+                                <td><button class="linkish" @onclick="() => Ui.OpenDetail(r.Id)">@r.Proyecto</button></td>
+                                <td class="job">@r.Job</td>
+                                <td>@r.Entregable</td>
+                                <td>@r.Descripcion</td>
+                                <td style="font-size:13px">@r.Comercial</td>
+                                <td>
+                                    <select class="form-select form-sm" style="width:170px" value="@(r.AnalistaId?.ToString() ?? "")" @onchange="e => Assign(r.Id, e)" aria-label="Analista">
+                                        <option value="">Sin asignar</option>
+                                        @foreach (var a in TeamOf(r.Tipo))
+                                        {
+                                            <option value="@a.Id">@a.Nombre</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td><span class="@Reglas.EstadoCss(r.Estado)">@Reglas.EstadoLabel(r.Estado)</span></td>
+                                <td class="nowrap">
+                                    @if (r.Estado == Estado.Ok)
+                                    {
+                                        <span style="font-size:13px;color:var(--color-accent-700)">✓ @Fechas.FmtDT(r.OkAt)@Reglas.OkSuffix(r)</span>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-ghost" @onclick="() => Ui.AskOk(r.Id)" style="font-size:13px;padding:2px 6px">Dar OK</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (!Rows.Any())
+                {
+                    <div class="empty" style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3)">
+                        <span>No hay entregables para esta selección.</span>
+                        <button class="btn btn-outline-secondary" @onclick="() => _importOpen = true">Importar planilla de la semana</button>
+                    </div>
+                }
+            </div>
+            <div><button class="btn btn-outline-secondary" @onclick="() => Ui.OpenNew(_unit)"><Icon Name="plus" />Agregar entregable</button></div>
+        </div>
+    </section>
+}
+
+@if (_importOpen)
+{
+    <ImportModal Unit="_unit" OnClose="() => _importOpen = false" OnImported="OnImported" />
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "unidad")] public string? UnidadQ { get; set; }
+    [SupplyParameterFromQuery(Name = "semana")] public string? SemanaQ { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? QQ { get; set; }
+
+    const string AllKey = "*";
+    const string AgendaGrid = "display:grid;grid-template-columns:minmax(170px,1.6fr) repeat(5,minmax(64px,1fr)) minmax(64px,0.8fr)";
+    static readonly IReadOnlyList<(Equipo, string)> UnitOpts = [(Equipo.Procesamiento, "Procesamiento"), (Equipo.Codificacion, "Codificación")];
+
+    PlanView? _v;
+    List<Usuario> _users = [];
+    List<DateOnly> _weeks = [];
+    List<BalanceMove>? _moves;
+    Equipo _unit;
+    DateOnly _week;
+    string _q = "", _pfAn = "";
+    DateOnly? _pfDay;
+    bool _importOpen;
+    string? _lastQuery;
+
+    IReadOnlyList<(DateOnly, string)> WeekOpts => _weeks.Select(w => (w, $"{Fechas.WeekName(w, Today)} · {Fechas.WeekLabel(w)}")).ToList();
+    string Name(int? id) => _users.FirstOrDefault(u => u.Id == id)?.Nombre ?? "Sin asignar";
+    IEnumerable<Usuario> TeamOf(Equipo t) => _users.Where(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(t));
+    static string Pct(double p) => p.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%";
+    bool HasPF => _pfAn != "" || _pfDay != null;
+    string PFLabel => string.Join(" · ", new[] { _pfAn == "*" ? "Todos" : _pfAn == "0" ? "Sin asignar" : _pfAn == "" ? "" : Name(int.Parse(_pfAn)), _pfDay is { } d ? Fechas.FmtD(d) : "" }.Where(s => s.Length > 0));
+
+    string ThursdayLine
+    {
+        get
+        {
+            var dow = (int)Today.DayOfWeek;
+            var nextThu = Today.AddDays((4 - dow + 7) % 7);
+            return dow == 4
+                ? $"Hoy es jueves: arma y publica la planificación de la semana siguiente ({Fechas.WeekLabel(Next)})."
+                : $"Se arma cada jueves para la semana siguiente. Próximo cierre: {Fechas.FmtD(nextThu)}. Carga medida en entregables; capacidad {Opts.CurrentValue.CapacityOf(_unit)} por analista.";
+        }
+    }
+
+    /// <summary>Sin asignar primero, luego por analista y fecha.</summary>
+    IEnumerable<Requerimiento> Rows
+    {
+        get
+        {
+            var q = Reglas.Norm(_q);
+            return _v!.WeekAll
+                .Where(r => !HasPF || ((_pfAn is "*" or "" || (r.AnalistaId?.ToString() ?? "0") == _pfAn) && (_pfDay is null || r.Fecha == _pfDay)))
+                .Where(r => q.Length == 0 || Reglas.Norm($"{r.Cliente} {r.Proyecto} {r.Job} {r.Descripcion} {r.Comercial}").Contains(q))
+                .OrderBy(r => r.AnalistaId is null ? 0 : 1).ThenBy(r => Name(r.AnalistaId), StringComparer.CurrentCulture)
+                .ThenBy(r => r.Fecha).ThenBy(r => r.Job, StringComparer.Ordinal);
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        var query = $"{UnidadQ}|{SemanaQ}|{QQ}";
+        if (Me is null || query == _lastQuery) return;
+        var first = _lastQuery is null;
+        _lastQuery = query;
+        if (first)
+        {
+            _unit = Ui.PlanUnit;
+            _week = Ui.PlanWeek ?? Cur;
+            _pfAn = Ui.AnFilter?.ToString() ?? "";
+        }
+        if (Endpoints.ExportEndpoints.ParseUnidad(UnidadQ) is { } u and not Equipo.Script) { _unit = u; _pfAn = ""; _pfDay = null; Ui.AnFilter = null; }
+        if (DateOnly.TryParseExact(SemanaQ, "yyyy-MM-dd", out var w)) _week = Fechas.MondayOf(w);
+        if (QQ != null) _q = QQ;
+        Ui.PlanUnit = _unit;
+        Ui.PlanWeek = _week;
+        if (!first) _ = InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+    }
+
+    protected override async Task LoadAsync()
+    {
+        OnParametersSet();
+        _users = await Users.ListAsync();
+        _weeks = await Plan.SemanasAsync(Me, _unit, _week);
+        _v = await Plan.SemanaAsync(Me, _unit, _week);
+    }
+
+    async Task SetUnit(Equipo u)
+    {
+        _unit = Ui.PlanUnit = u;
+        _moves = null; _pfAn = ""; _pfDay = null; Ui.AnFilter = null;
+        await LoadAsync();
+    }
+
+    async Task SetWeek(DateOnly w)
+    {
+        _week = w;
+        Ui.PlanWeek = w;
+        _moves = null; _pfDay = null;
+        await LoadAsync();
+    }
+
+    void OnAnSelect(ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString() ?? "";
+        _pfAn = v; _pfDay = null;
+        Ui.AnFilter = int.TryParse(v, out var id) ? id : null;
+    }
+
+    void PickCard(int id)
+    {
+        var k = id.ToString();
+        _pfAn = _pfAn == k ? "" : k;
+        _pfDay = null;
+        Ui.AnFilter = _pfAn == "" ? null : id;
+    }
+
+    /// <summary>Clic en celda, nombre o total: filtra; un segundo clic quita el filtro.</summary>
+    void SetPF(string an, DateOnly? day)
+    {
+        if (_pfAn == an && _pfDay == day) ClearPF();
+        else { _pfAn = an; _pfDay = day; }
+    }
+
+    void ClearPF() { _pfAn = ""; _pfDay = null; }
+
+    Task Assign(int id, ChangeEventArgs e) => Run(async () =>
+    {
+        int? an = int.TryParse(e.Value?.ToString(), out var x) ? x : null;
+        var sent = await Reqs.AsignarAsync(Me, id, an);
+        Ui.Flash(an is null ? "Asignación quitada" : $"Asignado a {Name(an)}{(sent ? " · correo enviado" : "")}");
+    });
+
+    Task Suggest() => Run(async () =>
+    {
+        _moves = await Balance.SuggestAsync(Me, _unit, _week);
+        if (_moves.Count == 0) Ui.Flash("No hay movimientos posibles: la carga está equilibrada o solo quedan entregables en curso");
+    });
+
+    Task Apply() => Run(async () =>
+    {
+        var moves = _moves ?? [];
+        _moves = null;
+        var n = await Balance.ApplyAsync(Me, moves);
+        Ui.Flash($"{moves.Count} job(s) reasignados · {n} correo(s) enviados");
+    });
+
+    async Task OnImported(DateOnly? week)
+    {
+        _importOpen = false;
+        if (week is { } w) { _week = w; Ui.PlanWeek = w; ClearPF(); }
+        await LoadAsync();
+    }
+}

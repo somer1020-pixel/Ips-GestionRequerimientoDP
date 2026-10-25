@@ -1,0 +1,13 @@
+@* Día de entrega con íconos de vencimiento; atrasado = rojo y negrita. *@
+<td style="white-space:nowrap;color:@(Late ? "var(--danger)" : Color);font-weight:@(Late ? "700" : "400")">
+    <span style="display:inline-flex;align-items:center;gap:5px"><DueMark R="R" Today="Today" />@Fechas.FmtD(R.Fecha)</span>
+</td>
+
+@code {
+    [Parameter, EditorRequired] public Requerimiento R { get; set; } = default!;
+    [Parameter, EditorRequired] public DateOnly Today { get; set; }
+    /// <summary>false = sin color de atraso (Histórico).</summary>
+    [Parameter] public bool MarkLate { get; set; } = true;
+    [Parameter] public string Color { get; set; } = "var(--ink-muted)";
+    bool Late => MarkLate && Reglas.Atrasado(R, Today);
+}

@@ -1,0 +1,102 @@
+@inherits AppPage
+@inject IImportService Import
+@inject IExcelGateway Excel
+
+<div class="dialog-backdrop" @onclick="OnClose">
+    <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="Importar planilla" @onclick:stopPropagation="true"
+         style="width:min(680px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
+        <div class="dialog-title">Importar planilla · @(Unit == Equipo.Procesamiento ? "Procesamiento de datos" : Reglas.Tipo(Unit).Label)</div>
+        <div class="dialog-body">Sube la planilla (.xlsx / .csv) con el formato actual o pega las filas copiadas desde Excel. Columnas: <strong>DIA · PAIS · BU · TECNICA · CLIENTE · PROYECTO · JOB · ENTREGABLE · DESCRIPCION · COMERCIAL · ANALISTA</strong>. La semana se calcula desde DIA; las filas duplicadas se omiten.</div>
+        <label class="blueprint hover-accent" style="display:flex;align-items:center;justify-content:center;gap:var(--space-3);padding:var(--space-6);cursor:pointer;font-size:14px">
+            <Icon Name="file" Size="20" />
+            <span>@(_file is null ? "Seleccionar planilla .xlsx o .csv" : $"Archivo: {_file} (clic para cambiar)")</span>
+            <InputFile OnChange="OnFile" accept=".xlsx,.csv" style="position:absolute;opacity:0;width:0;height:0" />
+        </label>
+        <textarea class="form-control" value="@_text" @onchange="OnText" placeholder="…o pega aquí las filas (con o sin encabezado)" style="min-height:110px;font-size:13px"></textarea>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--color-neutral-800)">
+            @foreach (var p in Preview)
+            {
+                <span>@p</span>
+            }
+        </div>
+        <div class="dialog-actions">
+            <button class="btn btn-outline-secondary" @onclick="OnClose">Cancelar</button>
+            <button class="btn btn-primary" @onclick="DoImport" disabled="@_busy">Importar filas</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Equipo Unit { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<DateOnly?> OnImported { get; set; }
+
+    const long MaxBytes = 10 * 1024 * 1024;
+    List<object?[]>? _matrix;
+    string? _file;
+    string _text = "";
+    ImportResult? _res;
+    bool _busy;
+
+    protected override ChangeKind[] ReloadOn => [];
+    protected override Task LoadAsync() => Task.CompletedTask;
+
+    IEnumerable<string> Preview
+    {
+        get
+        {
+            if (_res is null || _matrix is null) { yield return "Esperando archivo o datos…"; yield break; }
+            yield return $"{_res.Rows.Count} entregables nuevos listos para importar" +
+                         (_res.Semanas.Count > 0 ? " · " + string.Join(", ", _res.Semanas.Select(w => $"{Fechas.WeekName(w, Today)} {Fechas.WeekLabel(w)}")) : "");
+            if (_res.Duplicados > 0) yield return $"{_res.Duplicados} filas duplicadas se omitirán";
+            if (_res.Invalidas > 0) yield return $"{_res.Invalidas} filas sin DIA o JOB válidos";
+            if (_res.NoReconocidos.Count > 0) yield return $"Analistas no reconocidos (quedarán sin asignar): {string.Join(", ", _res.NoReconocidos)}";
+        }
+    }
+
+    async Task OnFile(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            await using var s = e.File.OpenReadStream(MaxBytes);
+            using var ms = new MemoryStream();
+            await s.CopyToAsync(ms);
+            ms.Position = 0;
+            _matrix = e.File.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase) ? Excel.ReadCsv(ms) : Excel.ReadFirstSheet(ms);
+            _file = e.File.Name;
+            _text = "";
+            await Refresh();
+        }
+        catch (Exception)
+        {
+            Ui.Flash("No se pudo leer el archivo (usa .xlsx o .csv de hasta 10 MB)");
+        }
+    }
+
+    async Task OnText(ChangeEventArgs e)
+    {
+        _text = e.Value?.ToString() ?? "";
+        _file = null;
+        _matrix = _text.Trim().Length > 0 ? ImportParser.FromText(_text) : null;
+        await Refresh();
+    }
+
+    async Task Refresh() => _res = _matrix is null ? null : await Import.PreviewAsync(Me, Unit, _matrix);
+
+    async Task DoImport()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            await Run(async () =>
+            {
+                var (res, week, mails) = await Import.ImportAsync(Me, Unit, _matrix);
+                if (res.Rows.Count == 0) { Ui.Flash("No hay filas nuevas para importar"); return; }
+                Ui.Flash($"{res.Rows.Count} entregables importados{(res.Duplicados > 0 ? $" · {res.Duplicados} duplicados omitidos" : "")}{(mails > 0 ? $" · {mails} correo(s) de asignación" : "")}");
+                await OnImported.InvokeAsync(week);
+            });
+        }
+        finally { _busy = false; }
+    }
+}

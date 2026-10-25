@@ -1,0 +1,10 @@
+@inject NavigationManager Nav
+@code {
+    [CascadingParameter] public Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var me = Claims.ToUsuario((await AuthState).User);
+        Nav.NavigateTo(me?.EsComercial == true ? "/solicitar" : "/", replace: true);
+    }
+}

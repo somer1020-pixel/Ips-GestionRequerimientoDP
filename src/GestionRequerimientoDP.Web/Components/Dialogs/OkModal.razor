@@ -1,0 +1,143 @@
+@inherits AppPage
+@inject IRequerimientoService Reqs
+@inject IOkService Ok
+@inject IUsuarioService Users
+
+@if (_r is { } r)
+{
+    var late = Today > r.Fecha;
+    <div class="dialog-backdrop" @onclick="Ui.CloseOk" style="z-index:60">
+        <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="Confirmar OK de término" @onclick:stopPropagation="true" style="background:var(--color-bg)">
+            <div class="dialog-title">Confirmar OK de término</div>
+            <div class="dialog-body"><strong>@_analista</strong> confirma que <strong>@r.Job · @r.Proyecto — @r.Descripcion</strong> está completamente terminado. Esto libera su disponibilidad.</div>
+            @if (r.Tipo == Equipo.Codificacion)
+            {
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+                    <div class="field"><label for="ok-reg">Registros codificados *</label><input id="ok-reg" class="form-control" type="number" min="1" step="1" inputmode="numeric" @bind="_in.Registros" @bind:event="oninput" placeholder="Ej. 1200" /></div>
+                    <div class="field">
+                        <label>Método *</label>
+                        <Seg T="MetodoCodificacion?" Options="MetodoOpts" Value="_in.Metodo" ValueChanged="v => { _in.Metodo = v; _err = null; }" Stretch="true" Style="display:flex" />
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="field"><label for="ok-horas">Horas dedicadas al requerimiento *</label><input id="ok-horas" class="form-control" type="text" inputmode="decimal" @bind="_in.Horas" @bind:event="oninput" placeholder="Ej. 3,5" style="max-width:180px" /></div>
+            }
+            <div class="field">
+                <label for="ok-mat">Fecha de recepción de materiales</label>
+                <input id="ok-mat" class="form-control" type="date" max="@Fechas.Iso(Today)" value="@(_in.Materiales is { } m ? Fechas.Iso(m) : "")" @onchange="OnMat" style="max-width:220px" />
+            </div>
+            @if (late)
+            {
+                <div style="display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3);border:1px solid var(--warning);background:var(--warning-50);border-radius:6px">
+                    <div style="font-size:13px"><strong>Entrega con atraso</strong> · comprometido @Fechas.FmtD(r.Fecha), se cierra hoy (+@Fechas.DaysBetween(r.Fecha, Today) días). Indica el motivo principal.</div>
+                    <div class="field">
+                        <label>Responsable del atraso *</label>
+                        <Seg T="AtrasoResponsable?" Options="RespOpts(r)" Value="_in.Resp" ValueChanged="OnResp" Stretch="true" Style="display:flex;flex-wrap:wrap" />
+                    </div>
+                    <div class="field">
+                        <label for="ok-motivo">Motivo *</label>
+                        <select id="ok-motivo" class="form-select" value="@_in.Motivo" @onchange="e => { _in.Motivo = e.Value?.ToString() ?? string.Empty; _err = null; }">
+                            <option value="">Selecciona un motivo…</option>
+                            @if (_in.Resp is { } resp)
+                            {
+                                foreach (var mo in Catalogos.MOTIVOS[resp])
+                                {
+                                    <option value="@mo">@mo</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    @if (_in.Resp == AtrasoResponsable.Campo)
+                    {
+                        <div class="field">
+                            <label for="ok-campo">Área de campo *</label>
+                            <select id="ok-campo" class="form-select" value="@_in.Campo" @onchange="e => { _in.Campo = e.Value?.ToString() ?? string.Empty; _err = null; }">
+                                <option value="">Selecciona el área…</option>
+                                @foreach (var c in Catalogos.CAMPOS)
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    <div class="field"><label for="ok-det">Detalle (opcional)</label><input id="ok-det" class="form-control" @bind="_in.Detalle" placeholder="Ej. BD de campo llegó con 3 días de retraso" /></div>
+                    <div style="font-size:12px;color:var(--ink)">@Hint(r)</div>
+                </div>
+            }
+            <div class="field"><label for="ok-nota">Comentario (opcional)</label><input id="ok-nota" class="form-control" @bind="_in.Nota" placeholder="Ej. Entregado a comercial con tablas finales" /></div>
+            @if (_err != null)
+            {
+                <div class="err" role="alert">@_err</div>
+            }
+            <div class="dialog-actions">
+                <button class="btn btn-outline-secondary" @onclick="Ui.CloseOk">Cancelar</button>
+                <button class="btn btn-primary" @onclick="Confirm" disabled="@_busy">Confirmar OK</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public int Id { get; set; }
+
+    static readonly IReadOnlyList<(MetodoCodificacion?, string)> MetodoOpts = [(MetodoCodificacion.IA, "IA"), (MetodoCodificacion.Manual, "Manual")];
+    static IReadOnlyList<(AtrasoResponsable?, string)> RespOpts(Requerimiento r) =>
+        [(AtrasoResponsable.Operaciones, Reglas.Tipo(r.Tipo).Label), (AtrasoResponsable.Comercial, "Área comercial"), (AtrasoResponsable.Campo, "Campo")];
+
+    Requerimiento? _r;
+    OkInput _in = new();
+    string _analista = "";
+    string? _err;
+    bool _busy, _initialized;
+
+    protected override ChangeKind[] ReloadOn => [];
+
+    protected override async Task LoadAsync()
+    {
+        _r = await Reqs.GetAsync(Me, Id);
+        if (_r is null || _r.Estado == Estado.Ok) { _r = null; Ui.CloseOk(); return; }
+        if (!_initialized) { _in = OkInput.Defaults(_r, Today); _initialized = true; }
+        _analista = _r.AnalistaId is { } a ? (await Users.GetAsync(a))?.Nombre ?? "Sin asignar" : "Sin asignar";
+    }
+
+    void OnMat(ChangeEventArgs e)
+    {
+        _in.Materiales = DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var d) ? d : null;
+        _err = null;
+    }
+
+    void OnResp(AtrasoResponsable? v)
+    {
+        _in.Resp = v;
+        _in.Motivo = v == AtrasoResponsable.Comercial && Reglas.MaterialesTarde(_r!, _in.Materiales) ? Catalogos.MotivoMaterialesTarde : "";
+        _err = null;
+    }
+
+    string Hint(Requerimiento r) => _in.Materiales is not { } m
+        ? "Registra la fecha de recepción de materiales para respaldar la clasificación."
+        : m >= r.Fecha
+            ? $"Los materiales se recibieron el {Fechas.FmtD(m)}, el día de entrega o después: probablemente es un atraso de materiales del área comercial."
+            : $"Los materiales se recibieron el {Fechas.FmtD(m)}, antes del día de entrega.";
+
+    async Task Confirm()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            await Run(async () =>
+            {
+                _err = await Ok.ConfirmOkAsync(Me, Id, _in);
+                if (_err is null)
+                {
+                    var r = await Reqs.GetAsync(Me, Id);
+                    Ui.CloseOk();
+                    Ui.Flash($"OK registrado · {_r!.Job} · {(r is null ? "" : r.Tipo == Equipo.Codificacion ? $"{Reglas.FmtN(r.Registros)} registros · {r.Metodo}" : Reglas.FmtH(r.Horas))}");
+                }
+            });
+        }
+        finally { _busy = false; }
+    }
+}

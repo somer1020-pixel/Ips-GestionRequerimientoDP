@@ -1,0 +1,95 @@
+@page "/mi-semana"
+@attribute [Authorize(Policy = Policies.Analista)]
+@inherits AppPage
+@inject IRequerimientoService Reqs
+@inject IOkService Ok
+
+<PageTitle>Mi semana · @AppInfo.Nombre</PageTitle>
+
+<section data-screen-label="Mi lista" class="stack">
+    <div class="page-head">
+        <div>
+            <h2 style="margin:0">Mi semana · @EquipoLabel</h2>
+            <div class="sub">Revisa lo asignado, marca “Iniciar” al comenzar y “Dar OK” cuando el entregable esté completamente terminado.</div>
+        </div>
+        <div class="page-actions">
+            <Seg T="DateOnly" Options="WeekOpts" Value="_week" ValueChanged="w => _week = w" />
+            <button class="btn btn-outline-secondary" @onclick="@(() => Download($"/export/mi-semana?semana={Fechas.Iso(_week)}"))"><Icon Name="download" />Descargar mi semana</button>
+        </div>
+    </div>
+    <div class="scroll-x">
+        <table class="table">
+            <thead><tr><th>Día</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Job</th><th>Entregable</th><th>Descripción</th><th>Comercial</th><th>Materiales recibidos</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in Rows)
+                {
+                    <tr @key="r.Id">
+                        <DayCell R="r" Today="Today" />
+                        <td><span class="@Reglas.Tipo(r.Tipo).Css">@Reglas.Tipo(r.Tipo).Short</span></td>
+                        <td>@r.Cliente</td>
+                        <td><button class="linkish" @onclick="() => Ui.OpenDetail(r.Id)">@r.Proyecto</button></td>
+                        <td class="job">@r.Job</td>
+                        <td>@r.Entregable</td>
+                        <td>@r.Descripcion</td>
+                        <td style="font-size:13px">@r.Comercial</td>
+                        <td><input class="form-control form-sm" type="date" max="@Fechas.Iso(Today)" value="@(r.MaterialesAt is { } m ? Fechas.Iso(m) : "")" @onchange="e => SetMat(r.Id, e)" title="Fecha en que recibiste los materiales" style="width:150px" /></td>
+                        <td><span class="@Reglas.EstadoCss(r.Estado)">@Reglas.EstadoLabel(r.Estado)</span></td>
+                        <td class="nowrap">
+                            @if (r.Estado == Estado.Pendiente)
+                            {
+                                <button class="btn btn-outline-secondary" @onclick="() => Start(r.Id)" style="font-size:13px;padding:3px 10px">Iniciar</button>
+                            }
+                            @if (r.Estado == Estado.EnCurso)
+                            {
+                                <button class="btn btn-primary" @onclick="() => Ui.AskOk(r.Id)" style="font-size:13px;padding:3px 10px">Dar OK</button>
+                            }
+                            @if (r.Estado == Estado.Ok)
+                            {
+                                <span style="font-size:13px;color:var(--color-accent-700)">✓ @Fechas.FmtDT(r.OkAt)@Reglas.OkSuffix(r)</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!Rows.Any())
+        {
+            <div class="empty">No tienes requerimientos asignados en este periodo.</div>
+        }
+    </div>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "semana")] public string? SemanaQ { get; set; }
+
+    List<Requerimiento> _mine = [];
+    DateOnly _week;
+
+    string EquipoLabel => string.Join(" + ", Me.Equipos.Select(e => Reglas.Tipo(e).EquipoLabel));
+    IReadOnlyList<(DateOnly, string)> WeekOpts => new[] { Cur, Next }.Select(w => (w, $"{Fechas.WeekName(w, Today)} · {Fechas.WeekLabel(w)}")).ToList();
+
+    /// <summary>La semana actual incluye los atrasados abiertos; las filas con OK van al final.</summary>
+    IEnumerable<Requerimiento> Rows => _mine
+        .Where(r => Fechas.MondayOf(r.Fecha) == _week || (_week == Cur && r.Estado != Estado.Ok && r.Fecha < Cur))
+        .OrderBy(r => r.Estado == Estado.Ok).ThenBy(r => r.Fecha).ThenBy(r => r.Job, StringComparer.Ordinal);
+
+    string? _lastQ = "-";
+
+    protected override void OnParametersSet()
+    {
+        if (Me is null || SemanaQ == _lastQ) return;
+        _lastQ = SemanaQ;
+        _week = SemanaQ == "siguiente" ? Next : Cur;
+    }
+
+    protected override async Task LoadAsync()
+    {
+        OnParametersSet();
+        _mine = await Reqs.PropiosAsync(Me);
+    }
+
+    Task Start(int id) => Run(() => Ok.MoveToAsync(Me, id, Estado.EnCurso));
+
+    Task SetMat(int id, ChangeEventArgs e) =>
+        Run(() => Reqs.SetMaterialesAsync(Me, id, DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var d) ? d : null));
+}

@@ -1,0 +1,138 @@
+@inherits AppPage
+@inject IRequerimientoService Reqs
+@inject IScriptAssignmentService Scripts
+@inject IUsuarioService Users
+
+<div class="dialog-backdrop" @onclick="Ui.CloseNew">
+    <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="Nuevo requerimiento" @onclick:stopPropagation="true"
+         style="width:min(620px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
+        <div class="dialog-title">Nuevo requerimiento</div>
+        <Seg T="Equipo" Options="TipoOpts" Value="_d.Tipo" ValueChanged="SetTipo" Stretch="true" Style="display:flex" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+            <div class="field"><label for="nr-cli">Cliente *</label><input id="nr-cli" class="form-control" @bind="_d.Cliente" placeholder="Ej. Banco Estado" /></div>
+            <div class="field"><label for="nr-job">Job *</label><input id="nr-job" class="form-control" @bind="_d.Job" placeholder="26-000000-01-01" /></div>
+            <div class="field" style="grid-column:1 / -1"><label for="nr-pro">Proyecto / estudio *</label><input id="nr-pro" class="form-control" @bind="_d.Proyecto" placeholder="Nombre del estudio" /></div>
+            <div class="field">
+                <label for="nr-sl">SL</label>
+                <select id="nr-sl" class="form-select" @bind="_d.SL">
+                    @foreach (var b in Catalogos.SLS)
+                    {
+                        <option value="@b">@b</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label for="nr-tec">Técnica *</label>
+                <select id="nr-tec" class="form-select" @bind="_d.Tecnica">
+                    <option value="">Selecciona la técnica…</option>
+                    @foreach (var c in Catalogos.CAMPOS)
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label for="nr-ent">@(_d.Tipo == Equipo.Script ? "Tipo de requerimiento" : "Entregable")</label>
+                <select id="nr-ent" class="form-select" @bind="_d.Entregable">
+                    @foreach (var e in Catalogos.EntregablesDe(_d.Tipo))
+                    {
+                        <option value="@e">@e</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label for="nr-fecha">@(_d.Tipo == Equipo.Script ? "Fecha compromiso" : "Día de entrega")</label><input id="nr-fecha" class="form-control" type="date" @bind="_d.Fecha" /></div>
+            <div class="field" style="grid-column:1 / -1"><label for="nr-desc">Descripción</label><input id="nr-desc" class="form-control" @bind="_d.Descripcion" placeholder="Ej. Tablas estadísticas, SPSS, BD cliente…" /></div>
+            <div class="field"><label for="nr-com">Responsable comercial</label><input id="nr-com" class="form-control" @bind="_d.Comercial" placeholder="Nombre / Ejecutivo" /></div>
+            <div class="field">
+                <label for="nr-an">Analista asignado</label>
+                <select id="nr-an" class="form-select" value="@(_d.AnalistaId?.ToString() ?? "")" @onchange="e => _d.AnalistaId = int.TryParse(e.Value?.ToString(), out var x) ? x : null">
+                    <option value="">@(_d.Tipo == Equipo.Script ? $"Automático · primer disponible ({_recNombre})" : "Sin asignar")</option>
+                    @foreach (var a in _users.Where(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(_d.Tipo)))
+                    {
+                        <option value="@a.Id">@a.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+        @if (_d.Tipo == Equipo.Script)
+        {
+            <div style="background:var(--teal-50);color:var(--ink);border-radius:6px;padding:var(--space-3);font-size:14px">Primer disponible: <strong>@_recNombre</strong> — @_recReason</div>
+        }
+        @if (_err != null)
+        {
+            <div style="font-size:13px;color:var(--color-accent-900);font-weight:500" role="alert">@_err</div>
+        }
+        <div class="dialog-actions">
+            <button class="btn btn-outline-secondary" @onclick="Ui.CloseNew">Cancelar</button>
+            <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_d.Tipo == Equipo.Script ? "Crear y asignar" : "Agregar a la planificación")</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Equipo Tipo { get; set; }
+
+    static readonly IReadOnlyList<(Equipo, string)> TipoOpts = [(Equipo.Procesamiento, "Procesamiento"), (Equipo.Codificacion, "Codificación"), (Equipo.Script, "Script")];
+    NuevoRequerimiento _d = new();
+    List<Usuario> _users = [];
+    string _recNombre = "Sin analistas activos", _recReason = "Activa usuarios de scripting en Usuarios.";
+    string? _err;
+    bool _busy, _init;
+
+    protected override ChangeKind[] ReloadOn => [ChangeKind.Usuarios];
+
+    protected override async Task LoadAsync()
+    {
+        _users = await Users.ListAsync();
+        if (!_init)
+        {
+            _init = true;
+            _d = new NuevoRequerimiento { Tipo = Tipo };
+            SetDefaults();
+        }
+        await LoadRecommendation();
+    }
+
+    void SetDefaults()
+    {
+        var pw = Ui.PlanWeek ?? Cur;
+        _d.Fecha = _d.Tipo == Equipo.Script ? Today.AddDays(2) : pw >= Cur ? pw : Today;
+        _d.Entregable = Catalogos.EntregablesDe(_d.Tipo)[0];
+        _d.AnalistaId = null;
+    }
+
+    async Task LoadRecommendation()
+    {
+        if (!Me.EsLider) return;
+        var v = await Scripts.VistaAsync(Me);
+        if (v.Ranking.FirstOrDefault() is { } top)
+        {
+            _recNombre = top.Analista.Nombre;
+            _recReason = ScriptRanking.Motivo(top, Opts.CurrentValue.ScriptWip);
+        }
+    }
+
+    void SetTipo(Equipo t)
+    {
+        _d.Tipo = t;
+        _d.AnalistaId = null;
+        _d.Entregable = Catalogos.EntregablesDe(t)[0];
+        _err = null;
+    }
+
+    async Task Save()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var (r, sent) = await Reqs.CrearAsync(Me, _d);
+            var nombre = r.AnalistaId is { } a ? _users.FirstOrDefault(u => u.Id == a)?.Nombre ?? "" : "Sin asignar";
+            Ui.CloseNew();
+            Ui.Flash((r.Tipo == Equipo.Script ? $"Script {r.Job} asignado a {nombre}" : $"{r.Job} agregado a la planificación") + (sent ? " · correo enviado" : ""));
+        }
+        catch (ReglaException ex) { _err = ex.Message; }
+        catch (PermisoException ex) { _err = ex.Message; }
+        finally { _busy = false; }
+    }
+}

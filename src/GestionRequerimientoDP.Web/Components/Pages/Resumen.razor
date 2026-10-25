@@ -1,0 +1,91 @@
+@page "/resumen"
+@attribute [Authorize(Policy = Policies.Lider)]
+@inherits AppPage
+@inject ISummaryService Summary
+@inject IUsuarioService Users
+
+<PageTitle>Resumen · @AppInfo.Nombre</PageTitle>
+
+@if (_v is { } v)
+{
+    <section data-screen-label="Resumen" class="stack">
+        <div class="page-head">
+            <div>
+                <h2 style="margin:0">Resumen y pendientes de OK</h2>
+                <div class="sub">Procesamiento semana @Fechas.WeekLabel(Cur) + scripts. Listo para comunicar al equipo.</div>
+            </div>
+            <button class="btn btn-primary" @onclick="Copy"><Icon Name="copy" />Copiar resumen</button>
+        </div>
+        <div class="kpi-grid">
+            @foreach (var k in v.Kpis)
+            {
+                <KpiCard K="k" />
+            }
+        </div>
+        <div class="two-col">
+            <div class="stack-3" style="min-width:0">
+                <h4 style="margin:0">Pendientes priorizados</h4>
+                <div class="scroll-x">
+                    <table class="table">
+                        <thead><tr><th>#</th><th>Día</th><th>Job</th><th>Proyecto · Entregable</th><th>Analista</th><th>Estado</th></tr></thead>
+                        <tbody>
+                            @for (var i = 0; i < v.Pendientes.Count; i++)
+                            {
+                                var r = v.Pendientes[i];
+                                <tr @onclick="() => Ui.OpenDetail(r.Id)" style="cursor:pointer">
+                                    <td style="color:var(--color-neutral-700)">@(i + 1)</td>
+                                    <DayCell R="r" Today="Today" />
+                                    <td class="job">@r.Job</td>
+                                    <td>@r.Proyecto · @r.Descripcion</td>
+                                    <td class="nowrap">@Name(r.AnalistaId)</td>
+                                    <td><span class="@Reglas.EstadoCss(r.Estado)">@Reglas.EstadoLabel(r.Estado)</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="stack-3" style="min-width:0">
+                <h4 style="margin:0">Carga por analista</h4>
+                <div class="scroll-x">
+                    <table class="table">
+                        <thead><tr><th>Analista</th><th>Equipos</th><th>Pend.</th><th>En curso</th><th>OK</th><th>Atrasados</th></tr></thead>
+                        <tbody>
+                            @foreach (var a in _users.Where(u => u.Rol == Rol.Analista && u.Activo))
+                            {
+                                var m = v.Scope.Where(r => r.AnalistaId == a.Id).ToList();
+                                var late = m.Count(r => Reglas.Atrasado(r, Today));
+                                <tr>
+                                    <td>@a.Nombre</td><td>@Reglas.EquipoLabel(a)</td><td>@m.Count(r => r.Estado == Estado.Pendiente)</td>
+                                    <td>@m.Count(r => r.Estado == Estado.EnCurso)</td><td>@m.Count(r => r.Estado == Estado.Ok)</td>
+                                    <td style="font-weight:@(late > 0 ? "700" : "400")">@late</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <h4 style="margin:var(--space-4) 0 0">Texto para el equipo</h4>
+                <pre class="blueprint" style="margin:0;padding:var(--space-4);font-family:var(--font-body);font-size:13px;white-space:pre-wrap;line-height:1.5">@v.Texto</pre>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    ResumenView? _v;
+    List<Usuario> _users = [];
+
+    string Name(int? id) => _users.FirstOrDefault(u => u.Id == id)?.Nombre ?? "Sin asignar";
+
+    protected override async Task LoadAsync()
+    {
+        _users = await Users.ListAsync();
+        _v = await Summary.ResumenAsync(Me);
+    }
+
+    async Task Copy()
+    {
+        var ok = await JS.InvokeAsync<bool>("grdp.copy", _v!.Texto);
+        Ui.Flash(ok ? "Resumen copiado al portapapeles" : "No se pudo copiar — selecciona el texto manualmente");
+    }
+}

@@ -1,0 +1,82 @@
+@page "/scripts"
+@attribute [Authorize(Policy = Policies.Lider)]
+@inherits AppPage
+@inject IScriptAssignmentService Svc
+
+<PageTitle>Scripts · @AppInfo.Nombre</PageTitle>
+
+@if (_v is { } v)
+{
+    var wip = Opts.CurrentValue.ScriptWip;
+    var top = v.Ranking.FirstOrDefault();
+    <section data-screen-label="Scripts" class="stack">
+        <div>
+            <h2 style="margin:0">Programación de scripts</h2>
+            <div class="sub">Demanda ad-hoc: cada script nuevo se asigna de inmediato a la primera persona disponible. Límite simultáneo: @wip activos por analista.</div>
+        </div>
+        <div class="blueprint" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-4);align-items:center;padding:var(--space-4) var(--space-6)">
+            <div style="display:flex;flex-direction:column;gap:2px">
+                <span class="card-kicker" style="color:var(--color-accent-700)">Siguiente asignación recomendada</span>
+                <span style="font-family:var(--font-heading);font-weight:600;font-size:28px;line-height:1.1">@(top?.Analista.Nombre ?? "Sin analistas activos")</span>
+                <span style="font-size:14px;color:var(--color-neutral-800)">@(top is null ? "Activa usuarios de scripting en Usuarios." : ScriptRanking.Motivo(top, wip))</span>
+            </div>
+            <button class="btn btn-primary" @onclick="() => Ui.OpenNew(Equipo.Script)" style="min-height:40px"><Icon Name="plus" />Ingresar script</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--space-6);padding:6px">
+            @for (var i = 0; i < v.Ranking.Count; i++)
+            {
+                var x = v.Ranking[i];
+                var items = v.Scripts.Where(r => r.AnalistaId == x.Analista.Id && r.Estado != Estado.Ok).OrderBy(r => r.Fecha).ThenBy(r => r.Job, StringComparer.Ordinal).ToList();
+                <div class="card blueprint" style="gap:var(--space-3);border-color:@(i == 0 ? "var(--color-accent)" : "var(--color-divider)")">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span style="width:26px;height:26px;display:grid;place-items:center;border-radius:50%;background:var(--teal-50);color:var(--color-accent-800);font-size:11px;font-weight:700">@Reglas.Iniciales(x.Analista.Nombre)</span>
+                            <span class="card-title">@x.Analista.Nombre</span>
+                        </div>
+                        <span class="@ScriptRanking.DisponibilidadCss(x, i, wip)">@ScriptRanking.Disponibilidad(x, i, wip)</span>
+                    </div>
+                    <div style="display:flex;gap:4px">
+                        @for (var k = 0; k < Math.Max(wip, x.Activos); k++)
+                        {
+                            <div style="flex:1;height:6px;background:@(k < x.Activos ? (k >= wip ? "var(--color-accent-900)" : "var(--color-accent)") : "var(--color-neutral-200)")"></div>
+                        }
+                    </div>
+                    <div class="card-meta" style="color:var(--color-neutral-700)">@x.Activos activos de @wip@(x.Analista.Tiene(Equipo.Procesamiento) ? $" · {x.DpHoy} entregables DP hoy" : "") · @x.OkCount con OK · último OK @Fechas.FmtDT(x.LastOk)</div>
+                    @foreach (var c in items)
+                    {
+                        <div class="hover-text" @onclick="() => Ui.OpenDetail(c.Id)" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:var(--space-2) 0;border-top:1px solid var(--color-divider);cursor:pointer;font-size:13px">
+                            <div style="display:flex;flex-direction:column;min-width:0">
+                                <span style="font-weight:500">@c.Proyecto</span>
+                                <span style="font-size:11px;color:var(--color-neutral-700)">@c.Job · @c.Descripcion · @Fechas.FmtD(c.Fecha)</span>
+                            </div>
+                            <span class="@Reglas.EstadoCss(c.Estado)">@Reglas.EstadoLabel(c.Estado)</span>
+                        </div>
+                    }
+                    @if (items.Count == 0)
+                    {
+                        <div style="font-size:13px;color:var(--color-neutral-700);padding-top:var(--space-2);border-top:1px solid var(--color-divider)">Sin scripts activos — disponible ahora.</div>
+                    }
+                </div>
+            }
+        </div>
+        @if (v.SinAsignar.Count > 0)
+        {
+            <div class="blueprint" style="padding:var(--space-4);display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+                <span style="font-size:14px">@v.SinAsignar.Count script(s) sin asignar en cola.</span>
+                <button class="btn btn-outline-secondary" @onclick="AutoAssign">Asignar a primer disponible</button>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    ScriptsView? _v;
+
+    protected override async Task LoadAsync() => _v = await Svc.VistaAsync(Me);
+
+    Task AutoAssign() => Run(async () =>
+    {
+        var (_, n) = await Svc.AutoAssignAsync(Me);
+        Ui.Flash($"Scripts asignados · {n} correo(s) enviados");
+    });
+}

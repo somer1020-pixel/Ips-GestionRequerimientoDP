@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="carga-ops.css">
+<style>body{margin:0;background:var(--color-bg)} a{color:var(--color-accent-700)} a:hover{color:var(--color-accent-800)} select.input{cursor:pointer} .btn,.tag,.seg-opt,.card-kicker{white-space:nowrap} .btn{flex:none} .card-meta{display:block}</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)">
+
+  <!-- CONSULTA PÚBLICA -->
+  <sc-if value="{{ isPublic }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Consulta pública" style="flex:1;display:flex;flex-direction:column">
+      <header class="topbar"><div class="inner">
+        <div class="brand" style="flex:1"><span class="brand-mark">CO</span><span>Carga Ops <small>· Consulta de requerimientos</small></span></div>
+        <button class="btn btn-onnavy" onClick="{{ closePublic }}">{{ publicBackLabel }}</button>
+      </div></header>
+      <main class="portal" style="width:100%;display:flex;flex-direction:column;gap:var(--space-6)">
+        <div>
+          <h2 style="margin:0">¿Ya está asignado mi requerimiento?</h2>
+          <div style="font-size:14px;color:var(--color-neutral-800)">Busca por número de Job, proyecto o cliente para ver quién lo tiene asignado y qué día se entrega cada parte. Vista de solo lectura.</div>
+        </div>
+        <input class="input" value="{{ pubQ }}" onChange="{{ onPubQ }}" placeholder="Ej. 26-033416 · Teletón · Banco Estado" style="min-height:44px;font-size:16px">
+        <div style="font-size:13px;color:var(--color-neutral-700)">{{ pubHint }}</div>
+        <sc-for list="{{ pubJobs }}" as="j" hint-placeholder-count="0">
+          <div class="card blueprint" style="gap:var(--space-3);padding:var(--space-4)">
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                <span class="card-kicker" style="color:var(--color-accent-700)">{{ j.job }} · {{ j.cliente }}</span>
+                <span class="card-title" style="font-size:20px">{{ j.proyecto }}</span>
+                <span style="font-size:12px;color:var(--color-neutral-700)">Comercial: {{ j.comercial }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                <span class="{{ j.tagClass }}">{{ j.status }}</span>
+                <span style="font-size:13px;white-space:nowrap">{{ j.nextLine }}</span>
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="table">
+                <thead><tr><th>Entregable</th><th>Tipo</th><th>Día de entrega</th><th>Asignado a</th><th>Estado</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ j.rows }}" as="r" hint-placeholder-count="2">
+                    <tr><td>{{ r.entregable }} — {{ r.descripcion }}</td><td style="white-space:nowrap">{{ r.tipoLabel }}</td><td style="white-space:nowrap">{{ r.dia }}</td><td style="white-space:nowrap">{{ r.asignado }}</td><td><span class="{{ r.pubClass }}">{{ r.pubEstado }}</span></td></tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </sc-for>
+        <div style="font-size:12px;color:var(--color-neutral-700)">Para cambios de fecha o prioridad, contacta al líder de Operaciones.</div>
+      </main>
+    </div>
+  </sc-if>
+
+  <!-- LOGIN -->
+  <sc-if value="{{ isLoggedOut }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Login" style="flex:1;display:grid;place-items:center;padding:var(--space-8) var(--space-4)">
+      <div style="width:min(440px,100%);display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;flex-direction:column;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--surface-200)">
+        <div style="background:var(--navy);color:#fff;padding:20px;display:flex;align-items:center;gap:12px">
+          <span class="brand-mark" style="width:36px;height:36px;font-size:14px">CO</span>
+          <div style="display:flex;flex-direction:column;line-height:1.2">
+            <span style="font-weight:600;font-size:20px">Carga Ops</span>
+            <span style="font-size:13px;opacity:.8">Scripting · Procesamiento de datos</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-4);padding:var(--space-6)">
+          <h3 style="margin:0">Ingresar</h3>
+          <div class="field"><label>Correo</label><input class="input" type="email" value="{{ loginEmail }}" onChange="{{ onLoginEmail }}" onKeyDown="{{ onLoginKey }}" placeholder="nombre@empresa.cl"></div>
+          <div class="field"><label>Contraseña</label><input class="input" type="password" placeholder="••••••••" onKeyDown="{{ onLoginKey }}"></div>
+          <sc-if value="{{ hasLoginErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--color-accent-900);font-weight:500">{{ loginErr }}</div></sc-if>
+          <button class="btn btn-primary btn-block" onClick="{{ login }}" style="min-height:40px">Ingresar</button>
+        </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+          <span class="card-kicker" style="color:var(--color-accent-700)">Accesos de demostración</span>
+          <sc-for list="{{ demoGroups }}" as="g" hint-placeholder-count="3">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:12px;color:var(--color-neutral-700);padding-top:var(--space-2)">{{ g.label }}</span>
+              <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">
+                <sc-for list="{{ g.users }}" as="u" hint-placeholder-count="2">
+                  <button class="btn btn-secondary" onClick="{{ u.enter }}" style="font-size:13px">{{ u.nombre }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <button class="btn btn-ghost" onClick="{{ openPublic }}" style="align-self:flex-start;font-size:14px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>¿No participas de la gestión? Consulta el estado de un requerimiento</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isLoggedIn }}" hint-placeholder-val="{{ true }}">
+  <header class="topbar" data-screen-label="Header"><div class="inner">
+    <div class="brand"><span class="brand-mark">CO</span><span>Carga Ops <small class="hide-sm">· Scripting y Procesamiento de datos</small></span></div>
+    <div style="flex:1"></div>
+    <sc-if value="{{ isLead }}" hint-placeholder-val="{{ true }}">
+      <button class="btn btn-light" onClick="{{ openNewDefault }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Nuevo requerimiento</button>
+    </sc-if>
+    <div class="user">
+      <span class="avatar">{{ me.ini }}</span>
+      <div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-weight:600;white-space:nowrap">{{ me.nombre }}</span><span style="font-size:12px;opacity:.75;white-space:nowrap">{{ me.rolLabel }}</span></div>
+    </div>
+    <button class="btn btn-onnavy" onClick="{{ logout }}" aria-label="Cerrar sesión"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>Salir</button>
+  </div></header>
+  <nav class="mobnav">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button class="mob-i" aria-current="{{ t.current }}" onClick="{{ t.go }}">{{ t.label }}</button></sc-for>
+  </nav>
+  <div class="shell">
+  <aside class="side">
+    <div class="grp lbl">{{ navGroup }}</div>
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <button class="nav-i" aria-current="{{ t.current }}" onClick="{{ t.go }}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.icon }}"></path></svg><span>{{ t.label }}</span><sc-if value="{{ t.hasCnt }}" hint-placeholder-val="{{ false }}"><span class="cnt">{{ t.cnt }}</span></sc-if></button>
+    </sc-for>
+  </aside>
+  <main class="main-c" style="display:flex;flex-direction:column;gap:var(--space-6)">
+    <sc-if value="{{ hasInboxAlert }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-3) var(--space-4);border:1px solid var(--warning);background:var(--warning-50);border-radius:6px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"></path><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
+        <span style="font-size:14px;flex:1;min-width:220px">{{ inboxAlertLine }}</span>
+        <button class="btn btn-secondary" onClick="{{ goInbox }}">Revisar solicitudes</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isAnalyst }}" hint-placeholder-val="{{ false }}">
+      <div class="blueprint" style="display:flex;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-4);flex-wrap:wrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <span class="card-kicker" style="color:var(--color-accent-700)">Mi carga · {{ me.equipoLabel }}</span>
+        <span style="font-size:14px;color:var(--color-neutral-800);flex:1;min-width:240px">{{ mine.line }}</span>
+        <sc-if value="{{ mine.hasNext }}" hint-placeholder-val="{{ false }}">
+          <button class="btn btn-secondary" onClick="{{ mine.goNext }}">{{ mine.nextLabel }}</button>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- TABLERO -->
+    <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ true }}">
+      <section data-screen-label="Tablero" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">{{ boardTitle }}</h2>
+            <div style="font-size:13px;color:var(--color-neutral-700)">{{ boardSub }}</div>
+            <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;font-size:12px;color:var(--color-neutral-800);margin-top:4px">
+              <span style="display:flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="oklch(0.86 0.17 92)"></circle><path d="M12 6.5V12l3.5 2" stroke="#1d1f20" stroke-width="2" stroke-linecap="round" fill="none"></path></svg>Vence el próximo día hábil</span>
+              <span style="display:flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--danger)"></circle><path d="M12 6.5v7M12 17.2v.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"></path></svg>Vence hoy o está vencido</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+            <input class="input" placeholder="Buscar cliente, proyecto, job…" value="{{ q }}" onChange="{{ onQ }}" style="width:240px">
+            <sc-if value="{{ isLead }}" hint-placeholder-val="{{ true }}">
+              <select class="input" value="{{ anFilter }}" onChange="{{ onAnFilter }}" style="width:auto;min-height:36px"><option value="">Todos los analistas</option><sc-for list="{{ allAnalysts }}" as="a" hint-placeholder-count="0"><option value="{{ a.id }}">{{ a.nombre }}</option></sc-for></select>
+              <div class="seg">
+                <sc-for list="{{ teamOpts }}" as="o" hint-placeholder-count="3">
+                  <label class="seg-opt"><input type="radio" name="team" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(270px,1fr));gap:var(--space-6);overflow-x:auto;padding:8px">
+          <sc-for list="{{ columns }}" as="col" hint-placeholder-count="3">
+            <div onDragOver="{{ col.dragOver }}" onDrop="{{ col.drop }}" style="display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3);min-height:460px;border:1px solid {{ col.border }};border-radius:8px;background:{{ col.bg }}">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="display:flex;align-items:center;gap:var(--space-2)">
+                  <span style="width:8px;height:8px;border-radius:50%;background:{{ col.dot }}"></span>
+                  <h4 style="margin:0">{{ col.label }}</h4>
+                </div>
+                <span class="tag tag-neutral">{{ col.count }}</span>
+              </div>
+              <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="2">
+                <div class="card blueprint" draggable="true" onDragStart="{{ c.dragStart }}" onDragEnd="{{ c.dragEnd }}" onClick="{{ c.open }}" style="cursor:grab;opacity:{{ c.opacity }}" style-hover="border-color:var(--color-accent)">
+                  <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                    <span class="card-kicker" style="color:var(--color-accent-700);overflow:hidden;text-overflow:ellipsis">{{ c.job }} · {{ c.entregable }}</span>
+                    <span style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;color:{{ c.dateColor }};font-weight:{{ c.dateWeight }}"><sc-if value="{{ c.isDue }}" hint-placeholder-val="{{ false }}"><span title="{{ c.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--danger)"></circle><path d="M12 6.5v7M12 17.2v.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"></path></svg></span></sc-if><sc-if value="{{ c.isWarn }}" hint-placeholder-val="{{ false }}"><span title="{{ c.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="oklch(0.86 0.17 92)"></circle><path d="M12 6.5V12l3.5 2" stroke="#1d1f20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg></span></sc-if>{{ c.dateLabel }}</span>
+                  </div>
+                  <div class="card-title">{{ c.proyecto }}</div>
+                  <sc-if value="{{ showMeta }}" hint-placeholder-val="{{ true }}">
+                    <div class="card-body" style="opacity:1;color:var(--color-neutral-800)">{{ c.descripcion }}</div>
+                    <div class="card-meta" style="color:var(--color-neutral-700)">{{ c.cliente }} · {{ c.comercial }}</div>
+                  </sc-if>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:var(--space-2);border-top:1px solid var(--color-divider)">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;min-width:0">
+                      <span style="width:22px;height:22px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--teal-50);color:var(--color-accent-800);font-size:10px;font-weight:700">{{ c.ini }}</span>
+                      <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.analistaNombre }}</span>
+                    </div>
+                    <sc-if value="{{ c.canQuickOk }}" hint-placeholder-val="{{ false }}">
+                      <button class="btn btn-ghost" onClick="{{ c.quickOk }}" style="font-size:13px;padding:2px 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 6 9 17l-5-5"></path></svg>Dar OK</button>
+                    </sc-if>
+                    <sc-if value="{{ c.isOk }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;color:var(--color-accent-700)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 6 9 17l-5-5"></path></svg>{{ c.okLine }}{{ c.okSuffix }}</span>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ col.empty }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:13px;color:var(--color-neutral-600);text-align:center;padding:var(--space-6) 0">Sin requerimientos</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- MI LISTA (analista) -->
+    <sc-if value="{{ isMyList }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Mi lista" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">{{ myListTitle }}</h2>
+            <div style="font-size:13px;color:var(--color-neutral-700)">Revisa lo asignado, marca “Iniciar” al comenzar y “Dar OK” cuando el entregable esté completamente terminado.</div>
+          </div>
+          <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+            <div class="seg">
+              <sc-for list="{{ myWeekOpts }}" as="o" hint-placeholder-count="2">
+                <label class="seg-opt"><input type="radio" name="myweek" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.name }} · {{ o.label }}</label>
+              </sc-for>
+            </div>
+            <button class="btn btn-secondary" onClick="{{ downloadMine }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Descargar mi semana</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="table">
+            <thead><tr><th>Día</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Job</th><th>Entregable</th><th>Descripción</th><th>Comercial</th><th>Materiales recibidos</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              <sc-for list="{{ myRows }}" as="r" hint-placeholder-count="6">
+                <tr>
+                  <td style="white-space:nowrap;color:{{ r.dateColor }};font-weight:{{ r.dateWeight }}"><span style="display:inline-flex;align-items:center;gap:5px"><sc-if value="{{ r.isDue }}" hint-placeholder-val="{{ false }}"><span title="{{ r.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--danger)"></circle><path d="M12 6.5v7M12 17.2v.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"></path></svg></span></sc-if><sc-if value="{{ r.isWarn }}" hint-placeholder-val="{{ false }}"><span title="{{ r.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="oklch(0.86 0.17 92)"></circle><path d="M12 6.5V12l3.5 2" stroke="#1d1f20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg></span></sc-if>{{ r.dia }}</span></td>
+                  <td><span class="{{ r.tipoClass }}">{{ r.tipoShort }}</span></td>
+                  <td>{{ r.cliente }}</td>
+                  <td><a href="#" onClick="{{ r.openLink }}" style="color:var(--color-text);text-decoration:none;font-weight:500">{{ r.proyecto }}</a></td>
+                  <td style="color:var(--color-accent-700);white-space:nowrap">{{ r.job }}</td>
+                  <td>{{ r.entregable }}</td>
+                  <td>{{ r.descripcion }}</td>
+                  <td style="font-size:13px">{{ r.comercial }}</td>
+                  <td><input class="input" type="date" value="{{ r.materialesAt }}" onChange="{{ r.setMat }}" title="Fecha en que recibiste los materiales" style="min-height:30px;padding:2px 6px;font-size:13px;width:150px"></td>
+                  <td><span class="{{ r.estadoClass }}">{{ r.estadoLabel }}</span></td>
+                  <td style="white-space:nowrap">
+                    <sc-if value="{{ r.isPend }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary" onClick="{{ r.start }}" style="font-size:13px;padding:3px 10px">Iniciar</button></sc-if>
+                    <sc-if value="{{ r.canQuickOk }}" hint-placeholder-val="{{ false }}"><button class="btn btn-primary" onClick="{{ r.quickOk }}" style="font-size:13px;padding:3px 10px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Dar OK</button></sc-if>
+                    <sc-if value="{{ r.isOk }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--color-accent-700)">✓ {{ r.okLine }}{{ r.okSuffix }}</span></sc-if>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <sc-if value="{{ myEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:var(--space-8);text-align:center;color:var(--color-neutral-700);font-size:14px">No tienes requerimientos asignados en este periodo.</div>
+          </sc-if>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- PLANIFICACIÓN -->
+    <sc-if value="{{ isPlan }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Planificación semanal" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">Planificación semanal · {{ planUnitLabel }}</h2>
+            <div style="font-size:13px;color:var(--color-neutral-700)">{{ thursdayLine }}</div>
+          </div>
+          <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+            <div class="seg"><sc-for list="{{ planUnitOpts }}" as="o" hint-placeholder-count="2"><label class="seg-opt"><input type="radio" name="unit" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for></div>
+            <select class="input" value="{{ planAn }}" onChange="{{ onAnFilter }}" style="width:auto;min-height:36px"><option value="">Todos los analistas</option><sc-for list="{{ procAnalysts }}" as="a" hint-placeholder-count="0"><option value="{{ a.id }}">{{ a.nombre }}</option></sc-for></select>
+            <div class="seg">
+              <sc-for list="{{ weekOpts }}" as="o" hint-placeholder-count="2">
+                <label class="seg-opt"><input type="radio" name="week" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.name }} · {{ o.label }}</label>
+              </sc-for>
+            </div>
+            <button class="btn btn-secondary" onClick="{{ openImport }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>Importar planilla</button>
+            <button class="btn btn-secondary" onClick="{{ suggestBalance }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1ZM2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1ZM7 21h10M12 3v18M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path></svg>Sugerir balanceo</button>
+            <button class="btn btn-secondary" onClick="{{ downloadWeek }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Descargar planificación</button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-6);padding:6px">
+          <sc-for list="{{ capCards }}" as="a" hint-placeholder-count="4">
+            <div class="card blueprint" onClick="{{ a.pick }}" style="gap:var(--space-3);cursor:pointer;border-color:{{ a.border }}" style-hover="border-color:var(--color-accent)">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                <span class="card-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.nombre }}</span>
+                <span class="{{ a.tagClass }}">{{ a.label }}</span>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:6px;white-space:nowrap">
+                <span style="font-family:var(--font-heading);font-weight:600;font-size:32px;line-height:1">{{ a.n }}</span>
+                <span style="font-size:13px;color:var(--color-neutral-700)">/ {{ a.cap }} · {{ a.mix }}</span>
+              </div>
+              <div style="height:6px;background:var(--color-neutral-200)"><div style="height:100%;width:{{ a.pct }};background:{{ a.bar }}"></div></div>
+              <div class="card-meta" style="color:var(--color-neutral-700)">{{ a.pend }} pendientes · {{ a.curso }} en curso · {{ a.ok }} con OK</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;gap:var(--space-6);flex-wrap:wrap;font-size:14px;color:var(--color-neutral-800)">
+          <span>Total entregables: <strong>{{ planStats.total }}</strong></span>
+          <span>Jobs: <strong>{{ planStats.jobs }}</strong></span>
+          <span>Promedio por analista: <strong>{{ planStats.avg }}</strong></span>
+          <span>Diferencia máx–mín: <strong>{{ planStats.spread }}</strong></span>
+          <span>Sin asignar: <strong>{{ planStats.unassigned }}</strong></span>
+        </div>
+
+        <sc-if value="{{ hasBalance }}" hint-placeholder-val="{{ false }}">
+          <div class="blueprint" style="padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)">
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+              <div style="flex:1;min-width:260px">
+                <h4 style="margin:0">Propuesta de balanceo</h4>
+                <div style="font-size:13px;color:var(--color-neutral-700)">{{ balanceSummary }}</div>
+              </div>
+              <div style="display:flex;gap:var(--space-2)">
+                <button class="btn btn-secondary" onClick="{{ dismissBalance }}">Descartar</button>
+                <button class="btn btn-primary" onClick="{{ applyBalance }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Aplicar cambios</button>
+              </div>
+            </div>
+            <sc-for list="{{ balanceMoves }}" as="m" hint-placeholder-count="2">
+              <div style="display:grid;grid-template-columns:130px minmax(0,1fr) auto;gap:var(--space-3);font-size:14px;padding:6px 0;border-top:1px solid var(--color-divider)">
+                <span style="color:var(--color-accent-700);font-weight:500;white-space:nowrap">{{ m.job }}</span>
+                <span>{{ m.proyecto }} · {{ m.n }} entregable(s)</span>
+                <span style="white-space:nowrap">{{ m.from }} → <strong>{{ m.to }}</strong></span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);flex-wrap:wrap">
+            <h4 style="margin:0">Agenda de la semana</h4>
+            <span style="font-size:12px;color:var(--color-neutral-700)">Entregables de la unidad + scripts (S) por analista y día. Haz clic en una celda para filtrar la tabla.</span>
+          </div>
+          <div style="overflow-x:auto">
+            <div style="min-width:640px;display:flex;flex-direction:column;border-top:1px solid var(--color-divider)">
+              <div style="display:grid;grid-template-columns:minmax(170px,1.6fr) repeat(5,minmax(64px,1fr)) minmax(64px,0.8fr);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-700)">
+                <span style="padding:8px">Analista</span>
+                <sc-for list="{{ agendaDays }}" as="d" hint-placeholder-count="5"><span style="padding:8px;text-align:center">{{ d.label }}</span></sc-for>
+                <span style="padding:8px;text-align:center">Total</span>
+              </div>
+              <sc-for list="{{ agendaRows }}" as="row" hint-placeholder-count="7">
+                <div style="display:grid;grid-template-columns:minmax(170px,1.6fr) repeat(5,minmax(64px,1fr)) minmax(64px,0.8fr);border-top:1px solid var(--color-divider);font-size:14px">
+                  <button onClick="{{ row.pick }}" style="padding:8px;text-align:left;background:transparent;border:0;font:inherit;color:{{ row.color }};font-weight:{{ row.weight }};cursor:pointer" style-hover="color:var(--color-accent-700)">{{ row.nombre }}</button>
+                  <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="5">
+                    <button onClick="{{ cell.pick }}" style="margin:3px;padding:6px 0;text-align:center;font:inherit;font-weight:500;cursor:pointer;background:{{ cell.bg }};color:{{ cell.fg }};border:1px solid {{ cell.border }}" style-hover="border-color:var(--color-accent)">{{ cell.label }}</button>
+                  </sc-for>
+                  <span style="padding:8px;text-align:center;font-weight:700">{{ row.total }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+            <h4 style="margin:0">Detalle de entregables</h4>
+            <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+              <sc-if value="{{ hasPlanFilter }}" hint-placeholder-val="{{ false }}">
+                <button class="btn btn-secondary" onClick="{{ clearPlanFilter }}" style="font-size:13px">{{ planFilterLabel }} ✕</button>
+              </sc-if>
+              <input class="input" placeholder="Buscar cliente, proyecto, job…" value="{{ planQ }}" onChange="{{ onPlanQ }}" style="width:240px">
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="table">
+              <thead><tr><th>Día</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Job</th><th>Entregable</th><th>Descripción</th><th>Comercial</th><th>Analista</th><th>Estado</th><th>Okay</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ planRows }}" as="r" hint-placeholder-count="6">
+                  <tr>
+                    <td style="white-space:nowrap;color:{{ r.dateColor }};font-weight:{{ r.dateWeight }}"><span style="display:inline-flex;align-items:center;gap:5px"><sc-if value="{{ r.isDue }}" hint-placeholder-val="{{ false }}"><span title="{{ r.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--danger)"></circle><path d="M12 6.5v7M12 17.2v.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"></path></svg></span></sc-if><sc-if value="{{ r.isWarn }}" hint-placeholder-val="{{ false }}"><span title="{{ r.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="oklch(0.86 0.17 92)"></circle><path d="M12 6.5V12l3.5 2" stroke="#1d1f20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg></span></sc-if>{{ r.dia }}</span></td>
+                    <td><span class="{{ r.tipoClass }}">{{ r.tipoShort }}</span></td>
+                    <td>{{ r.cliente }}</td>
+                    <td><a href="#" onClick="{{ r.openLink }}" style="color:var(--color-text);text-decoration:none;font-weight:500">{{ r.proyecto }}</a></td>
+                    <td style="color:var(--color-accent-700);white-space:nowrap">{{ r.job }}</td>
+                    <td>{{ r.entregable }}</td>
+                    <td>{{ r.descripcion }}</td>
+                    <td style="font-size:13px">{{ r.comercial }}</td>
+                    <td>
+                      <select class="input" value="{{ r.analista }}" onChange="{{ r.setAnalista }}" style="min-height:30px;padding:3px 6px;font-size:13px;width:170px">
+                        <option value="">Sin asignar</option>
+                        <sc-for list="{{ r.options }}" as="a" hint-placeholder-count="0"><option value="{{ a.id }}">{{ a.nombre }}</option></sc-for>
+                      </select>
+                    </td>
+                    <td><span class="{{ r.estadoClass }}">{{ r.estadoLabel }}</span></td>
+                    <td style="white-space:nowrap">
+                      <sc-if value="{{ r.isOk }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--color-accent-700)">✓ {{ r.okLine }}{{ r.okSuffix }}</span></sc-if>
+                      <sc-if value="{{ r.notOk }}" hint-placeholder-val="{{ true }}"><button class="btn btn-ghost" onClick="{{ r.quickOk }}" style="font-size:13px;padding:2px 6px">Dar OK</button></sc-if>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <sc-if value="{{ planEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:var(--space-8);text-align:center;color:var(--color-neutral-700);font-size:14px;display:flex;flex-direction:column;align-items:center;gap:var(--space-3)">
+                <span>No hay entregables para esta selección.</span>
+                <button class="btn btn-secondary" onClick="{{ openImport }}">Importar planilla de la semana</button>
+              </div>
+            </sc-if>
+          </div>
+          <div><button class="btn btn-secondary" onClick="{{ openNewProc }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"></path></svg>Agregar entregable</button></div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- SCRIPTS -->
+    <sc-if value="{{ isScripts }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Scripts" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div>
+          <h2 style="margin:0">Programación de scripts</h2>
+          <div style="font-size:13px;color:var(--color-neutral-700)">Demanda ad-hoc: cada script nuevo se asigna de inmediato a la primera persona disponible. Límite simultáneo: {{ wip }} activos por analista.</div>
+        </div>
+        <div class="blueprint" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-4);align-items:center;padding:var(--space-4) var(--space-6)">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span class="card-kicker" style="color:var(--color-accent-700)">Siguiente asignación recomendada</span>
+            <span style="font-family:var(--font-heading);font-weight:600;font-size:28px;line-height:1.1">{{ rec.nombre }}</span>
+            <span style="font-size:14px;color:var(--color-neutral-800)">{{ rec.reason }}</span>
+          </div>
+          <button class="btn btn-primary" onClick="{{ openNewScript }}" style="min-height:40px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"></path></svg>Ingresar script</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--space-6);padding:6px">
+          <sc-for list="{{ lanes }}" as="l" hint-placeholder-count="3">
+            <div class="card blueprint" style="gap:var(--space-3);border-color:{{ l.border }}">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="width:26px;height:26px;display:grid;place-items:center;border-radius:50%;background:var(--teal-50);color:var(--color-accent-800);font-size:11px;font-weight:700">{{ l.ini }}</span>
+                  <span class="card-title">{{ l.nombre }}</span>
+                </div>
+                <span class="{{ l.tagClass }}">{{ l.label }}</span>
+              </div>
+              <div style="display:flex;gap:4px">
+                <sc-for list="{{ l.slots }}" as="s" hint-placeholder-count="3"><div style="flex:1;height:6px;background:{{ s.bg }}"></div></sc-for>
+              </div>
+              <div class="card-meta" style="color:var(--color-neutral-700)">{{ l.metaLine }}</div>
+              <sc-for list="{{ l.items }}" as="c" hint-placeholder-count="1">
+                <div onClick="{{ c.open }}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:var(--space-2) 0;border-top:1px solid var(--color-divider);cursor:pointer;font-size:13px" style-hover="color:var(--color-accent-700)">
+                  <div style="display:flex;flex-direction:column;min-width:0">
+                    <span style="font-weight:500">{{ c.proyecto }}</span>
+                    <span style="font-size:11px;color:var(--color-neutral-700)">{{ c.job }} · {{ c.descripcion }} · {{ c.dia }}</span>
+                  </div>
+                  <span class="{{ c.estadoClass }}">{{ c.estadoLabel }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ l.free }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:13px;color:var(--color-neutral-700);padding-top:var(--space-2);border-top:1px solid var(--color-divider)">Sin scripts activos — disponible ahora.</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ hasUnassignedScripts }}" hint-placeholder-val="{{ false }}">
+          <div class="blueprint" style="padding:var(--space-4);display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <span style="font-size:14px">{{ unassignedScripts }} script(s) sin asignar en cola.</span>
+            <button class="btn btn-secondary" onClick="{{ autoAssignScripts }}">Asignar a primer disponible</button>
+          </div>
+        </sc-if>
+      </section>
+    </sc-if>
+
+    <!-- RESUMEN -->
+    <sc-if value="{{ isSummary }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Resumen" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">Resumen y pendientes de OK</h2>
+            <div style="font-size:13px;color:var(--color-neutral-700)">Procesamiento semana {{ curWeekLabel }} + scripts. Listo para comunicar al equipo.</div>
+          </div>
+          <button class="btn btn-primary" onClick="{{ copySummary }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="8" y="8" width="14" height="14"></rect><path d="M4 16V4h12"></path></svg>Copiar resumen</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--space-6);padding:6px">
+          <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+            <div class="card blueprint">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <span class="card-kicker" style="color:var(--color-accent-700)">{{ k.label }}</span>
+              <span style="font-family:var(--font-heading);font-weight:600;font-size:40px;line-height:1">{{ k.value }}</span>
+              <span class="card-meta" style="color:var(--color-neutral-700)">{{ k.note }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:var(--space-8)">
+          <div style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0">
+            <h4 style="margin:0">Pendientes priorizados</h4>
+            <div style="overflow-x:auto">
+              <table class="table">
+                <thead><tr><th>#</th><th>Día</th><th>Job</th><th>Proyecto · Entregable</th><th>Analista</th><th>Estado</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ pendingList }}" as="r" hint-placeholder-count="5">
+                    <tr onClick="{{ r.open }}" style="cursor:pointer">
+                      <td style="color:var(--color-neutral-700)">{{ r.rank }}</td>
+                      <td style="white-space:nowrap;color:{{ r.dateColor }};font-weight:{{ r.dateWeight }}"><span style="display:inline-flex;align-items:center;gap:5px"><sc-if value="{{ r.isDue }}" hint-placeholder-val="{{ false }}"><span title="{{ r.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--danger)"></circle><path d="M12 6.5v7M12 17.2v.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"></path></svg></span></sc-if><sc-if value="{{ r.isWarn }}" hint-placeholder-val="{{ false }}"><span title="{{ r.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="oklch(0.86 0.17 92)"></circle><path d="M12 6.5V12l3.5 2" stroke="#1d1f20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg></span></sc-if>{{ r.dia }}</span></td>
+                      <td style="color:var(--color-accent-700);white-space:nowrap">{{ r.job }}</td>
+                      <td>{{ r.proyecto }} · {{ r.descripcion }}</td>
+                      <td style="white-space:nowrap">{{ r.analistaNombre }}</td>
+                      <td><span class="{{ r.estadoClass }}">{{ r.estadoLabel }}</span></td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0">
+            <h4 style="margin:0">Carga por analista</h4>
+            <div style="overflow-x:auto">
+              <table class="table">
+                <thead><tr><th>Analista</th><th>Equipos</th><th>Pend.</th><th>En curso</th><th>OK</th><th>Atrasados</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ perAnalyst }}" as="a" hint-placeholder-count="7">
+                    <tr><td>{{ a.nombre }}</td><td>{{ a.equipoLabel }}</td><td>{{ a.pend }}</td><td>{{ a.curso }}</td><td>{{ a.ok }}</td><td style="font-weight:{{ a.lateWeight }}">{{ a.late }}</td></tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <h4 style="margin:var(--space-4) 0 0">Texto para el equipo</h4>
+            <pre class="blueprint" style="margin:0;padding:var(--space-4);font-family:var(--font-body);font-size:13px;white-space:pre-wrap;line-height:1.5">{{ summaryText }}</pre>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- SOLICITUDES NUEVAS (líder) -->
+    <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Solicitudes nuevas" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">Solicitudes de áreas comerciales</h2>
+            <div style="font-size:13px;color:var(--ink-muted)">Llegan sin analista. Descárgalas para planificar y luego asígnalas desde Planificación semanal (DP y Codificación) o Scripts.</div>
+          </div>
+          <button class="btn btn-primary" onClick="{{ downloadInbox }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Descargar solicitudes</button>
+        </div>
+        <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+          <div class="seg"><sc-for list="{{ inboxUnitOpts }}" as="o" hint-placeholder-count="4"><label class="seg-opt"><input type="radio" name="iunit" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for></div>
+          <div class="seg"><sc-for list="{{ inboxStateOpts }}" as="o" hint-placeholder-count="2"><label class="seg-opt"><input type="radio" name="istate" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for></div>
+          <span style="font-size:13px;color:var(--ink-muted)">{{ inboxStats }}</span>
+        </div>
+        <sc-for list="{{ inboxCards }}" as="c" hint-placeholder-count="2">
+          <div class="card" style="gap:var(--space-3)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                <div style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap"><span class="card-kicker">{{ c.solId }}</span><span class="{{ c.unidadClass }}">{{ c.unidadLabel }}</span></div>
+                <span class="card-title" style="font-size:18px">{{ c.proyecto }}</span>
+                <span style="font-size:13px;color:var(--ink-muted)">{{ c.cliente }} · Job {{ c.job }} · Solicitado por {{ c.solByNombre }} el {{ c.solAtLabel }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                <span class="{{ c.statusClass }}">{{ c.status }}</span>
+                <span style="font-size:13px;white-space:nowrap">Requerida para: <strong>{{ c.fechaReq }}</strong></span>
+              </div>
+            </div>
+            <sc-if value="{{ c.hasNota }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;background:var(--neutral-50);border-radius:6px;padding:var(--space-2) var(--space-3)">Nota: {{ c.nota }}</div></sc-if>
+            <div style="overflow-x:auto">
+              <table class="table">
+                <thead><tr><th>Entregable</th><th>Descripción</th><th>Día de entrega</th><th>Asignado a</th><th>Estado</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="2">
+                    <tr><td>{{ r.entregable }}</td><td>{{ r.descripcion }}</td><td style="white-space:nowrap">{{ r.dia }}</td><td style="white-space:nowrap">{{ r.asignado }}</td><td><span class="{{ r.pubClass }}">{{ r.pubEstado }}</span></td></tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap">
+              <sc-if value="{{ c.canPlan }}" hint-placeholder-val="{{ true }}"><button class="btn btn-primary" onClick="{{ c.goPlan }}">Asignar en {{ c.moduleLabel }} →</button></sc-if>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ inboxEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:var(--space-8);text-align:center;color:var(--ink-muted);font-size:14px">No hay solicitudes con este filtro.</div></sc-if>
+      </section>
+    </sc-if>
+
+    <!-- NUEVA SOLICITUD (comercial) -->
+    <sc-if value="{{ isSolNew }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Nueva solicitud" style="display:flex;flex-direction:column;gap:var(--space-6);max-width:820px">
+        <div>
+          <h2 style="margin:0">Nueva solicitud a Operaciones</h2>
+          <div style="font-size:13px;color:var(--ink-muted)">Tu solicitud llega al líder del equipo, que la planifica y asigna a un analista. Podrás seguir su estado en "Mis solicitudes".</div>
+        </div>
+        <div class="card" style="gap:var(--space-4);padding:var(--space-6)">
+          <div class="field"><label>Unidad de Operaciones *</label>
+            <div class="seg" style="display:flex"><sc-for list="{{ solUnitOpts }}" as="o" hint-placeholder-count="3"><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="sunit" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-3)">
+            <div class="field"><label>Cliente *</label><input class="input" value="{{ sd.cliente }}" onChange="{{ onSd.cliente }}" placeholder="Ej. Banco Estado"></div>
+            <div class="field"><label>Job *</label><input class="input" value="{{ sd.job }}" onChange="{{ onSd.job }}" placeholder="26-000000-01-01"></div>
+            <div class="field" style="grid-column:1 / -1"><label>Proyecto / estudio *</label><input class="input" value="{{ sd.proyecto }}" onChange="{{ onSd.proyecto }}" placeholder="Nombre del estudio"></div>
+            <div class="field"><label>SL *</label><select class="input" value="{{ sd.bu }}" onChange="{{ onSd.bu }}"><sc-for list="{{ sls }}" as="b" hint-placeholder-count="0"><option value="{{ b }}">{{ b }}</option></sc-for></select></div>
+            <div class="field"><label>Técnica *</label><select class="input" value="{{ sd.tecnica }}" onChange="{{ onSd.tecnica }}"><option value="">Selecciona la técnica…</option><sc-for list="{{ campos }}" as="c" hint-placeholder-count="0"><option value="{{ c }}">{{ c }}</option></sc-for></select></div>
+            <div class="field"><label>Fecha requerida de entrega *</label><input class="input" type="date" value="{{ sd.fecha }}" onChange="{{ onSd.fecha }}"></div>
+          </div>
+          <div>
+            <div class="field"><label>{{ sdEntTitle }} * <span style="font-weight:400">(uno o más)</span></label>
+              <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">
+                <sc-for list="{{ solEntOpts }}" as="o" hint-placeholder-count="5">
+                  <label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:14px;cursor:pointer;border:1px solid {{ o.border }};background:{{ o.bg }};font-weight:{{ o.weight }}"><input type="checkbox" checked="{{ o.active }}" onChange="{{ o.pick }}" style="position:absolute;opacity:0;width:0;height:0">{{ o.mark }}{{ o.label }}</label>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div class="field"><label>Descripción / instrucciones</label><input class="input" value="{{ sd.descripcion }}" onChange="{{ onSd.descripcion }}" placeholder="Ej. Tablas con cruces por región, SPSS etiquetado"></div>
+          <div class="field"><label>Notas para Operaciones</label><textarea class="input" value="{{ sd.nota }}" onChange="{{ onSd.nota }}" placeholder="Fecha estimada de entrega de materiales, contactos, prioridades…" style="min-height:70px"></textarea></div>
+          <div style="font-size:13px;background:var(--teal-50);border-radius:6px;padding:var(--space-3)">{{ sdRouteLine }}</div>
+          <sc-if value="{{ hasSdErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--danger);font-weight:500">{{ sdErr }}</div></sc-if>
+          <div style="display:flex;justify-content:flex-end;gap:var(--space-2)">
+            <button class="btn btn-secondary" onClick="{{ resetSol }}">Limpiar</button>
+            <button class="btn btn-primary" onClick="{{ submitSol }}">Enviar solicitud</button>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- MIS SOLICITUDES (comercial) -->
+    <sc-if value="{{ isSolMine }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Mis solicitudes" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">Mis solicitudes</h2>
+            <div style="font-size:13px;color:var(--ink-muted)">Estado de asignación y día de entrega de cada entregable. Solo lectura.</div>
+          </div>
+          <button class="btn btn-primary" onClick="{{ goSolNew }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Nueva solicitud</button>
+        </div>
+        <sc-for list="{{ mySols }}" as="c" hint-placeholder-count="2">
+          <div class="card" style="gap:var(--space-3)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                <div style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap"><span class="card-kicker">{{ c.solId }}</span><span class="{{ c.unidadClass }}">{{ c.unidadLabel }}</span></div>
+                <span class="card-title" style="font-size:18px">{{ c.proyecto }}</span>
+                <span style="font-size:13px;color:var(--ink-muted)">{{ c.cliente }} · Job {{ c.job }} · Solicitado por {{ c.solByNombre }} el {{ c.solAtLabel }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                <span class="{{ c.statusClass }}">{{ c.status }}</span>
+                <span style="font-size:13px;white-space:nowrap">Requerida para: <strong>{{ c.fechaReq }}</strong></span>
+              </div>
+            </div>
+            <sc-if value="{{ c.hasNota }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;background:var(--neutral-50);border-radius:6px;padding:var(--space-2) var(--space-3)">Nota: {{ c.nota }}</div></sc-if>
+            <div style="overflow-x:auto">
+              <table class="table">
+                <thead><tr><th>Entregable</th><th>Descripción</th><th>Día de entrega</th><th>Asignado a</th><th>Estado</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="2">
+                    <tr><td>{{ r.entregable }}</td><td>{{ r.descripcion }}</td><td style="white-space:nowrap">{{ r.dia }}</td><td style="white-space:nowrap">{{ r.asignado }}</td><td><span class="{{ r.pubClass }}">{{ r.pubEstado }}</span></td></tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ mySolsEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:var(--space-8);text-align:center;color:var(--ink-muted);font-size:14px">Aún no has enviado solicitudes.</div></sc-if>
+      </section>
+    </sc-if>
+
+    <!-- HISTÓRICO -->
+    <sc-if value="{{ isHist }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Histórico" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">Histórico</h2>
+            <div style="font-size:13px;color:var(--color-neutral-700)">Cumplimiento por semana o mes. "A tiempo" = OK registrado el mismo día de entrega o antes.</div>
+          </div>
+          <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+            <select class="input" value="{{ anFilter }}" onChange="{{ onAnFilter }}" style="width:auto;min-height:36px"><option value="">Todos los analistas</option><sc-for list="{{ allAnalysts }}" as="a" hint-placeholder-count="0"><option value="{{ a.id }}">{{ a.nombre }}</option></sc-for></select>
+            <div class="seg">
+              <sc-for list="{{ histModeOpts }}" as="o" hint-placeholder-count="2"><label class="seg-opt"><input type="radio" name="hmode" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:var(--space-1)">
+              <button class="btn btn-icon btn-secondary" onClick="{{ histPrev }}" aria-label="Anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m15 18-6-6 6-6"></path></svg></button>
+              <span style="font-family:var(--font-heading);font-weight:600;font-size:18px;min-width:170px;text-align:center;white-space:nowrap">{{ histLabel }}</span>
+              <button class="btn btn-icon btn-secondary" onClick="{{ histNext }}" aria-label="Siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m9 18 6-6-6-6"></path></svg></button>
+            </div>
+            <button class="btn btn-secondary" onClick="{{ downloadHist }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Descargar periodo</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--space-6);padding:6px">
+          <sc-for list="{{ histKpis }}" as="k" hint-placeholder-count="4">
+            <div class="card blueprint">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <span class="card-kicker" style="color:var(--color-accent-700)">{{ k.label }}</span>
+              <span style="font-family:var(--font-heading);font-weight:600;font-size:40px;line-height:1">{{ k.value }}</span>
+              <span class="card-meta" style="color:var(--color-neutral-700)">{{ k.note }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:var(--space-8)">
+          <div style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0">
+            <h4 style="margin:0">{{ histBucketTitle }}</h4>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ histRows }}" as="b" hint-placeholder-count="5">
+                <div onClick="{{ b.pick }}" style="display:grid;grid-template-columns:minmax(110px,0.9fr) minmax(0,2fr) auto;gap:var(--space-3);align-items:center;padding:8px 0;border-top:1px solid var(--color-divider);font-size:13px;cursor:{{ b.cursor }}">
+                  <span style="white-space:nowrap;font-weight:500">{{ b.label }}</span>
+                  <div style="height:14px;background:var(--color-neutral-200)"><div style="height:100%;width:{{ b.pct }};background:var(--color-accent-200)"><div style="height:100%;width:{{ b.okPct }};background:var(--color-accent)"></div></div></div>
+                  <span style="white-space:nowrap;color:var(--color-neutral-800)">{{ b.ok }}/{{ b.n }} OK · {{ b.ot }} a tiempo · {{ b.late }} atrasos</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;gap:var(--space-4);font-size:12px;color:var(--color-neutral-700)"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:var(--color-accent)"></span>Con OK</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:var(--color-accent-200)"></span>Abiertos</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0">
+            <h4 style="margin:0">Por analista</h4>
+            <div style="overflow-x:auto">
+              <table class="table">
+                <thead><tr><th>Analista</th><th>DP</th><th>COD</th><th>Scripts</th><th>Horas</th><th>Registros</th><th>Con OK</th><th>A tiempo</th><th>Atrasos</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ histAnalysts }}" as="a" hint-placeholder-count="7">
+                    <tr onClick="{{ a.pick }}" style="cursor:pointer"><td style="white-space:nowrap;font-weight:500">{{ a.nombre }}</td><td>{{ a.dp }}</td><td>{{ a.cod }}</td><td>{{ a.sc }}</td><td style="white-space:nowrap">{{ a.hrs }}</td><td style="white-space:nowrap">{{ a.reg }}</td><td>{{ a.ok }}</td><td>{{ a.ot }}</td><td style="font-weight:{{ a.lateWeight }}">{{ a.late }}</td></tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <h4 style="margin:0">Entregables del periodo <span style="font-family:var(--font-body);font-weight:400;font-size:13px;color:var(--color-neutral-700)">{{ histListNote }}</span></h4>
+          <div style="overflow-x:auto">
+            <table class="table">
+              <thead><tr><th>Día</th><th>Tipo</th><th>Job</th><th>Proyecto</th><th>Descripción</th><th>Analista</th><th>Estado</th><th>OK</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ histList }}" as="r" hint-placeholder-count="6">
+                  <tr onClick="{{ r.open }}" style="cursor:pointer">
+                    <td style="white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:5px"><sc-if value="{{ r.isDue }}" hint-placeholder-val="{{ false }}"><span title="{{ r.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--danger)"></circle><path d="M12 6.5v7M12 17.2v.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"></path></svg></span></sc-if><sc-if value="{{ r.isWarn }}" hint-placeholder-val="{{ false }}"><span title="{{ r.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="oklch(0.86 0.17 92)"></circle><path d="M12 6.5V12l3.5 2" stroke="#1d1f20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg></span></sc-if>{{ r.dia }}</span></td>
+                    <td><span class="{{ r.tipoClass }}">{{ r.tipoShort }}</span></td>
+                    <td style="color:var(--color-accent-700);white-space:nowrap">{{ r.job }}</td>
+                    <td>{{ r.proyecto }}</td>
+                    <td>{{ r.descripcion }}</td>
+                    <td style="white-space:nowrap">{{ r.analistaNombre }}</td>
+                    <td><span class="{{ r.estadoClass }}">{{ r.estadoLabel }}</span></td>
+                    <td style="white-space:nowrap;font-size:13px;color:{{ r.otColor }};font-weight:{{ r.otWeight }}">{{ r.otLabel }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- MOTIVOS DE ATRASO -->
+    <sc-if value="{{ isAtr }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Motivos de atraso" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">Motivos de atraso</h2>
+            <div style="font-size:13px;color:var(--ink-muted)">Entregas cerradas después del día comprometido, según el responsable declarado al dar OK: la propia unidad (Procesamiento, Script, Codificación), materiales del área comercial o campo.</div>
+          </div>
+          <button class="btn btn-secondary" onClick="{{ downloadAtr }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Descargar atrasos</button>
+        </div>
+        <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+          <div class="seg"><sc-for list="{{ histModeOpts }}" as="o" hint-placeholder-count="2"><label class="seg-opt"><input type="radio" name="amode" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for></div>
+          <div style="display:flex;align-items:center;gap:var(--space-1)">
+            <button class="btn btn-icon btn-secondary" onClick="{{ histPrev }}" aria-label="Anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m15 18-6-6 6-6"></path></svg></button>
+            <span style="font-weight:600;font-size:16px;min-width:170px;text-align:center;white-space:nowrap">{{ histLabel }}</span>
+            <button class="btn btn-icon btn-secondary" onClick="{{ histNext }}" aria-label="Siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m9 18 6-6-6-6"></path></svg></button>
+          </div>
+          <div class="seg"><sc-for list="{{ atrUnitOpts }}" as="o" hint-placeholder-count="4"><label class="seg-opt"><input type="radio" name="aunit" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for></div>
+          <select class="input" value="{{ anFilter }}" onChange="{{ onAnFilter }}" style="width:auto;min-height:36px"><option value="">Todos los analistas</option><sc-for list="{{ allAnalysts }}" as="a" hint-placeholder-count="0"><option value="{{ a.id }}">{{ a.nombre }}</option></sc-for></select>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--space-4)">
+          <sc-for list="{{ atrKpis }}" as="k" hint-placeholder-count="6">
+            <div class="card" style="gap:4px">
+              <span class="card-kicker">{{ k.label }}</span>
+              <span style="font-weight:600;font-size:32px;line-height:1.1;color:{{ k.color }}">{{ k.value }}</span>
+              <span class="card-meta">{{ k.note }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div class="card" style="gap:var(--space-3)">
+          <h4 style="margin:0">¿Quién origina los atrasos?</h4>
+          <div style="display:flex;height:28px;border-radius:6px;overflow:hidden;background:var(--neutral-50)">
+            <sc-for list="{{ atrStack }}" as="g" hint-placeholder-count="3"><div title="{{ g.label }}: {{ g.n }}" style="width:{{ g.pct }};background:{{ g.color }}"></div></sc-for>
+          </div>
+          <div style="display:flex;gap:var(--space-6);flex-wrap:wrap;font-size:13px">
+            <sc-for list="{{ atrStack }}" as="g" hint-placeholder-count="3"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:{{ g.color }}"></span>{{ g.label }} · <strong>{{ g.n }}</strong> ({{ g.pctLabel }}) · {{ g.dias }} días prom.</span></sc-for>
+          </div>
+          <sc-if value="{{ atrEmpty }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;color:var(--ink-muted)">Sin entregas atrasadas en este periodo.</div></sc-if>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:var(--space-6)">
+          <div style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0">
+            <h4 style="margin:0">Por unidad de Operaciones</h4>
+            <div style="overflow-x:auto">
+              <table class="table">
+                <thead><tr><th>Unidad</th><th>Entregas</th><th>Atrasos</th><th>Propio de la unidad</th><th>Comercial</th><th>Campo</th><th>Días prom.</th></tr></thead>
+                <tbody><sc-for list="{{ atrUnits }}" as="u" hint-placeholder-count="3"><tr><td style="font-weight:500">{{ u.unidad }}</td><td>{{ u.entregas }}</td><td style="white-space:nowrap">{{ u.atrasos }}</td><td>{{ u.ops }}</td><td>{{ u.com }}</td><td>{{ u.campo }}</td><td>{{ u.dias }}</td></tr></sc-for></tbody>
+              </table>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0">
+            <h4 style="margin:0">Motivos más frecuentes</h4>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ atrMotivos }}" as="m" hint-placeholder-count="5">
+                <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 36px;gap:var(--space-3);align-items:center;padding:7px 0;border-top:1px solid var(--border);font-size:13px">
+                  <div style="display:flex;flex-direction:column;min-width:0"><span style="font-weight:500">{{ m.motivo }}</span><span style="font-size:11px;color:var(--ink-muted)">{{ m.respLabel }}</span></div>
+                  <div style="height:10px;background:var(--neutral-50);border-radius:3px"><div style="height:100%;width:{{ m.pct }};background:{{ m.color }};border-radius:3px"></div></div>
+                  <span style="text-align:right;font-weight:600">{{ m.n }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:var(--space-6)">
+          <div style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0">
+            <h4 style="margin:0">Atrasos por materiales · por responsable comercial</h4>
+            <div style="overflow-x:auto">
+              <table class="table">
+                <thead><tr><th>Responsable comercial</th><th>Atrasos</th><th>Días prom.</th><th>Motivo principal</th></tr></thead>
+                <tbody><sc-for list="{{ atrComerciales }}" as="c" hint-placeholder-count="4"><tr><td style="white-space:nowrap;font-weight:500">{{ c.nombre }}</td><td>{{ c.n }}</td><td>{{ c.dias }}</td><td style="font-size:13px">{{ c.top }}</td></tr></sc-for></tbody>
+              </table>
+              <sc-if value="{{ atrComEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:var(--space-4);font-size:13px;color:var(--ink-muted)">Sin atrasos atribuidos a materiales comerciales.</div></sc-if>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-3);min-width:0">
+            <h4 style="margin:0">Atrasos de campo · por área</h4>
+            <div style="overflow-x:auto">
+              <table class="table">
+                <thead><tr><th>Área de campo</th><th>Atrasos</th><th>Días prom.</th><th>Motivo principal</th></tr></thead>
+                <tbody><sc-for list="{{ atrCampo }}" as="c" hint-placeholder-count="3"><tr><td style="white-space:nowrap;font-weight:500">{{ c.nombre }}</td><td>{{ c.n }}</td><td>{{ c.dias }}</td><td style="font-size:13px">{{ c.top }}</td></tr></sc-for></tbody>
+              </table>
+              <sc-if value="{{ atrCampoEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:var(--space-4);font-size:13px;color:var(--ink-muted)">Sin atrasos atribuidos a campo.</div></sc-if>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <h4 style="margin:0">Detalle de entregas atrasadas <span style="font-weight:400;font-size:13px;color:var(--ink-muted)">{{ atrListNote }}</span></h4>
+          <div style="overflow-x:auto">
+            <table class="table">
+              <thead><tr><th>Día comprometido</th><th>Entregado</th><th>Atraso</th><th>Tipo</th><th>Job</th><th>Proyecto</th><th>Analista</th><th>Materiales recibidos</th><th>Responsable</th><th>Motivo</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ atrList }}" as="r" hint-placeholder-count="6">
+                  <tr onClick="{{ r.open }}" style="cursor:pointer">
+                    <td style="white-space:nowrap">{{ r.dia }}</td>
+                    <td style="white-space:nowrap">{{ r.okDia }}</td>
+                    <td style="white-space:nowrap;font-weight:600;color:var(--danger)">{{ r.diasLabel }}</td>
+                    <td><span class="{{ r.tipoClass }}">{{ r.tipoShort }}</span></td>
+                    <td style="white-space:nowrap;color:var(--teal-text)">{{ r.job }}</td>
+                    <td>{{ r.proyecto }}</td>
+                    <td style="white-space:nowrap">{{ r.analistaNombre }}</td>
+                    <td style="white-space:nowrap;color:{{ r.matColor }};font-weight:{{ r.matWeight }}">{{ r.matLabel2 }}</td>
+                    <td><span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:{{ r.respColor }}"></span>{{ r.respLabel }}</span></td>
+                    <td style="font-size:13px">{{ r.motivoLabel }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- NOTIFICACIONES -->
+    <sc-if value="{{ isNotif }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Notificaciones" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">Notificaciones por correo</h2>
+            <div style="font-size:13px;color:var(--color-neutral-700)">Registro de correos automáticos enviados (simulados en este prototipo).</div>
+          </div>
+          <button class="btn btn-secondary" onClick="{{ runOverdue }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>Enviar recordatorios de atraso ahora</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--space-6);padding:6px">
+          <sc-for list="{{ notifRules }}" as="nr" hint-placeholder-count="2">
+            <div class="card blueprint">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="card-title">{{ nr.title }}</span><span class="{{ nr.tagClass }}">{{ nr.state }}</span></div>
+              <p class="card-body" style="opacity:1;color:var(--color-neutral-800)">{{ nr.desc }}</p>
+            </div>
+          </sc-for>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="table">
+            <thead><tr><th>Enviado</th><th>Tipo</th><th>Para</th><th>Asunto</th></tr></thead>
+            <tbody>
+              <sc-for list="{{ mailRows }}" as="m" hint-placeholder-count="4">
+                <tr onClick="{{ m.toggle }}" style="cursor:pointer">
+                  <td style="white-space:nowrap;font-size:13px">{{ m.when }}</td>
+                  <td><span class="{{ m.kindClass }}">{{ m.kindLabel }}</span></td>
+                  <td style="font-size:13px">{{ m.toLabel }}</td>
+                  <td>{{ m.subject }}</td>
+                </tr>
+                <tr style="display:{{ m.rowDisplay }}"><td colspan="4" style="background:var(--color-neutral-100)"><div style="font-size:12px;color:var(--color-neutral-700);padding-bottom:6px">Para: {{ m.toLabel }} · CC: {{ m.ccLabel }}</div><pre style="margin:0;font-family:var(--font-body);font-size:13px;white-space:pre-wrap;line-height:1.5">{{ m.body }}</pre></td></tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <sc-if value="{{ mailsEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:var(--space-8);text-align:center;color:var(--color-neutral-700);font-size:14px">Aún no se han enviado correos.</div></sc-if>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- USUARIOS -->
+    <sc-if value="{{ isUsers }}" hint-placeholder-val="{{ false }}">
+      <section data-screen-label="Usuarios" style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0">Usuarios y roles</h2>
+            <div style="font-size:13px;color:var(--color-neutral-700)">Líder de equipo: ve y administra toda la planificación. Analista: solo ve y actualiza su carga asignada (puede pertenecer a Procesamiento, Scripting o ambos). Los usuarios inactivos no reciben asignaciones.</div>
+          </div>
+          <button class="btn btn-primary" onClick="{{ openNewUser }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"></path></svg>Nuevo usuario</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-6);padding:6px">
+          <sc-for list="{{ roleCards }}" as="rc" hint-placeholder-count="3">
+            <div class="card blueprint">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+                <span class="card-title">{{ rc.label }}</span>
+                <span style="font-family:var(--font-heading);font-weight:600;font-size:24px">{{ rc.count }}</span>
+              </div>
+              <p class="card-body" style="opacity:1;color:var(--color-neutral-800)">{{ rc.desc }}</p>
+            </div>
+          </sc-for>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="table">
+            <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Equipos</th><th>Carga activa</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              <sc-for list="{{ userRows }}" as="u" hint-placeholder-count="8">
+                <tr style="opacity:{{ u.opacity }}">
+                  <td style="font-weight:500;white-space:nowrap">{{ u.nombre }}</td>
+                  <td style="font-size:13px">{{ u.email }}</td>
+                  <td><span class="{{ u.rolClass }}">{{ u.rolLabel }}</span></td>
+                  <td>{{ u.equipoLabel }}</td>
+                  <td>{{ u.carga }}</td>
+                  <td><button class="btn btn-ghost" onClick="{{ u.toggle }}" style="font-size:13px;padding:2px 6px">{{ u.estadoLabel }}</button></td>
+                  <td><button class="btn btn-secondary" onClick="{{ u.edit }}" style="font-size:13px;padding:3px 10px">Editar</button></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </sc-if>
+  </main>
+  </div>
+  </sc-if>
+
+  <!-- DETALLE -->
+  <sc-if value="{{ hasDetail }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" onClick="{{ closeDetail }}" style="z-index:50">
+      <div class="dialog blueprint" onClick="{{ stop }}" style="width:min(620px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)">
+          <div>
+            <span class="card-kicker" style="color:var(--color-accent-700)">{{ d.tipoLabel }} · {{ d.job }}</span>
+            <div class="dialog-title">{{ d.proyecto }}</div>
+            <div style="font-size:13px;color:var(--color-neutral-800)">{{ d.entregable }} — {{ d.descripcion }}</div>
+          </div>
+          <button class="btn btn-icon btn-secondary" onClick="{{ closeDetail }}" aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3);font-size:13px">
+          <sc-for list="{{ d.facts }}" as="f" hint-placeholder-count="6">
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:11px;color:var(--color-neutral-700)">{{ f.k }}</span><span>{{ f.v }}</span></div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ isLead }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+            <div class="field"><label>Analista asignado</label>
+              <select class="input" value="{{ d.analista }}" onChange="{{ d.setAnalista }}">
+                <option value="">Sin asignar</option>
+                <sc-for list="{{ d.options }}" as="a" hint-placeholder-count="0"><option value="{{ a.id }}">{{ a.nombre }}</option></sc-for>
+              </select>
+            </div>
+            <div class="field"><label>{{ d.fechaLabel }}</label><input class="input" type="date" value="{{ d.fecha }}" onChange="{{ d.setFecha }}"></div>
+          </div>
+        </sc-if>
+        <div class="field"><label>Fecha de recepción de materiales</label><input class="input" type="date" value="{{ d.materialesAt }}" onChange="{{ d.setMat }}" style="max-width:220px"></div>
+        <sc-if value="{{ d.isLateOk }}" hint-placeholder-val="{{ false }}">
+          <div class="field"><label>Motivo del atraso · {{ d.diasAtrasoLabel }}</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+              <select class="input" value="{{ d.atrasoResp }}" onChange="{{ d.setResp }}" disabled="{{ d.roMotivo }}"><option value="">Sin clasificar</option><sc-for list="{{ d.respOpts }}" as="o" hint-placeholder-count="0"><option value="{{ o.id }}">{{ o.label }}</option></sc-for></select>
+              <select class="input" value="{{ d.atrasoMotivo }}" onChange="{{ d.setMotivo }}" disabled="{{ d.roMotivo }}"><option value="">Selecciona…</option><sc-for list="{{ d.motivoOpts }}" as="m" hint-placeholder-count="0"><option value="{{ m }}">{{ m }}</option></sc-for></select>
+            </div>
+            <sc-if value="{{ d.isCampo }}" hint-placeholder-val="{{ false }}">
+              <select class="input" value="{{ d.atrasoCampo }}" onChange="{{ d.setCampo }}" disabled="{{ d.roMotivo }}" style="margin-top:var(--space-2);max-width:280px"><option value="">Área de campo…</option><sc-for list="{{ campos }}" as="c" hint-placeholder-count="0"><option value="{{ c }}">{{ c }}</option></sc-for></select>
+            </sc-if>
+          </div>
+        </sc-if>
+        <div class="field"><label>Estado</label>
+          <div class="seg" style="display:flex">
+            <sc-for list="{{ d.estados }}" as="e" hint-placeholder-count="3">
+              <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="estado" checked="{{ e.active }}" onChange="{{ e.pick }}">{{ e.label }}</label>
+            </sc-for>
+          </div>
+        </div>
+        <div class="field"><label>Notas</label><textarea class="input" value="{{ d.nota }}" onChange="{{ d.setNota }}" placeholder="Contexto, bloqueos, entregables…" style="min-height:70px"></textarea></div>
+        <sc-if value="{{ d.isOk }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:13px;color:var(--success);background:var(--success-50);border-radius:6px;padding:var(--space-2) var(--space-3)">✓ OK de término registrado por {{ d.okByNombre }} el {{ d.okLine }}{{ d.okSuffix }}{{ d.okNotaLine }}</div>
+        </sc-if>
+        <div class="dialog-actions" style="justify-content:space-between">
+          <div style="display:flex;gap:var(--space-2)">
+            <sc-if value="{{ isLead }}" hint-placeholder-val="{{ true }}"><button class="btn btn-ghost" onClick="{{ d.remove }}">Eliminar</button></sc-if>
+            <button class="btn btn-ghost" onClick="{{ d.copyLink }}">Copiar enlace de consulta</button>
+          </div>
+          <div style="display:flex;gap:var(--space-2)">
+            <button class="btn btn-secondary" onClick="{{ closeDetail }}">Cerrar</button>
+            <sc-if value="{{ d.notOk }}" hint-placeholder-val="{{ true }}">
+              <button class="btn btn-primary" onClick="{{ d.askOk }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Dar OK de término</button>
+            </sc-if>
+            <sc-if value="{{ d.canReopen }}" hint-placeholder-val="{{ false }}">
+              <button class="btn btn-secondary" onClick="{{ d.reopen }}">Reabrir</button>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- CONFIRMAR OK -->
+  <sc-if value="{{ hasOk }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" onClick="{{ cancelOk }}" style="z-index:60">
+      <div class="dialog blueprint" onClick="{{ stop }}" style="background:var(--color-bg)">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="dialog-title">Confirmar OK de término</div>
+        <div class="dialog-body"><strong>{{ okReq.analistaNombre }}</strong> confirma que <strong>{{ okReq.job }} · {{ okReq.proyecto }} — {{ okReq.descripcion }}</strong> está completamente terminado. Esto libera su disponibilidad.</div>
+        <sc-if value="{{ okIsHoras }}" hint-placeholder-val="{{ true }}">
+          <div class="field"><label>Horas dedicadas al requerimiento *</label><input class="input" type="number" min="0.25" step="0.25" inputmode="decimal" value="{{ okHoras }}" onChange="{{ onOkHoras }}" placeholder="Ej. 3.5" style="max-width:180px"></div>
+        </sc-if>
+        <sc-if value="{{ okIsCod }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+            <div class="field"><label>Registros codificados *</label><input class="input" type="number" min="1" step="1" inputmode="numeric" value="{{ okRegistros }}" onChange="{{ onOkRegistros }}" placeholder="Ej. 1200"></div>
+            <div class="field"><label>Método *</label>
+              <div class="seg" style="display:flex">
+                <sc-for list="{{ okMetodoOpts }}" as="o" hint-placeholder-count="2"><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="metodo" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <div class="field"><label>Fecha de recepción de materiales</label><input class="input" type="date" value="{{ okMat }}" onChange="{{ onOkMat }}" style="max-width:220px"></div>
+        <sc-if value="{{ okLate }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3);border:1px solid var(--warning);background:var(--warning-50);border-radius:6px">
+            <div style="font-size:13px"><strong>Entrega con atraso</strong> · {{ okLateLine }}. Indica el motivo principal.</div>
+            <div class="field"><label>Responsable del atraso *</label>
+              <div class="seg" style="display:flex;flex-wrap:wrap"><sc-for list="{{ okRespOpts }}" as="o" hint-placeholder-count="3"><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="oresp" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for></div>
+            </div>
+            <div class="field"><label>Motivo *</label>
+              <select class="input" value="{{ okMotivo }}" onChange="{{ onOkMotivo }}"><option value="">Selecciona un motivo…</option><sc-for list="{{ okMotivoOpts }}" as="m" hint-placeholder-count="0"><option value="{{ m }}">{{ m }}</option></sc-for></select>
+            </div>
+            <sc-if value="{{ okIsCampo }}" hint-placeholder-val="{{ false }}">
+              <div class="field"><label>Área de campo *</label>
+                <select class="input" value="{{ okCampo }}" onChange="{{ onOkCampo }}"><option value="">Selecciona el área…</option><sc-for list="{{ campos }}" as="c" hint-placeholder-count="0"><option value="{{ c }}">{{ c }}</option></sc-for></select>
+              </div>
+            </sc-if>
+            <div class="field"><label>Detalle (opcional)</label><input class="input" value="{{ okDetalle }}" onChange="{{ onOkDetalle }}" placeholder="Ej. BD de campo llegó con 3 días de retraso"></div>
+            <sc-if value="{{ okHasHint }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--ink)">{{ okHint }}</div></sc-if>
+          </div>
+        </sc-if>
+        <div class="field"><label>Comentario (opcional)</label><input class="input" value="{{ okNota }}" onChange="{{ onOkNota }}" placeholder="Ej. Entregado a comercial con tablas finales"></div>
+        <sc-if value="{{ hasOkErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--danger);font-weight:500">{{ okErr }}</div></sc-if>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" onClick="{{ cancelOk }}">Cancelar</button>
+          <button class="btn btn-primary" onClick="{{ confirmOk }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Confirmar OK</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- NUEVO REQUERIMIENTO -->
+  <sc-if value="{{ hasNew }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" onClick="{{ closeNew }}" style="z-index:50">
+      <div class="dialog blueprint" onClick="{{ stop }}" style="width:min(620px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="dialog-title">Nuevo requerimiento</div>
+        <div class="seg" style="display:flex">
+          <sc-for list="{{ tipoOpts }}" as="o" hint-placeholder-count="2">
+            <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="tipo" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+          <div class="field"><label>Cliente *</label><input class="input" value="{{ draft.cliente }}" onChange="{{ on.cliente }}" placeholder="Ej. Banco Estado"></div>
+          <div class="field"><label>Job *</label><input class="input" value="{{ draft.job }}" onChange="{{ on.job }}" placeholder="26-000000-01-01"></div>
+          <div class="field" style="grid-column:1 / -1"><label>Proyecto / estudio *</label><input class="input" value="{{ draft.proyecto }}" onChange="{{ on.proyecto }}" placeholder="Nombre del estudio"></div>
+          <div class="field"><label>SL</label><select class="input" value="{{ draft.bu }}" onChange="{{ on.bu }}"><sc-for list="{{ sls }}" as="b" hint-placeholder-count="0"><option value="{{ b }}">{{ b }}</option></sc-for></select></div>
+          <div class="field"><label>Técnica *</label><select class="input" value="{{ draft.tecnica }}" onChange="{{ on.tecnica }}"><option value="">Selecciona la técnica…</option><sc-for list="{{ campos }}" as="c" hint-placeholder-count="0"><option value="{{ c }}">{{ c }}</option></sc-for></select></div>
+          <div class="field"><label>{{ draftEntLabel }}</label><select class="input" value="{{ draft.entregable }}" onChange="{{ on.entregable }}"><sc-for list="{{ entregables }}" as="e" hint-placeholder-count="0"><option value="{{ e }}">{{ e }}</option></sc-for></select></div>
+          <div class="field"><label>{{ draftFechaLabel }}</label><input class="input" type="date" value="{{ draft.fecha }}" onChange="{{ on.fecha }}"></div>
+          <div class="field" style="grid-column:1 / -1"><label>Descripción</label><input class="input" value="{{ draft.descripcion }}" onChange="{{ on.descripcion }}" placeholder="Ej. Tablas estadísticas, SPSS, BD cliente…"></div>
+          <div class="field"><label>Responsable comercial</label><input class="input" value="{{ draft.comercial }}" onChange="{{ on.comercial }}" placeholder="Nombre / Ejecutivo"></div>
+          <div class="field"><label>Analista asignado</label>
+            <select class="input" value="{{ draft.analista }}" onChange="{{ on.analista }}">
+              <option value="">{{ autoLabel }}</option>
+              <sc-for list="{{ draftAnalysts }}" as="a" hint-placeholder-count="0"><option value="{{ a.id }}">{{ a.nombre }}</option></sc-for>
+            </select>
+          </div>
+        </div>
+        <sc-if value="{{ draftIsScript }}" hint-placeholder-val="{{ false }}">
+          <div style="background:var(--teal-50);color:var(--ink);border-radius:6px;padding:var(--space-3);font-size:14px">Primer disponible: <strong>{{ rec.nombre }}</strong> — {{ rec.reason }}</div>
+        </sc-if>
+        <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--color-accent-900);font-weight:500">{{ err }}</div></sc-if>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" onClick="{{ closeNew }}">Cancelar</button>
+          <button class="btn btn-primary" onClick="{{ saveNew }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>{{ saveLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- IMPORTAR -->
+  <sc-if value="{{ hasImport }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" onClick="{{ closeImport }}" style="z-index:50">
+      <div class="dialog blueprint" onClick="{{ stop }}" style="width:min(680px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="dialog-title">Importar planilla · {{ planUnitLabel }}</div>
+        <div class="dialog-body">Sube la planilla (.xlsx / .csv) con el formato actual o pega las filas copiadas desde Excel. Columnas: <strong>DIA · PAIS · BU · TECNICA · CLIENTE · PROYECTO · JOB · ENTREGABLE · DESCRIPCION · COMERCIAL · ANALISTA</strong>. La semana se calcula desde DIA; las filas duplicadas se omiten.</div>
+        <label class="blueprint" style="display:flex;align-items:center;justify-content:center;gap:var(--space-3);padding:var(--space-6);cursor:pointer;font-size:14px" style-hover="border-color:var(--color-accent)">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6M8 13h8M8 17h8"></path></svg>
+          <span>{{ importFileLabel }}</span>
+          <input type="file" accept=".xlsx,.xls,.csv" onChange="{{ onImportFile }}" style="position:absolute;opacity:0;width:0;height:0">
+        </label>
+        <textarea class="input" value="{{ importText }}" onChange="{{ onImportText }}" placeholder="…o pega aquí las filas (con o sin encabezado)" style="min-height:110px;font-size:13px"></textarea>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--color-neutral-800)">
+          <sc-for list="{{ importPreview }}" as="p" hint-placeholder-count="1"><span>{{ p }}</span></sc-for>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" onClick="{{ closeImport }}">Cancelar</button>
+          <button class="btn btn-primary" onClick="{{ doImport }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Importar filas</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- USUARIO -->
+  <sc-if value="{{ hasUserDraft }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" onClick="{{ closeUser }}" style="z-index:50">
+      <div class="dialog blueprint" onClick="{{ stop }}" style="background:var(--color-bg)">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="dialog-title">{{ userDraftTitle }}</div>
+        <div class="field"><label>Nombre *</label><input class="input" value="{{ ud.nombre }}" onChange="{{ onUd.nombre }}"></div>
+        <div class="field"><label>Correo *</label><input class="input" type="email" value="{{ ud.email }}" onChange="{{ onUd.email }}" placeholder="nombre@empresa.cl"></div>
+        <div class="field"><label>Rol</label>
+          <div class="seg" style="display:flex">
+            <sc-for list="{{ udRolOpts }}" as="o" hint-placeholder-count="2"><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="rol" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.label }}</label></sc-for>
+          </div>
+        </div>
+        <sc-if value="{{ udShowEq }}" hint-placeholder-val="{{ true }}">
+          <div class="field"><label>{{ udEqTitle }}</label>
+            <div class="seg" style="display:flex">
+              <sc-for list="{{ udEqOpts }}" as="o" hint-placeholder-count="2"><label class="seg-opt" style="flex:1;justify-content:center"><input type="checkbox" checked="{{ o.active }}" onChange="{{ o.pick }}">{{ o.mark }} {{ o.label }}</label></sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasUdErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--color-accent-900);font-weight:500">{{ udErr }}</div></sc-if>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" onClick="{{ closeUser }}">Cancelar</button>
+          <button class="btn btn-primary" onClick="{{ saveUser }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Guardar</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;background:var(--navy);color:#fff;border-radius:6px;padding:10px 16px;font-size:14px;box-shadow:var(--shadow-md)">{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;procCapacity&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:10,&quot;min&quot;:1,&quot;max&quot;:30,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Reglas&quot;},&quot;codCapacity&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:10,&quot;min&quot;:1,&quot;max&quot;:30,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Reglas&quot;},&quot;scriptWip&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:3,&quot;min&quot;:1,&quot;max&quot;:8,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Reglas&quot;},&quot;staleDays&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;min&quot;:1,&quot;max&quot;:10,&quot;unit&quot;:&quot;días&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Notificaciones&quot;},&quot;notifyAssign&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Notificaciones&quot;},&quot;notifyOverdue&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Notificaciones&quot;},&quot;compactCards&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Vista&quot;}}">
+const KEY='cargaops.v7',SKEY='cargaops.session';
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const pISO=s=>{const [y,m,d]=s.slice(0,10).split('-').map(Number);return new Date(y,m-1,d);};
+const mondayOf=s=>{const d=pISO(s);d.setDate(d.getDate()-(d.getDay()+6)%7);return iso(d);};
+const addDays=(s,n)=>{const d=pISO(s);d.setDate(d.getDate()+n);return iso(d);};
+const TODAY=iso(new Date()),CUR=mondayOf(TODAY),NEXT=addDays(CUR,7);
+const MESES_L=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'],DIAS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const fmtD=s=>{if(!s)return '—';const d=pISO(s);return `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}`;};
+const fmtDT=s=>s?`${fmtD(s)} ${s.slice(11,16)}`:'—';
+const weekLabel=w=>{const a=pISO(w),b=pISO(addDays(w,4));return a.getMonth()===b.getMonth()?`${a.getDate()} – ${b.getDate()} ${MESES[b.getMonth()]}`:`${a.getDate()} ${MESES[a.getMonth()]} – ${b.getDate()} ${MESES[b.getMonth()]}`;};
+const weekName=w=>w===CUR?'Semana actual':w===NEXT?'Semana siguiente':w<CUR?'Semana anterior':'Semana futura';
+const nextBiz=s=>{let d=addDays(s,1);while([0,6].includes(pISO(d).getDay()))d=addDays(d,1);return d;};
+const TOMORROW_BIZ=nextBiz(TODAY);
+const nowStr=()=>{const d=new Date();return `${iso(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;};
+const has=(u,t)=>!!u&&(u.equipos||[]).includes(t);
+const eqLabel=u=>u.rol==='comercial'?'—':u.rol==='lider'&&!(u.equipos||[]).length?'Todos':(u.equipos||[]).map(t=>({proc:'Procesamiento',script:'Scripting',cod:'Codificación'})[t]).join(' + ')||'—';
+const XLSX_URL='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+const loadXLSX=()=>window.XLSX?Promise.resolve(window.XLSX):new Promise((ok,ko)=>{const sc=document.createElement('script');sc.src=XLSX_URL;sc.onload=()=>ok(window.XLSX);sc.onerror=ko;document.head.appendChild(sc);});
+const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+const iniOf=n=>n?n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase():'—';
+const ESTADOS=[{id:'pendiente',label:'Pendiente'},{id:'en_curso',label:'En curso'},{id:'ok',label:'OK · Terminado'}];
+const EST_LABEL={pendiente:'Pendiente',en_curso:'En curso',ok:'OK'};
+const EST_CLASS={pendiente:'be be-neutral',en_curso:'be be-info',ok:'be be-success'};
+const TIPO={proc:{label:'Procesamiento',short:'DP',cls:'be be-neutral',eq:'Procesamiento'},script:{label:'Script',short:'Script',cls:'be be-info',eq:'Scripting'},cod:{label:'Codificación',short:'COD',cls:'be be-navy',eq:'Codificación'}};
+const RESP={operaciones:{label:'Operaciones',color:'var(--teal)'},comercial:{label:'Área comercial (materiales)',color:'var(--warning)'},campo:{label:'Campo',color:'var(--ink-muted)'}};
+const RESP_LIST=Object.entries(RESP).map(([id,v])=>({id,label:v.label}));
+const RESPX={op_proc:{label:'Procesamiento',color:'var(--teal-text)'},op_script:{label:'Script',color:'var(--teal)'},op_cod:{label:'Codificación',color:'var(--color-accent-300)'},comercial:RESP.comercial,campo:RESP.campo,sin:{label:'Sin clasificar',color:'var(--border)'}};
+const effResp=r=>r.atrasoResp==='operaciones'?'op_'+r.tipo:(r.atrasoResp||'sin');
+const respLabelOf=r=>r.atrasoResp==='campo'&&r.atrasoCampo?`Campo · ${r.atrasoCampo}`:RESPX[effResp(r)].label;
+const respListFor=t=>RESP_LIST.map(o=>o.id==='operaciones'?{...o,label:TIPO[t].label}:o);
+const MOTIVOS={operaciones:['Sobrecarga del equipo','Error o retrabajo interno','Complejidad subestimada','Problema técnico / sistemas'],comercial:['Materiales entregados tarde','Materiales incompletos o con errores','Cambio de especificaciones'],campo:['Cierre de campo tardío','Base de campo con errores','Cuotas no cumplidas']};
+const CAMPOS=['CATI','F2F','MS','IDP','IVR','IIS','Online','WhatsApp','EFM'];
+const campoFrom=t=>{const s=norm(t);if(!s)return '';if(s.includes('cati')||s.includes('telef'))return 'CATI';if(s.includes('f2f')||s.includes('intercep')||s.includes('presencial')||s.includes('cara a cara'))return 'F2F';if(s.includes('mystery')||/\bms\b/.test(s))return 'MS';if(s.includes('idp'))return 'IDP';if(s.includes('ivr'))return 'IVR';if(s.includes('iis'))return 'IIS';if(s.includes('whatsapp'))return 'WhatsApp';if(s.includes('efm'))return 'EFM';if(s.includes('online')||s.includes('qualtrics')||s.includes('cawi')||s.includes('web'))return 'Online';return '';};
+const daysBetween=(a,b)=>Math.round((pISO(b)-pISO(a))/864e5);
+const isLateOk=r=>r.estado==='ok'&&!!r.okAt&&r.okAt.slice(0,10)>r.fecha;
+const SLS=['CEX','BHT','MSU','AUM','UU','Observer','CHP'];
+const ENT_SOL=['Proceso de datos','Base de datos cliente Excel','Base de datos SPSS','Tablero','Otros'];
+const ENT_SCRIPT=['Programación','Configurar nueva ola','Cargar base de datos','Cuotas','Mailing'];
+const ENT_COD=['Codificación preguntas abiertas','Codificación de marcas','Codificación de ocupación','Libro de códigos','Otros'];
+const fmtN=n=>Number(n||0).toLocaleString('es-CL');
+const fmtH=n=>(Math.round((n||0)*100)/100).toLocaleString('es-CL')+' h';
+const BUS=['BHT','CEX Chile (Ex Loyalty)','Ops (Operaciones)','Ipsos UU (Ex Marketing Cualitativo)'];
+const ENTREGABLES=['Proceso de datos','Proceso estándar','Base de datos','Base de datos cliente','Base de datos cliente Excel','Base de datos cliente SPSS','Otros'];
+const COLS=['fecha','pais','bu','tecnica','cliente','proyecto','job','entregable','descripcion','comercial','analista'];
+const HDR={dia:'fecha',fecha:'fecha',pais:'pais',bu:'bu',tecnica:'tecnica',cliente:'cliente',proyecto:'proyecto',estudio:'proyecto',job:'job',entregable:'entregable',descripcion:'descripcion',comercial:'comercial',analista:'analista'};
+
+const SEED_USERS=[['cm','Carolina Méndez','cmendez@empresa.cl','lider','proc'],['rf','Ricardo Fuentes','rfuentes@empresa.cl','lider','cod'],['vn','Valeria Núñez','vnunez@empresa.cl','lider','script'],
+  ['mpa','Maria Paz Ayala','mayala@empresa.cl','comercial',''],['wm','Wiliam Muñoz','wmunoz@empresa.cl','comercial',''],['lm','Lorena Montalvo Rosado','lmontalvo@empresa.cl','comercial',''],
+  ['ad','Alexis Duran','aduran@empresa.cl','analista','proc'],['jm','José Miguel Carreño','jcarreno@empresa.cl','analista','proc+cod'],
+  ['ap','Andrea Pérez','aperez@empresa.cl','analista','proc'],['cg','Cristian Gómez','cgomez@empresa.cl','analista','proc+script'],
+  ['as','Andrés Salinas','asalinas@empresa.cl','analista','proc'],['lr','Luis Ruiz','lruiz@empresa.cl','analista','proc+script'],
+  ['rs','Rodrigo Salgado','rsalgado@empresa.cl','analista','proc'],
+  ['jp','Javiera Pérez','jperez@empresa.cl','analista','script'],['th','Tomás Herrera','therrera@empresa.cl','analista','script'],
+  ['fs','Fernanda Silva','fsilva@empresa.cl','analista','script'],
+  ['mo','Marcela Olivares','molivares@empresa.cl','analista','cod'],['pv','Pablo Vergara','pvergara@empresa.cl','analista','cod'],['dr','Daniela Rojas','drojas@empresa.cl','analista','cod']].map(([id,nombre,email,rol,eq])=>({id,nombre,email,rol,equipos:eq?eq.split('+'):[],activo:true}));
+const B={U:'Ipsos UU (Ex Marketing Cualitativo)',C:'CEX Chile (Ex Loyalty)',H:'BHT',O:'Ops (Operaciones)'};
+const MPA='Maria Paz Ayala/Maria Paz Ayala',WM='Wiliam Muñoz/Wiliam Muñoz',LC='Lorena Montalvo Rosado/Camila Rivera',ZP='Zina Pino/Paulina Montecinos',CT='CATI (Enc. Telefónicas)',DP='Data processing';
+const SEED_DP=[
+['21','U','Intercepción','Procter & Gamble','Pampers_In Home Product Test','26-066509-02-02','Otros','Proceso','Andrea Contreras Andrade/Andrea Contreras Andrade','ad'],
+['20','C',CT,'Teleton','Sat. Institutos Teletón 2026','26-033416-01-02','Proceso de datos','Tablas Teleton 2026','Francisco Sastre/Lorena Montalvo Rosado','jm'],
+['20','C',CT,'Teleton','Sat. Institutos Teletón 2026','26-033416-01-02','Proceso de datos','SPSS Teleton 2026','Francisco Sastre/Lorena Montalvo Rosado','jm'],
+['20','C',CT,'Teleton','Sat. Institutos Teletón 2026','26-033416-01-02','Base de datos cliente Excel','BD Cliente Teleton 2026','Francisco Sastre/Lorena Montalvo Rosado','jm'],
+['20','C',CT,'Caja Los Andes','1. CLA Global Muestra Aleatoria Mensual','25-098794-09-07','Proceso de datos','Tablas Estadísticas',LC,'ap'],
+['20','C',CT,'Caja Los Andes','1. CLA Global Muestra Aleatoria Mensual','25-098794-09-07','Proceso de datos','SPSS medición mensual',LC,'ap'],
+['20','C',DP,'Caja Los Andes','CLA Yeats to date','25-098794-09-09','Proceso de datos','SPSS YTD 2026 Global Booster',LC,'ap'],
+['20','C',CT,'Caja Los Andes','CLA Estudio Booster Canales Mensual','25-098794-09-08','Proceso de datos','Tablas Global Booster mensual',LC,'ap'],
+['20','C',CT,'Caja Los Andes','CLA Estudio Booster Canales Mensual','25-098794-09-08','Proceso de datos','SPSS Global Booster mensual',LC,'ap'],
+['20','C',CT,'Caja Los Andes','CLA Estudio Booster Canales Mensual','25-098794-09-08','Base de datos cliente Excel','BD Cliente Global Booster mensual',LC,'ap'],
+['22','C',CT,'Banco Estado','BancoEstado_B2B Sitio web','26-038992-02-02','Proceso de datos','Proceso Sitio Web B2B','Catalina Martinez/Victoria Reyes','cg'],
+['22','C',CT,'Banco Estado','BancoEstado_B2B Sitio web','26-038992-02-02','Base de datos cliente Excel','BD Cliente Sitio Web B2B','Catalina Martinez/Victoria Reyes','cg'],
+['22','C',CT,'Banco Estado','BancoEstado_B2B Sitio web','26-038992-02-02','Otros','SPSS Sitio Web B2B','Catalina Martinez/Victoria Reyes','cg'],
+['19','H','IDP','TELETON','Teleton imagen ola 2','26-006844-03','Base de datos','procesamiento',MPA,'as'],
+['19','H','IDP','TELETON','Teleton imagen ola 2','26-006844-03','Proceso estándar','procesamiento',MPA,'as'],
+['20','H','IIS','BANCO DE CHILE','Tracking Banco de Chile Ola septiembre','26-000802-01','Base de datos','procesamiento trimestral (Julio-Agosto-Septiembre)','Arantxa Navarro/Arantxa Navarro','cg'],
+['20','H','IIS','BANCO DE CHILE','Tracking Banco de Chile Ola septiembre','26-000802-01','Proceso estándar','procesamiento trimestral (Julio-Agosto-Septiembre)','Arantxa Navarro/Arantxa Navarro','cg'],
+['19','H','IDP','ITAU','Post test Itau ola 7','26-016395-01','Base de datos','procesamiento',MPA,'cg'],
+['19','H','IDP','ITAU','Post test Itau ola 7','26-016395-01','Proceso estándar','procesamiento',MPA,'cg'],
+['22','H','Qualtrics','LATAM','Latam Cargo','26-068174-01','Base de datos','procesamiento','Tomas Quiroz/Tomas Quiroz','lr'],
+['22','H','Qualtrics','LATAM','Latam Cargo','26-068174-01','Proceso estándar','procesamiento','Tomas Quiroz/Tomas Quiroz','lr'],
+['22','H','IIS','LATAM','Tracking Latam Ola Octubre','26-000797-01','Base de datos','procesamiento','Luis Ide/Luis Ide','rs'],
+['22','H','IIS','LATAM','Tracking Latam Ola Octubre','26-000797-01','Proceso estándar','procesamiento','Luis Ide/Luis Ide','rs'],
+['21','H','IDP','MALL PLAZA','Post test Mall Plaza Hito 3 (Peru)','26-032312-12','Base de datos','procesamiento',MPA,'as'],
+['21','H','IDP','MALL PLAZA','Post test Mall Plaza Hito 3 (Peru)','26-032312-12','Proceso estándar','procesamiento',MPA,'as'],
+['21','H','IDP','MALL PLAZA','Post test Mall Plaza Hito 3 (Colombia)','26-032312-11','Base de datos','procesamiento',MPA,'lr'],
+['21','H','IDP','MALL PLAZA','Post test Mall Plaza Hito 3 (Colombia)','26-032312-11','Proceso estándar','procesamiento',MPA,'lr'],
+['23','H','IDP','MALL PLAZA','Post test Mall Plaza Hito 3 (Chile)','26-032312-10','Base de datos','procesamiento',MPA,'ap'],
+['23','H','IDP','MALL PLAZA','Post test Mall Plaza Hito 3 (Chile)','26-032312-10','Proceso estándar','procesamiento',MPA,'ap'],
+['19','H','IDP','SURA','Post test AFP Capital','26-082961-01','Base de datos','procesamiento','Florencia Gajardo/Florencia Gajardo','as'],
+['19','H','IDP','SURA','Post test AFP Capital','26-082961-01','Proceso estándar','procesamiento','Florencia Gajardo/Florencia Gajardo','as'],
+['21','C',DP,'METLIFE','Deep Dive 2026 CL','26-048425-01-07','Proceso de datos','Base Preliminar',ZP,'rs'],
+['21','C',DP,'METLIFE','Deep Dive 2026 CL','26-048425-01-07','Proceso de datos','Base Final',ZP,'rs'],
+['21','C',DP,'METLIFE','Deep Dive 2026 CL','26-048425-01-07','Otros','Clean Data',ZP,'rs'],
+['21','C',DP,'METLIFE','Deep Dive 2026 CL','26-048425-01-07','Otros','Tablas NPS',ZP,'rs'],
+['21','C',DP,'METLIFE','Deep Dive 2026 CL','26-048425-01-07','Base de datos cliente SPSS','BD estructura cliente',ZP,'rs'],
+['19','O',DP,'NESTLE','Milo Ceres Alienation Test CL','26-067771-01-01','Otros','Clean Data','Paulina Montecinos/Paulina Montecinos','as'],
+['19','O',DP,'NESTLE','Milo Ceres Alienation Test CL','26-067771-01-01','Proceso de datos','Base de datos y proceso estándar','Paulina Montecinos/Paulina Montecinos','as'],
+['19','O',DP,'NESTLE','Milo Ceres Alienation Test CL','26-067771-01-01','Base de datos cliente','BD estructura cliente','Paulina Montecinos/Paulina Montecinos','as'],
+['21','O',CT,'Banco de Chile','BCH_Inmobiliaria','25-097810-56-01','Otros','Validación Script',WM,'cg'],
+['22','O',CT,'Banco de Chile','BCH_Corporaciones','25-097810-57-01','Otros','Validación Script',WM,'as'],
+['19','O',CT,'Banco de Chile','BCH_GGEE','25-097810-55-01','Otros','Validación Script',WM,'rs'],
+['23','O',CT,'Banco de Chile','BCH_Cash','25-097810-51-01','Otros','Validación Script',WM,'lr'],
+['23','O',CT,'Banco de Chile','BCH_Leasing','25-097810-52-01','Otros','Validación Script',WM,'cg'],
+['23','O',CT,'Banco de Chile','BCH_Comex','25-097810-53-01','Otros','Validación Script',WM,'as'],
+['22','O',CT,'Banco de Chile','BCH_Factoring','25-097810-54-01','Otros','Validación Script',WM,'ap'],
+['20','O',CT,'CHILEVALORA','Chilevalora empleadores','26-069068-01-01','Otros','Validación Script',WM,'lr'],
+['21','O',CT,'Banco Estado','Mipymes Banco Estado 2026','26-052263-01-01','Otros','Validación Script','Nelson Reyes/Nelson Reyes','ap'],
+['23','O',CT,'DIFEM','Difem 2026','26-066910-01-01','Otros','Validación Script','Camila Squicciarini/Camila Squicciarini','rs']];
+const SEED_SC=[
+['jp','en_curso','2026-10-21','Banco Estado','Mipymes Banco Estado 2026','26-052263-01-01','Script CATI con cuotas','Nelson Reyes','2026-10-19 09:20',null],
+['jp','pendiente','2026-10-22','DIFEM','Difem 2026','26-066910-01-01','Ajuste de filtros P12–P18','Camila Squicciarini','2026-10-20 08:45',null],
+['jp','ok','2026-10-17','CHILEVALORA','Chilevalora empleadores','26-069068-01-01','Programación encuesta','Wiliam Muñoz','2026-10-15 11:00','2026-10-17 16:30'],
+['th','en_curso','2026-10-21','LATAM','Latam Cargo','26-068174-01','Encuesta Qualtrics módulo NPS','Tomas Quiroz','2026-10-19 14:10',null],
+['th','ok','2026-10-16','METLIFE','Deep Dive 2026 CL','26-048425-01-07','Script de limpieza','Zina Pino','2026-10-15 10:00','2026-10-16 18:00'],
+['fs','ok','2026-10-19','Banco de Chile','BCH_Factoring','25-097810-54-01','Script CATI','Wiliam Muñoz','2026-10-16 15:30','2026-10-19 11:20'],
+['lr','en_curso','2026-10-20','CHILEVALORA','Chilevalora empleadores','26-069068-01-01','Ajuste script CATI ola 2','Wiliam Muñoz','2026-10-19 12:00',null],
+['cg','pendiente','2026-10-22','Banco de Chile','BCH_Inmobiliaria','25-097810-56-01','Programación script CATI','Wiliam Muñoz','2026-10-20 10:30',null],
+['fs','ok','2026-10-20','ITAU','Post test Itau ola 7','26-016395-01','Cuestionario online','Maria Paz Ayala','2026-10-19 16:00','2026-10-20 09:50']];
+const HRS=[1.5,2,3,4,2.5,6,1,3.5];
+const SEED_COD=[
+['19','Teleton','Sat. Institutos Teletón 2026','26-033416-01-02','Codificación preguntas abiertas','P5, P9 y P14 abiertas','Francisco Sastre','mo'],
+['20','Caja Los Andes','1. CLA Global Muestra Aleatoria Mensual','25-098794-09-07','Codificación preguntas abiertas','Motivos de satisfacción P3','Lorena Montalvo Rosado','mo'],
+['21','Banco Estado','BancoEstado_B2B Sitio web','26-038992-02-02','Codificación preguntas abiertas','Sugerencias sitio web','Catalina Martinez','pv'],
+['20','LATAM','Tracking Latam Ola Octubre','26-000797-01','Codificación de marcas','Recordación espontánea de marcas','Luis Ide','pv'],
+['22','METLIFE','Deep Dive 2026 CL','26-048425-01-07','Codificación preguntas abiertas','Verbatims NPS','Zina Pino','dr'],
+['22','Procter & Gamble','Pampers_In Home Product Test','26-066509-02-02','Codificación preguntas abiertas','Likes / dislikes producto','Andrea Contreras Andrade','dr'],
+['23','ITAU','Post test Itau ola 7','26-016395-01','Codificación de ocupación','Ocupación y rubro','Maria Paz Ayala','jm'],
+['23','MALL PLAZA','Post test Mall Plaza Hito 3 (Chile)','26-032312-10','Libro de códigos','Actualización libro de códigos','Maria Paz Ayala','mo'],
+['21','NESTLE','Milo Ceres Alienation Test CL','26-067771-01-01','Codificación preguntas abiertas','Abiertas de concepto','Paulina Montecinos','']];
+function teamLeadersOf(users,t){const l=users.filter(u=>u.rol==='lider'&&u.activo);const m=l.filter(u=>!(u.equipos||[]).length||u.equipos.includes(t));return m.length?m:l;}
+function solMailObj(users,items,at){
+  const f=items[0],L=teamLeadersOf(users,f.tipo),by=users.find(u=>u.id===f.solBy);
+  return {id:'M'+Date.now()+Math.random().toString(36).slice(2,6),at:at||nowStr(),kind:'solicitud',to:L.map(u=>u.email),cc:by?[by.email]:[],
+    subject:`[Carga Ops] Nueva solicitud ${f.solId} · ${TIPO[f.tipo].label} · ${f.proyecto}`,
+    body:[`Hola ${L.map(u=>u.nombre.split(' ')[0]).join(', ')},`,'',`${by?by.nombre:'Un área comercial'} ingresó una nueva solicitud para ${TIPO[f.tipo].label}:`,
+      `• Cliente: ${f.cliente} · Job ${f.job}`,`• Proyecto: ${f.proyecto}`,`• Requerida para: ${fmtD(f.fecha)}`,`• Entregables (${items.length}):`,...items.map(r=>`   - ${r.entregable}${r.descripcion?': '+r.descripcion:''}`),
+      ...(f.nota?['',`Nota: ${f.nota}`]:[]),'','La solicitud no tiene analista asignado. Revísala en Carga Ops → Solicitudes nuevas y asígnala desde Planificación semanal o Scripts.','','Mensaje automático de Carga Ops.'].join('\n'),reqIds:items.map(r=>r.id)};
+}
+const SEED_SOL=[
+ ['S-1041','mpa','proc','2026-10-27','BANCO DE CHILE','Tracking Banco de Chile Ola octubre','26-000802-02',['Base de datos','Proceso estándar'],'Procesamiento mensual octubre','BHT','IIS','2026-10-22 11:15','Materiales llegan el lunes 26 en la mañana.'],
+ ['S-1042','wm','script','2026-10-27','Banco de Chile','BCH_Pymes','25-097810-58-01',['Programación de script'],'Script CATI nuevo segmento Pymes','','','2026-10-23 09:40',''],
+ ['S-1043','lm','cod','2026-10-28','Caja Los Andes','CLA Estudio Booster Canales Mensual','25-098794-09-08',['Codificación preguntas abiertas'],'Abiertas P7 y P11 (motivos de no recomendación)','Ops (Operaciones)','Codificación','2026-10-23 15:05',''],
+ ['S-1044','mpa','proc','2026-10-29','MALL PLAZA','Post test Mall Plaza Hito 4 (Chile)','26-032312-13',['Base de datos','Proceso estándar','Base de datos cliente Excel'],'Procesamiento hito 4','BHT','IDP','2026-10-24 08:30','Mismo formato que Hito 3.']];
+const SOL_TAG={'26-016395-01':['S-1035','mpa','2026-10-14 10:20'],'25-098794-09-09':['S-1036','lm','2026-10-14 12:00'],'26-069068-01-01':['S-1037','wm','2026-10-15 09:10']};
+function seedReqs(){
+  let n=100;const out=[];
+  SEED_DP.forEach(([d,bu,tecnica,cliente,proyecto,job,entregable,descripcion,comercial,analista],i)=>{
+    const fecha='2026-10-'+d;let estado=d==='19'?'ok':d==='20'?'en_curso':'pendiente';
+    if(job==='26-082961-01')estado='pendiente';
+    const base={tipo:'proc',pais:'CL',bu:B[bu],tecnica,cliente,proyecto,job,entregable,descripcion,comercial,analista,okNota:'',nota:''};
+    out.push({...base,id:'R'+(++n),fecha,estado,materialesAt:estado!=='pendiente'||i%2?addDays(fecha,-2):'',horas:estado==='ok'?HRS[i%8]:null,creado:'2026-10-15 16:00',actualizado:estado==='en_curso'?'2026-10-20 09:00':'2026-10-15 16:00',okAt:estado==='ok'?'2026-10-19 18:10':null,okBy:estado==='ok'?analista:''});
+    for(let k=1;k<=8;k++){if((i+k)%3===0)continue;const f=addDays(fecha,-7*k),lt=(i*7+k)%9===0;const okAt=`${lt?addDays(f,1):f} ${pad(15+(i+k)%3)}:${pad((i*13+k*7)%60)}`;
+      out.push({...base,id:'R'+(++n),fecha:f,estado:'ok',materialesAt:addDays(f,-2),horas:HRS[(i+k)%8],creado:`${addDays(f,-4)} 16:00`,actualizado:okAt,okAt,okBy:analista});}
+  });
+  SEED_SC.forEach(([analista,estado,fecha,cliente,proyecto,job,descripcion,comercial,creado,okAt],j)=>out.push({materialesAt:addDays(fecha,-3),horas:okAt?HRS[(j+3)%8]+1:null,id:'R'+(++n),tipo:'script',fecha,pais:'CL',bu:'',tecnica:'',cliente,proyecto,job,entregable:'Programación de script',descripcion,comercial,analista,estado,creado,okAt,okBy:okAt?analista:'',okNota:'',nota:''}));
+  SEED_SC.forEach(([analista,,fecha,cliente,proyecto,job,descripcion,comercial],j)=>{for(let k=1;k<=6;k++){if((j+k)%2)continue;const f=addDays(fecha,-7*k),okAt=`${(j+k)%5===0?addDays(f,2):f} 12:${pad((j*11+k)%60)}`;
+    out.push({materialesAt:addDays(f,-3),horas:HRS[(j+k)%8]+1,id:'R'+(++n),tipo:'script',fecha:f,pais:'CL',bu:'',tecnica:'',cliente,proyecto,job,entregable:'Programación de script',descripcion,comercial,analista,estado:'ok',creado:`${addDays(f,-3)} 10:00`,actualizado:okAt,okAt,okBy:analista,okNota:'',nota:''});}});
+  SEED_COD.forEach(([d,cliente,proyecto,job,entregable,descripcion,comercial,analista],i)=>{
+    const fecha='2026-10-'+d,estado=d==='19'?'ok':d==='20'?'en_curso':'pendiente';
+    const base={tipo:'cod',pais:'CL',bu:'Ops (Operaciones)',tecnica:'Codificación',cliente,proyecto,job,entregable,descripcion,comercial,analista,okNota:'',nota:'',horas:null};
+    out.push({...base,id:'R'+(++n),fecha,estado,materialesAt:estado!=='pendiente'||i%2?addDays(fecha,-1):'',registros:estado==='ok'?1240:null,metodo:estado==='ok'?'IA':'',creado:'2026-10-15 16:00',actualizado:estado==='en_curso'?'2026-10-20 09:00':'2026-10-15 16:00',okAt:estado==='ok'?'2026-10-19 17:30':null,okBy:estado==='ok'?analista:''});
+    if(!analista)return;
+    for(let k=1;k<=6;k++){if((i+k)%3===0)continue;const f=addDays(fecha,-7*k),lt=(i*5+k)%8===0;const okAt=`${lt?addDays(f,1):f} ${pad(14+(i+k)%3)}:${pad((i*17+k*5)%60)}`;
+      out.push({...base,id:'R'+(++n),fecha:f,estado:'ok',materialesAt:addDays(f,-1),registros:300+((i*97+k*53)%1500),metodo:(i+k)%3===1?'Manual':'IA',creado:`${addDays(f,-4)} 16:00`,actualizado:okAt,okAt,okBy:analista});}
+  });
+  out.forEach(r=>{const idn=parseInt(r.id.slice(1),10);
+    if(r.estado==='ok'&&r.fecha<CUR&&r.okAt&&!isLateOk(r)&&idn%6===0)r.okAt=addDays(r.fecha,1+idn%3)+r.okAt.slice(10);
+    if(isLateOk(r)){const k=idn%10,resp=r.tipo==='script'?(k<5?'operaciones':'comercial'):k<4?'operaciones':k<7?'comercial':'campo';const L=MOTIVOS[resp];r.atrasoResp=resp;r.atrasoMotivo=L[idn%L.length];r.atrasoDetalle='';r.atrasoCampo=resp==='campo'?(campoFrom(r.tecnica)||CAMPOS[idn%CAMPOS.length]):'';
+      if(resp==='comercial'&&r.atrasoMotivo==='Materiales entregados tarde')r.materialesAt=r.fecha;}});
+  out.forEach(r=>{const t=SOL_TAG[r.job];if(t&&r.fecha>=CUR){r.origen='comercial';r.solId=t[0];r.solBy=t[1];r.solAt=t[2];}});
+  SEED_SOL.forEach(([solId,solBy,tipo,fecha,cliente,proyecto,job,ents,descripcion,bu,tecnica,solAt,nota])=>ents.forEach(entregable=>out.push({id:'R'+(++n),tipo,fecha,pais:'CL',bu,tecnica,cliente,proyecto,job,entregable,descripcion,
+    comercial:(SEED_USERS.find(u=>u.id===solBy)||{}).nombre||'',analista:'',estado:'pendiente',creado:solAt,actualizado:solAt,okAt:null,okBy:'',okNota:'',nota,materialesAt:'',horas:null,registros:null,metodo:'',origen:'comercial',solId,solBy,solAt})));
+  return out;
+}
+function seedMails(reqs){const g={};reqs.filter(r=>r.origen==='comercial'&&!r.analista).forEach(r=>{(g[r.solId]=g[r.solId]||[]).push(r);});return Object.values(g).map(items=>solMailObj(SEED_USERS,items,items[0].solAt)).sort((a,b)=>b.at.localeCompare(a.at));}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.reqs)&&Array.isArray(s.users)){s.mails=s.mails||[];s.reqs.forEach(r=>{if(r.atrasoResp==='campo'&&!r.atrasoCampo)r.atrasoCampo=campoFrom(r.tecnica)||CAMPOS[(parseInt(String(r.id).replace(/\D/g,''),10)||0)%CAMPOS.length];});s.users=s.users.map(u=>u.equipos?u:{...u,equipos:u.equipo?[u.equipo]:[]});return s;}}catch(e){}const reqs=seedReqs();return {reqs,users:SEED_USERS,mails:seedMails(reqs)};}
+function toISODate(v){
+  if(v instanceof Date&&!isNaN(v))return iso(v);
+  if(typeof v==='number'&&v>20000){const d=new Date(Math.round((v-25569)*864e5));return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;}
+  const s=String(v||'').trim();let m;
+  if((m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)))return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  if((m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/))){let a=+m[1],b=+m[2],y=+m[3];if(y<100)y+=2000;let dd=a,mm=b;if(b>12){dd=b;mm=a;}return `${y}-${pad(mm)}-${pad(dd)}`;}
+  return '';
+}
+
+class Component extends DCLogic {
+  constructor(p){super(p);const s=load();let sess=null;try{sess=localStorage.getItem(SKEY);}catch(e){}
+    this.state={okCampo:'',atrUnit:'all',okResp:'',okMotivo:'',okDetalle:'',inboxUnit:'all',inboxState:'pend',sd:null,sdErr:'',reqs:s.reqs,users:s.users,mails:s.mails,anFilter:'',histMode:'semana',histRef:addDays(CUR,-7),mailOpen:null,session:s.users.some(u=>u.id===sess&&u.activo)?sess:null,loginEmail:'',loginErr:'',
+      planUnit:'proc',okHoras:'',okRegistros:'',okMetodo:'',okMat:'',okErr:'',tab:'tablero',team:'all',q:'',planWeek:CUR,myWeek:CUR,planFilter:{an:'',day:''},planQ:'',detailId:null,okId:null,okNota:'',draft:null,err:'',
+      importOpen:false,importText:'',importMatrix:null,importFile:'',balance:null,toast:'',dragId:null,dragOver:null,ud:null,udErr:'',publicView:false,pubQ:''};}
+  componentDidMount(){setTimeout(()=>{try{this.checkOverdue(false);}catch(e){console.warn('overdue',e&&e.message);}},0);const h=location.hash||'';if(h.startsWith('#consulta')){const m=h.match(/job=([^&]+)/);this.setState({publicView:true,pubQ:m?decodeURIComponent(m[1]):''});}}
+  async download(rows,fname,title){
+    const head=['DIA','PAIS','BU','TECNICA','CLIENTE','PROYECTO','JOB','ENTREGABLE','DESCRIPCION','COMERCIAL','ANALISTA','TIPO','ESTADO','MATERIALES RECIBIDOS','FECHA OK','HORAS','REGISTROS CODIFICADOS','METODO','SOLICITUD','SOLICITADO POR','FECHA SOLICITUD','DIAS ATRASO','RESPONSABLE ATRASO','AREA CAMPO','MOTIVO ATRASO','DETALLE ATRASO'];
+    const data=rows.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)||this.nameOf(a.analista).localeCompare(this.nameOf(b.analista))||a.job.localeCompare(b.job))
+      .map(r=>[pISO(r.fecha),r.pais,r.bu,r.tecnica,r.cliente,r.proyecto,r.job,r.entregable,r.descripcion,r.comercial,r.analista?this.nameOf(r.analista):'',TIPO[r.tipo].label,EST_LABEL[r.estado],r.materialesAt||'',r.okAt||'',r.horas??'',r.registros??'',r.metodo||'',r.solId||'',r.solBy?this.nameOf(r.solBy):'',r.solAt||'',isLateOk(r)?daysBetween(r.fecha,r.okAt.slice(0,10)):'',r.atrasoResp?respLabelOf(r):(isLateOk(r)?'Sin clasificar':''),r.atrasoCampo||'',r.atrasoMotivo||'',r.atrasoDetalle||'']);
+    try{
+      const X=await loadXLSX();const wb=X.utils.book_new();
+      const ws=X.utils.aoa_to_sheet([head,...data],{cellDates:true,dateNF:'dd-mm-yyyy'});ws['!cols']=head.map((h,i)=>({wch:[11,5,22,18,18,34,17,22,30,30,20,13,10,14,16,8,12,9,10,22,16,10,24,10,30,30][i]}));
+      X.utils.book_append_sheet(wb,ws,'agenda');
+      const by={};rows.forEach(r=>{const k=r.analista?this.nameOf(r.analista):'Sin asignar';by[k]=by[k]||[0,0,0,0,0,0,0];by[k][{proc:0,script:1,cod:2}[r.tipo]]++;by[k][r.estado==='ok'?4:3]++;by[k][5]+=r.horas||0;by[k][6]+=r.registros||0;});
+      X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet([[title],[],['ANALISTA','ENTREGABLES DP','SCRIPTS','CODIFICACION','ABIERTOS','CON OK','HORAS','REGISTROS CODIFICADOS'],...Object.entries(by).map(([k,v])=>[k,...v])]),'resumen');
+      X.writeFile(wb,fname+'.xlsx');this.flash('Planilla descargada');
+    }catch(e){
+      const csv=[head,...data.map(r=>{r[0]=iso(r[0]);return r;})].map(r=>r.map(c=>'"'+String(c??'').replace(/"/g,'""')+'"').join(';')).join('\n');
+      const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download=fname+'.csv';a.click();this.flash('Descargado como CSV');
+    }
+  }
+  persist(){
+    const s=this.state,p=this._p||{};
+    if(p.reqs===s.reqs&&p.users===s.users&&p.mails===s.mails&&p.session===s.session)return;
+    const reqsChanged=p.reqs!==undefined&&p.reqs!==s.reqs;
+    this._p={reqs:s.reqs,users:s.users,mails:s.mails,session:s.session};
+    clearTimeout(this._pt);
+    this._pt=setTimeout(()=>{
+      const st=this.state;
+      try{localStorage.setItem(KEY,JSON.stringify({reqs:st.reqs,users:st.users,mails:st.mails}));}catch(e){}
+      try{st.session?localStorage.setItem(SKEY,st.session):localStorage.removeItem(SKEY);}catch(e){}
+      if(reqsChanged)this.checkOverdue(false);
+    },0);
+  }
+  me(){return this.state.users.find(u=>u.id===this.state.session);}
+  isLead(){const m=this.me();return !!m&&m.rol==='lider';}
+  nameOf(id){const u=this.state.users.find(x=>x.id===id);return u?u.nombre:'Sin asignar';}
+  upd(id,patch){const t=nowStr();this.setState(s=>({reqs:s.reqs.map(r=>r.id===id?{...r,...patch,actualizado:t}:r)}));}
+  leaders(){return this.state.users.filter(u=>u.rol==='lider'&&u.activo);}
+  sinGestion(r){const st=this.props.staleDays??2;return r.estado==='pendiente'||((r.actualizado||r.creado||'').slice(0,10)<=addDays(TODAY,-st));}
+  buildMail(kind,uid,items){
+    const u=this.state.users.find(x=>x.id===uid),L=this.leaders().map(x=>x.email);
+    const line=r=>`• ${fmtD(r.fecha)} · ${r.job} · ${r.proyecto} — ${r.entregable}: ${r.descripcion||'—'} (${TIPO[r.tipo].label}${kind==='atraso'?', '+EST_LABEL[r.estado]:''})`;
+    const hi=u?`Hola ${u.nombre.split(' ')[0]},`:'Hola equipo líder,';
+    const subject=kind==='asignacion'?(items.length===1?`[Carga Ops] Nuevo requerimiento asignado: ${items[0].job} · ${items[0].proyecto}`:`[Carga Ops] Tienes ${items.length} requerimientos nuevos asignados`)
+      :`[Carga Ops] ${items.length} requerimiento(s) atrasado(s) sin gestión${u?'':' y sin analista'}`;
+    const body=kind==='asignacion'
+      ?[hi,'',items.length===1?'Se te asignó el siguiente requerimiento:':'Se te asignaron los siguientes requerimientos:',...items.map(line),'','Revisa el detalle en Carga Ops → Mi semana y marca "Iniciar" al comenzar.','','Mensaje automático de Carga Ops.'].join('\n')
+      :[hi,'','Los siguientes requerimientos ya pasaron su día de entrega y no registran gestión (sin iniciar o sin actualización reciente):',...items.map(line),'','Actualiza el estado o deja una nota con el motivo. Si ya terminaste, registra el OK de término.','','Mensaje automático de Carga Ops.'].join('\n');
+    return {id:'M'+Date.now()+Math.random().toString(36).slice(2,6),at:nowStr(),kind,to:u?[u.email]:L,cc:kind==='atraso'&&u?L:[],subject,body,reqIds:items.map(r=>r.id)};
+  }
+  addMails(list){if(list.length)this.setState(s=>({mails:[...list,...s.mails].slice(0,300)}));}
+  notifyAssign(list){
+    if(!(this.props.notifyAssign??true))return 0;
+    const by={};list.filter(r=>r.analista).forEach(r=>{(by[r.analista]=by[r.analista]||[]).push(r);});
+    const mails=Object.entries(by).map(([uid,items])=>this.buildMail('asignacion',uid,items));this.addMails(mails);return mails.length;
+  }
+  assign(id,an){const r=this.state.reqs.find(x=>x.id===id);if(!r||r.analista===an)return;this.upd(id,{analista:an});
+    const n=an?this.notifyAssign([{...r,analista:an}]):0;this.flash(an?`Asignado a ${this.nameOf(an)}${n?' · correo enviado':''}`:'Asignación quitada');}
+  checkOverdue(force){
+    if(!(this.props.notifyOverdue??true))return 0;
+    const c=this.state.reqs.filter(r=>r.estado!=='ok'&&r.fecha<TODAY&&this.sinGestion(r)&&(force||r.alertAt!==TODAY));
+    if(!c.length)return 0;
+    const by={};c.forEach(r=>{(by[r.analista||'']=by[r.analista||'']||[]).push(r);});
+    const mails=Object.entries(by).map(([uid,items])=>this.buildMail('atraso',uid,items));
+    const ids=new Set(c.map(r=>r.id));
+    this.setState(s=>({reqs:s.reqs.map(r=>ids.has(r.id)?{...r,alertAt:TODAY}:r)}));this.addMails(mails);return mails.length;
+  }
+  flash(t){this.setState({toast:t});clearTimeout(this._t);this._t=setTimeout(()=>this.setState({toast:''}),2800);}
+  enter(u){this.setState({session:u.id,loginErr:'',loginEmail:'',tab:'tablero',q:'',team:'all',detailId:null});}
+  canEdit(r){const m=this.me();return !!m&&(m.rol==='lider'||r.analista===m.id);}
+  moveTo(id,estado){
+    this.setState({dragOver:null,dragId:null});
+    const r=this.state.reqs.find(x=>x.id===id);if(!r||!this.canEdit(r))return;
+    if(estado==='ok'){if(r.estado!=='ok')this.askOk(id);return;}
+    if(r.estado==='ok'&&!this.isLead()){this.flash('Solo el líder puede reabrir un requerimiento con OK');return;}
+    this.upd(id,{estado,okAt:null,okBy:'',okNota:'',horas:null,registros:null,metodo:'',atrasoResp:'',atrasoMotivo:'',atrasoDetalle:'',atrasoCampo:''});
+  }
+  wip(){return this.props.scriptWip??3;}
+  capOf(u){return u==='cod'?(this.props.codCapacity??10):(this.props.procCapacity??10);}
+  askOk(id){const r=this.state.reqs.find(x=>x.id===id);if(!r)return;this.setState({okId:id,okNota:'',okHoras:r.horas!=null?String(r.horas):'',okRegistros:r.registros?String(r.registros):'',okMetodo:r.metodo||'',okMat:r.materialesAt||'',okErr:'',okResp:r.atrasoResp||(TODAY>r.fecha&&r.materialesAt&&r.materialesAt>=r.fecha?'comercial':''),okMotivo:r.atrasoMotivo||(TODAY>r.fecha&&r.materialesAt&&r.materialesAt>=r.fecha?'Materiales entregados tarde':''),okDetalle:r.atrasoDetalle||'',okCampo:r.atrasoCampo||campoFrom(r.tecnica)});}
+  active(team){return this.state.users.filter(u=>u.rol==='analista'&&has(u,team)&&u.activo);}
+  rank(reqs){
+    return this.active('script').map(a=>{
+      const mine=reqs.filter(r=>r.tipo==='script'&&r.analista===a.id);
+      const oks=mine.filter(r=>r.okAt).map(r=>r.okAt).sort();
+      const dpToday=has(a,'proc')?reqs.filter(r=>r.tipo==='proc'&&r.analista===a.id&&r.estado!=='ok'&&r.fecha<=TODAY).length:0;
+      return {a,active:mine.filter(r=>r.estado!=='ok').length,dpToday,okCount:oks.length,lastOk:oks[oks.length-1]||''};
+    }).sort((x,y)=>x.active-y.active||x.dpToday-y.dpToday||x.lastOk.localeCompare(y.lastOk));
+  }
+  openNew(tipo){this.setState({err:'',draft:{tipo,cliente:'',proyecto:'',job:'',bu:SLS[0],tecnica:'',entregable:(tipo==='cod'?ENT_COD:tipo==='script'?ENT_SCRIPT:ENT_SOL)[0],descripcion:'',comercial:'',analista:'',fecha:tipo!=='script'?(this.state.planWeek>=CUR?this.state.planWeek:TODAY):addDays(TODAY,2)}});}
+  saveNew(){
+    const d=this.state.draft;
+    if(!d.cliente.trim()||!d.proyecto.trim()||!d.job.trim()){this.setState({err:'Cliente, Proyecto y Job son obligatorios.'});return;}
+    if(!d.fecha){this.setState({err:'Indica la fecha.'});return;}
+    if(!d.tecnica){this.setState({err:'Selecciona la técnica.'});return;}
+    let analista=d.analista;
+    if(d.tipo==='script'&&!analista){const r=this.rank(this.state.reqs)[0];analista=r?r.a.id:'';}
+    const r={id:'R'+Date.now(),tipo:d.tipo,fecha:d.fecha,pais:'CL',bu:d.bu,tecnica:d.tecnica,cliente:d.cliente.trim(),proyecto:d.proyecto.trim(),job:d.job.trim(),
+      entregable:d.entregable,descripcion:d.descripcion.trim(),comercial:d.comercial.trim(),analista,estado:'pendiente',creado:nowStr(),okAt:null,okBy:'',okNota:'',nota:''};
+    this.setState(s=>({reqs:[...s.reqs,r],draft:null}));
+    const sent=analista?this.notifyAssign([r]):0;
+    this.flash((d.tipo==='script'?`Script ${r.job} asignado a ${this.nameOf(analista)}`:`${r.job} agregado a la planificación`)+(sent?' · correo enviado':''));
+  }
+  suggestBalance(){
+    const s=this.state,u0=s.planUnit,cap=this.capOf(u0),proc=this.active(u0);
+    if(!proc.length)return;
+    const items=s.reqs.filter(r=>r.tipo===u0&&mondayOf(r.fecha)===s.planWeek).map(r=>({...r}));
+    const scr=s.reqs.filter(r=>r.tipo==='script'&&mondayOf(r.fecha)===s.planWeek);
+    const load=id=>items.filter(r=>r.analista===id).length+scr.filter(r=>r.analista===id).length;
+    const minA=()=>proc.slice().sort((a,b)=>load(a.id)-load(b.id))[0];
+    const moves=[];const rec=(job,ids,from,to)=>{const k=job+'|'+from;const m=moves.find(x=>x.key===k);if(m)m.to=to;else moves.push({key:k,job,ids,from,to});};
+    const un={};items.filter(r=>!r.analista).forEach(r=>{(un[r.job]=un[r.job]||[]).push(r);});
+    Object.values(un).forEach(g=>{const to=minA().id;g.forEach(r=>r.analista=to);rec(g[0].job,g.map(r=>r.id),'',to);});
+    for(let i=0;i<60;i++){
+      const so=proc.slice().sort((a,b)=>load(b.id)-load(a.id)),mx=so[0],mn=so[so.length-1],gap=load(mx.id)-load(mn.id);
+      if(gap<=1&&load(mx.id)<=cap)break;
+      const groups={};items.filter(r=>r.analista===mx.id).forEach(r=>{(groups[r.job]=groups[r.job]||[]).push(r);});
+      const cand=Object.values(groups).filter(g=>g.every(r=>r.estado==='pendiente')&&g.length<gap).sort((a,b)=>b.length-a.length||b[0].fecha.localeCompare(a[0].fecha))[0];
+      if(!cand)break;
+      cand.forEach(r=>r.analista=mn.id);rec(cand[0].job,cand.map(r=>r.id),mx.id,mn.id);
+    }
+    this.setState({balance:moves});
+    if(!moves.length)this.flash('No hay movimientos posibles: la carga está equilibrada o solo quedan entregables en curso');
+  }
+  applyBalance(){const m=this.state.balance||[];const map={};m.forEach(x=>x.ids.forEach(id=>map[id]=x.to));
+    const moved=this.state.reqs.filter(r=>map[r.id]).map(r=>({...r,analista:map[r.id]}));const t=nowStr();
+    this.setState(s=>({reqs:s.reqs.map(r=>map[r.id]?{...r,analista:map[r.id],actualizado:t}:r),balance:null}));const n=this.notifyAssign(moved);this.flash(`${m.length} job(s) reasignados · ${n} correo(s) enviados`);}
+  parseMatrix(matrix){
+    const res={rows:[],dup:0,invalid:0,unknown:new Set(),weeks:new Set()};
+    if(!matrix||!matrix.length)return res;
+    let map=COLS,start=0;
+    const h=matrix[0].map(c=>norm(c));
+    if(h.includes('job')){map=h.map(c=>HDR[c]||null);start=1;}
+    const unit=this.state.planUnit,proc=this.state.users.filter(u=>u.rol==='analista'&&has(u,unit));
+    const seen=new Set(this.state.reqs.filter(r=>r.tipo===unit).map(r=>[r.fecha,norm(r.job),norm(r.entregable),norm(r.descripcion),r.analista].join('|')));
+    for(let i=start;i<matrix.length;i++){
+      const o={};map.forEach((k,j)=>{if(k)o[k]=matrix[i][j];});
+      Object.keys(o).forEach(k=>{if(k!=='fecha')o[k]=String(o[k]??'').trim();});
+      o.fecha=toISODate(o.fecha);
+      if(!o.job&&!o.proyecto)continue;
+      if(!o.fecha||!o.job){res.invalid++;continue;}
+      const q=norm(o.analista);let an='';
+      if(q){const u=proc.find(u=>norm(u.nombre)===q)||proc.find(u=>norm(u.nombre).includes(q)||q.includes(norm(u.nombre)));if(u)an=u.id;else res.unknown.add(o.analista);}
+      const key=[o.fecha,norm(o.job),norm(o.entregable),norm(o.descripcion),an].join('|');
+      if(seen.has(key)){res.dup++;continue;}seen.add(key);
+      res.weeks.add(mondayOf(o.fecha));
+      res.rows.push({tipo:unit,fecha:o.fecha,pais:o.pais||'CL',bu:o.bu||'',tecnica:o.tecnica||'',cliente:o.cliente||'',proyecto:o.proyecto||'',job:o.job,entregable:o.entregable||'',descripcion:o.descripcion||'',comercial:o.comercial||'',analista:an});
+    }
+    return res;
+  }
+  currentMatrix(){const s=this.state;if(s.importMatrix)return s.importMatrix;if(!s.importText.trim())return null;
+    return s.importText.split(/\r?\n/).filter(l=>l.trim()).map(l=>l.split(/\t|;/));}
+  async onImportFile(e){
+    const f=e.target.files&&e.target.files[0];if(!f)return;
+    try{
+      if(!window.XLSX){await new Promise((ok,ko)=>{const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';sc.onload=ok;sc.onerror=ko;document.head.appendChild(sc);});}
+      const wb=window.XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
+      const m=window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''});
+      this.setState({importMatrix:m,importFile:f.name});
+    }catch(err){this.flash('No se pudo leer el archivo');}
+  }
+  doImport(){
+    const res=this.parseMatrix(this.currentMatrix());if(!res.rows.length){this.flash('No hay filas nuevas para importar');return;}
+    const t=nowStr(),wk=[...res.weeks].sort()[0];
+    this.setState(s=>({reqs:[...s.reqs,...res.rows.map((r,i)=>({id:'R'+Date.now()+'-'+i,...r,estado:'pendiente',creado:t,okAt:null,okBy:'',okNota:'',nota:''}))],importOpen:false,importText:'',importMatrix:null,importFile:'',planWeek:wk,planFilter:{an:'',day:''}}));
+    const n=this.notifyAssign(res.rows);
+    this.flash(`${res.rows.length} entregables importados${res.dup?` · ${res.dup} duplicados omitidos`:''}${n?` · ${n} correo(s) de asignación`:''}`);
+  }
+  buildSummary(){
+    const s=this.state,cod=s.reqs.filter(r=>r.tipo==='cod'&&mondayOf(r.fecha)===CUR),proc=s.reqs.filter(r=>r.tipo==='proc'&&mondayOf(r.fecha)===CUR),scr=s.reqs.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR)));
+    const line=r=>`  - ${fmtD(r.fecha)}${r.fecha<TODAY?' (ATRASADO)':''} · ${r.job} · ${r.proyecto} — ${r.descripcion||r.entregable} — ${this.nameOf(r.analista)} (${EST_LABEL[r.estado]})`;
+    const srt=a=>a.slice().sort((x,y)=>x.fecha.localeCompare(y.fecha));
+    const pc=srt(cod.filter(r=>r.estado!=='ok')),pp=srt(proc.filter(r=>r.estado!=='ok')),ps=srt(scr.filter(r=>r.estado!=='ok'));
+    return [`Resumen de carga — ${fmtD(TODAY)}`,'',`PROCESAMIENTO · semana ${weekLabel(CUR)}`,`• Entregables con OK: ${proc.length-pp.length} de ${proc.length}`,`• Pendientes de OK (${pp.length}):`,...(pp.length?pp.map(line):['  - Ninguno']),'',
+      `CODIFICACIÓN · semana ${weekLabel(CUR)}`,`• Entregables con OK: ${cod.length-pc.length} de ${cod.length} · ${fmtN(cod.reduce((a,r)=>a+(r.registros||0),0))} registros codificados`,`• Pendientes de OK (${pc.length}):`,...(pc.length?pc.map(line):['  - Ninguno']),'',
+      'SCRIPTING',`• Activos: ${ps.length} · Con OK: ${scr.length-ps.length}`,`• Pendientes de OK (${ps.length}):`,...(ps.length?ps.map(line):['  - Ninguno']),'',
+      'Recordatorio: confirmar con "Dar OK" en Carga Ops al terminar cada entregable.'].join('\n');
+  }
+
+  renderVals(){
+    this.persist();
+    const s=this.state,P=this.props,cap=this.capOf(s.planUnit),wip=this.wip(),UT=TIPO[s.planUnit];
+    const me0=this.me();
+    if(s.publicView){
+      const q=norm(s.pubQ);const ok=q.length>=3;
+      const hits=ok?s.reqs.filter(r=>norm([r.job,r.proyecto,r.cliente].join(' ')).includes(q)):[];
+      const groups={};hits.forEach(r=>{(groups[r.job]=groups[r.job]||[]).push(r);});
+      const pubJobs=Object.values(groups).slice(0,20).map(g=>{
+        g.sort((a,b)=>a.fecha.localeCompare(b.fecha));const f=g[0];const open=g.filter(r=>r.estado!=='ok');
+        const status=!open.length?'Entregado':g.some(r=>!r.analista)?'Por asignar':open.length<g.length?'Entregado parcial':g.some(r=>r.estado==='en_curso')?'En proceso':'Asignado';
+        return {job:f.job,cliente:f.cliente,proyecto:f.proyecto,comercial:f.comercial||'—',status,tagClass:status==='Entregado'?'be be-success':status==='Por asignar'?'be be-warning':'be be-neutral',
+          nextLine:open.length?`Próxima entrega: ${fmtD(open[0].fecha)}`:`Completado ${fmtD((g.map(r=>r.okAt||'').sort().pop()||'').slice(0,10))}`,
+          rows:g.map(r=>{const lt=r.estado!=='ok'&&r.fecha<TODAY;const pe=!r.analista?'Por asignar':r.estado==='ok'?`Entregado ${fmtD((r.okAt||'').slice(0,10))}`:r.estado==='en_curso'?'En proceso':'Asignado · programado';
+            return {entregable:r.entregable,descripcion:r.descripcion||'—',tipoLabel:TIPO[r.tipo].label,dia:fmtD(r.fecha)+(lt?' · fuera de plazo':''),asignado:r.analista?this.nameOf(r.analista):'Por asignar',pubEstado:pe,pubClass:r.estado==='ok'?'be be-success':!r.analista?'be be-warning':'be be-info'};})};
+      });
+      return {isPublic:true,isLoggedOut:false,isLoggedIn:false,stop:e=>e.stopPropagation(),hasToast:!!s.toast,toast:s.toast,
+        pubQ:s.pubQ,onPubQ:e=>this.setState({pubQ:e.target.value}),pubJobs,
+        pubHint:!ok?'Escribe al menos 3 caracteres.':pubJobs.length?`${Object.keys(groups).length} job(s) encontrados${Object.keys(groups).length>20?' · mostrando 20':''}.`:'No encontramos requerimientos con ese criterio. Revisa el número de Job o consulta al líder de Operaciones.',
+        publicBackLabel:me0?'Volver a la app':'Ingresar a Carga Ops',closePublic:()=>{this.setState({publicView:false});if((location.hash||'').startsWith('#consulta'))history.replaceState(null,'',location.pathname+location.search);},
+        hasDetail:false,hasOk:false,hasNew:false,hasImport:false,hasUserDraft:false};
+    }
+    const me=me0,lead=!!me&&me.rol==='lider';
+    const base={isPublic:false,isLoggedOut:!me,isLoggedIn:!!me,stop:e=>e.stopPropagation(),hasToast:!!s.toast,toast:s.toast,isLead:lead,isAnalyst:!!me&&me.rol==='analista'};
+    if(!me){
+      const act=s.users.filter(u=>u.activo);
+      const login=()=>{const u=act.find(u=>norm(u.email)===norm(s.loginEmail));if(u)this.enter(u);else this.setState({loginErr:'Correo no registrado o usuario inactivo.'});};
+      return {...base,loginEmail:s.loginEmail,onLoginEmail:e=>this.setState({loginEmail:e.target.value,loginErr:''}),onLoginKey:e=>{if(e.key==='Enter')login();},
+        login,hasLoginErr:!!s.loginErr,loginErr:s.loginErr,
+        demoGroups:[['Líderes de equipo',u=>u.rol==='lider'],['Analistas de procesamiento (DP)',u=>u.rol==='analista'&&u.equipos.length===1&&has(u,'proc')],['Analistas de scripting',u=>u.rol==='analista'&&u.equipos.length===1&&has(u,'script')],['Analistas de codificación',u=>u.rol==='analista'&&u.equipos.length===1&&has(u,'cod')],['Analistas en más de un equipo',u=>u.rol==='analista'&&u.equipos.length>1],['Áreas comerciales',u=>u.rol==='comercial']]
+          .map(([label,f])=>({label,users:act.filter(f).map(u=>({nombre:u.nombre,enter:()=>this.enter(u)}))})),
+        openPublic:()=>this.setState({publicView:true}),
+        hasDetail:false,hasOk:false,hasNew:false,hasImport:false,hasUserDraft:false};
+    }
+    const nameOf=id=>this.nameOf(id);
+    const late=r=>r.estado!=='ok'&&r.fecha<TODAY;
+    const deco=r=>({...r,
+      isDue:r.estado!=='ok'&&r.fecha<=TODAY,isWarn:r.estado!=='ok'&&r.fecha>TODAY&&r.fecha<=TOMORROW_BIZ,
+      alertTitle:r.estado==='ok'?'':r.fecha<TODAY?'Vencido':r.fecha===TODAY?'Vence hoy':r.fecha<=TOMORROW_BIZ?'Vence el próximo día hábil':'',
+      tipoShort:TIPO[r.tipo].short,tipoClass:TIPO[r.tipo].cls,options:this.active(r.tipo),
+      analistaNombre:nameOf(r.analista),ini:iniOf(r.analista?nameOf(r.analista):''),
+      tipoLabel:TIPO[r.tipo].label,
+      estadoLabel:EST_LABEL[r.estado],estadoClass:EST_CLASS[r.estado],
+      dia:fmtD(r.fecha),dateLabel:late(r)?(this.sinGestion(r)?`Atrasado sin gestión · ${fmtD(r.fecha)}`:`Atrasado · ${fmtD(r.fecha)}`):fmtD(r.fecha),
+      dateColor:late(r)?'var(--danger)':'var(--ink-muted)',dateWeight:late(r)?'700':'400',
+      isOk:r.estado==='ok',notOk:r.estado!=='ok',isPend:r.estado==='pendiente',canQuickOk:r.estado==='en_curso',
+      okLine:r.okAt?fmtDT(r.okAt):'',
+      materialesAt:r.materialesAt||'',matLabel:r.materialesAt?fmtD(r.materialesAt):'Sin registrar',setMat:e=>this.upd(r.id,{materialesAt:e.target.value}),
+      okMetric:r.tipo==='cod'?(r.registros?`${fmtN(r.registros)} registros · ${r.metodo||'—'}`:''):(r.horas!=null?fmtH(r.horas):''),
+      okSuffix:(r.tipo==='cod'?(r.registros?` · ${fmtN(r.registros)} reg. · ${r.metodo||'—'}`:''):(r.horas!=null?' · '+fmtH(r.horas):'')),okNotaLine:r.okNota?` — "${r.okNota}"`:'',okByNombre:nameOf(r.okBy),
+      opacity:s.dragId===r.id?'0.4':'1',
+      open:()=>this.setState({detailId:r.id}),
+      openLink:e=>{e.preventDefault();this.setState({detailId:r.id});},
+      start:()=>this.moveTo(r.id,'en_curso'),
+      quickOk:e=>{e.stopPropagation();this.askOk(r.id);},
+      dragStart:e=>{e.dataTransfer.setData('text/plain',r.id);e.dataTransfer.effectAllowed='move';this.setState({dragId:r.id});},
+      dragEnd:()=>this.setState({dragId:null,dragOver:null}),
+      setAnalista:e=>this.assign(r.id,e.target.value),
+    });
+    const byDate=(a,b)=>a.fecha.localeCompare(b.fecha)||a.job.localeCompare(b.job);
+    const com=me.rol==='comercial';
+    const visible=lead?s.reqs:com?[]:s.reqs.filter(r=>r.analista===me.id);
+    const scope=visible.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&mondayOf(r.fecha)===CUR));
+    // tabs
+    const tabDefs=com?[['solnueva','Nueva solicitud'],['solmias','Mis solicitudes']]:lead?[['tablero','Tablero'],['bandeja','Solicitudes nuevas'],['plan','Planificación semanal'],['scripts','Scripts'],['resumen','Resumen'],['historico','Histórico'],['atrasos','Motivos de atraso'],['notif','Notificaciones'],['usuarios','Usuarios']]:[['tablero','Mi tablero'],['lista','Mi semana']];
+    const tab=tabDefs.some(t=>t[0]===s.tab)?s.tab:tabDefs[0][0];
+    const ICONS={atrasos:'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',bandeja:'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',solnueva:'M12 5v14M5 12h14',solmias:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',tablero:'M3 3h18v18H3zM9 3v18M15 3v18',lista:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',plan:'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4',scripts:'m16 18 6-6-6-6M8 6l-6 6 6 6',resumen:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',historico:'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2',notif:'M3 5h18v14H3zM3 7l9 6 9-6',usuarios:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'};
+    const lateN=scope.filter(late).length;
+    // solicitudes comerciales
+    const solGroups=(list)=>{const g={};list.filter(r=>r.origen==='comercial'&&r.solId).forEach(r=>{(g[r.solId]=g[r.solId]||[]).push(r);});return Object.values(g);};
+    const allSols=solGroups(s.reqs);
+    const openSol=g=>g.some(r=>!r.analista);
+    const solCard=g=>{
+      g=g.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha));const f=g[0],un=g.filter(r=>!r.analista).length,done=g.every(r=>r.estado==='ok'),dl=g.some(r=>r.descargadaAt);
+      const status=done?'Entregada':un===g.length?(dl?'Descargada · por asignar':'Nueva · por asignar'):un?'Asignación parcial':g.some(r=>r.estado!=='pendiente')?'En proceso':'Asignada';
+      const statusClass=done?'be be-success':un===g.length?(dl?'be be-warning':'be be-danger'):un?'be be-warning':'be be-info';
+      return {solId:f.solId,unidadLabel:TIPO[f.tipo].label,unidadClass:TIPO[f.tipo].cls,cliente:f.cliente,job:f.job,proyecto:f.proyecto,solByNombre:nameOf(f.solBy),solAtLabel:fmtDT(f.solAt),
+        fechaReq:fmtD(f.fecha),status,statusClass,nota:f.nota||'',hasNota:!!f.nota,canPlan:un>0,moduleLabel:f.tipo==='script'?'Scripts':'Planificación',
+        goPlan:()=>f.tipo==='script'?this.setState({tab:'scripts'}):this.setState({tab:'plan',planUnit:f.tipo,planWeek:mondayOf(f.fecha),planFilter:{an:'',day:''},anFilter:'',balance:null,planQ:f.job}),
+        rows:g.map(r=>({entregable:r.entregable,descripcion:r.descripcion||'—',dia:fmtD(r.fecha),asignado:r.analista?nameOf(r.analista):'Por asignar',
+          pubEstado:!r.analista?'Por asignar':r.estado==='ok'?`Entregado ${fmtD((r.okAt||'').slice(0,10))}`:r.estado==='en_curso'?'En proceso':'Asignado · programado',
+          pubClass:r.estado==='ok'?'be be-success':!r.analista?'be be-warning':'be be-info'}))};
+    };
+    const openSols=allSols.filter(openSol);
+    const myTeams=lead?(me.equipos||[]):[];
+    const myOpen=openSols.filter(g=>!myTeams.length||myTeams.includes(g[0].tipo));
+    const inboxSel=allSols.filter(g=>(s.inboxUnit==='all'||g[0].tipo===s.inboxUnit)&&(s.inboxState==='all'||openSol(g)))
+      .sort((a,b)=>(openSol(b)?1:0)-(openSol(a)?1:0)||a.map(r=>r.fecha).sort()[0].localeCompare(b.map(r=>r.fecha).sort()[0]));
+    const inboxRows=inboxSel.flat().filter(r=>s.inboxState==='all'||!r.analista);
+    const tabs=tabDefs.map(([id,label])=>{const c=id==='bandeja'?openSols.length:lateN;return {label,icon:ICONS[id],current:tab===id?'page':'false',hasCnt:['resumen','lista','bandeja'].includes(id)&&c>0,cnt:String(c),go:()=>this.setState({tab:id})};});
+    const sd=s.sd||{tipo:'proc',cliente:'',proyecto:'',job:'',bu:SLS[0],tecnica:'',fecha:nextBiz(nextBiz(nextBiz(TODAY))),ents:[],descripcion:'',nota:''};
+    const setSd=p=>this.setState(st=>({sd:{...(st.sd||sd),...p},sdErr:''}));
+    const onSd={};['cliente','proyecto','job','bu','tecnica','fecha','descripcion','nota'].forEach(k=>onSd[k]=e=>setSd({[k]:e.target.value}));
+    const sdEntList=sd.tipo==='cod'?ENT_COD:sd.tipo==='script'?ENT_SCRIPT:ENT_SOL;
+    const submitSol=()=>{
+      if(!sd.cliente.trim()||!sd.proyecto.trim()||!sd.job.trim()){this.setState({sdErr:'Cliente, Job y Proyecto son obligatorios.'});return;}
+      if(!sd.fecha||sd.fecha<TODAY){this.setState({sdErr:'Indica una fecha requerida igual o posterior a hoy.'});return;}
+      if(!sd.tecnica){this.setState({sdErr:'Selecciona la técnica.'});return;}
+      const ents=sd.ents;
+      if(!ents.length){this.setState({sdErr:sd.tipo==='script'?'Selecciona al menos un tipo de requerimiento.':'Selecciona al menos un entregable.'});return;}
+      const num=Math.max(1044,...s.reqs.map(r=>parseInt((r.solId||'').replace(/\D/g,''),10)||0))+1,solId='S-'+num,at=nowStr();
+      const rows=ents.map((ent,i)=>({id:'R'+Date.now()+'-'+i,tipo:sd.tipo,fecha:sd.fecha,pais:'CL',bu:sd.bu,tecnica:sd.tecnica,cliente:sd.cliente.trim(),proyecto:sd.proyecto.trim(),job:sd.job.trim(),
+        entregable:ent,descripcion:sd.descripcion.trim(),comercial:me.nombre,analista:'',estado:'pendiente',creado:at,actualizado:at,okAt:null,okBy:'',okNota:'',nota:sd.nota.trim(),materialesAt:'',horas:null,registros:null,metodo:'',origen:'comercial',solId,solBy:me.id,solAt:at}));
+      const mail=solMailObj(s.users,rows,at);
+      this.setState(st=>({reqs:[...st.reqs,...rows],mails:[mail,...st.mails].slice(0,300),sd:null,sdErr:'',tab:'solmias'}));
+      this.flash(`Solicitud ${solId} enviada · aviso a ${teamLeadersOf(s.users,sd.tipo).map(u=>u.nombre).join(', ')}`);
+    };
+    // board
+    const q=norm(s.q);
+    const boardItems=scope.filter(r=>(!lead||s.team==='all'||r.tipo===s.team)&&(!lead||!s.anFilter||r.analista===s.anFilter)&&(!q||norm([r.cliente,r.proyecto,r.job,r.descripcion,r.comercial,nameOf(r.analista)].join(' ')).includes(q)));
+    const columns=ESTADOS.map(e=>{
+      const cards=boardItems.filter(r=>r.estado===e.id).sort(byDate).map(deco);
+      const over=s.dragOver===e.id;
+      return {...e,cards,count:String(cards.length),empty:!cards.length,
+        dot:e.id==='ok'?'var(--color-accent)':e.id==='en_curso'?'var(--color-accent-400)':'var(--color-neutral-400)',
+        border:over?'var(--teal)':'transparent',bg:over?'var(--teal-50)':'var(--neutral-50)',
+        dragOver:ev=>{ev.preventDefault();if(s.dragOver!==e.id)this.setState({dragOver:e.id});},
+        drop:ev=>{ev.preventDefault();this.moveTo(ev.dataTransfer.getData('text/plain')||s.dragId,e.id);}};
+    });
+    const teamOpts=[['all','Todos'],['proc','Procesamiento'],['cod','Codificación'],['script','Scripting']].map(([id,label])=>({label,active:s.team===id,pick:()=>this.setState({team:id})}));
+    // analyst
+    const myAll=s.reqs.filter(r=>r.analista===me.id);
+    const myNext=myAll.filter(r=>mondayOf(r.fecha)===NEXT).length;
+    const myAct=myAll.filter(r=>r.estado!=='ok'&&(r.tipo==='script'||mondayOf(r.fecha)<=CUR));
+    const mine={line:`${myAct.filter(r=>r.estado==='pendiente').length} pendientes · ${myAct.filter(r=>r.estado==='en_curso').length} en curso · ${myAct.filter(late).length} atrasados · ${scope.filter(r=>r.estado==='ok').length} con OK esta semana.`,
+      hasNext:!lead&&myNext>0,nextLabel:`Semana siguiente: ${myNext} asignados →`,goNext:()=>this.setState({tab:'lista',myWeek:NEXT})};
+    const myWeekRows=myAll.filter(r=>mondayOf(r.fecha)===s.myWeek||(s.myWeek===CUR&&r.estado!=='ok'&&r.fecha<CUR));
+    const myRows=myWeekRows
+      .sort((a,b)=>(a.estado==='ok')-(b.estado==='ok')||byDate(a,b)).map(deco);
+    // planning
+    const procA=this.active(s.planUnit);
+    const weekItems=s.reqs.filter(r=>r.tipo===s.planUnit&&mondayOf(r.fecha)===s.planWeek);
+    const weekScripts=s.reqs.filter(r=>r.tipo==='script'&&mondayOf(r.fecha)===s.planWeek&&procA.some(a=>a.id===r.analista));
+    const weekAll=[...weekItems,...weekScripts];
+    const mean=procA.length?weekItems.length/procA.length:0;
+    const capCards=procA.map(a=>{
+      const m=weekAll.filter(r=>r.analista===a.id),n=m.length,nS=m.filter(r=>r.tipo==='script').length;
+      let label='Equilibrado',tagClass='be be-success',bar='var(--teal)';
+      if(n>cap){label='Sobre capacidad';tagClass='be be-danger';bar='var(--danger)';}
+      else if(n-mean>=2){label='Sobrecargado';tagClass='be be-warning';bar='var(--warning)';}
+      else if(mean-n>=2){label='Subutilizado';tagClass='be be-info';bar='var(--color-accent-300)';}
+      return {nombre:a.nombre,border:s.planFilter.an===a.id?'var(--color-accent)':'var(--color-divider)',pick:()=>this.setState({anFilter:s.planFilter.an===a.id?'':a.id,planFilter:{an:s.planFilter.an===a.id?'':a.id,day:''}}),n:String(n),cap:String(cap),mix:nS?`${n-nS} ${UT.short} + ${nS} scripts`:`${n} entregables ${UT.short}`,jobs:String(new Set(m.map(r=>r.job)).size),pct:Math.min(100,n/cap*100)+'%',label,tagClass,bar,
+        pend:m.filter(r=>r.estado==='pendiente').length,curso:m.filter(r=>r.estado==='en_curso').length,ok:m.filter(r=>r.estado==='ok').length};
+    });
+    const loads=procA.map(a=>weekAll.filter(r=>r.analista===a.id).length);
+    const planStats={total:String(weekItems.length),jobs:String(new Set(weekItems.map(r=>r.job)).size),avg:mean.toFixed(1),spread:String(loads.length?Math.max(...loads)-Math.min(...loads):0),unassigned:String(weekItems.filter(r=>!r.analista).length)};
+    const days=[0,1,2,3,4].map(i=>addDays(s.planWeek,i));
+    const pf=s.planFilter;
+    const setPF=(an,day)=>this.setState({planFilter:(pf.an===an&&pf.day===day)?{an:'',day:''}:{an,day}});
+    const agendaRows=[...procA.map(a=>({id:a.id,nombre:a.nombre})),...(weekItems.some(r=>!r.analista)?[{id:'',nombre:'Sin asignar'}]:[])].map(a=>{
+      const m=weekAll.filter(r=>(r.analista||'')===a.id);
+      const isSel=pf.an===a.id&&(pf.an!==''||pf.day!=='');
+      return {nombre:a.nombre,total:String(m.length),color:isSel&&!pf.day?'var(--color-accent-700)':'var(--color-text)',weight:isSel&&!pf.day?'700':'400',pick:()=>setPF(a.id,''),
+        cells:days.map(d=>{const md=m.filter(r=>r.fecha===d),n=md.length,nS=md.filter(r=>r.tipo==='script').length;const sel=pf.an===a.id&&pf.day===d;
+          return {label:n?(nS?`${n-nS} · ${nS}S`:String(n)):'·',bg:n>=5?'var(--color-accent-300)':n>=3?'var(--color-accent-200)':n?'var(--color-accent-100)':'transparent',fg:n?'var(--ink)':'var(--ink-muted)',border:sel?'var(--color-accent-700)':'transparent',pick:()=>setPF(a.id,d)};})};
+    });
+    agendaRows.push({nombre:'Total',total:String(weekAll.length),color:'var(--color-text)',weight:'700',pick:()=>this.setState({planFilter:{an:'',day:''}}),
+      cells:days.map(d=>{const n=weekAll.filter(r=>r.fecha===d).length;const sel=pf.an==='*'&&pf.day===d;return {label:String(n),bg:'transparent',fg:'var(--color-text)',border:sel?'var(--color-accent-700)':'transparent',pick:()=>setPF('*',d)};})});
+    const pq=norm(s.planQ);
+    const hasPF=!!(pf.day||pf.an);
+    const planRows=weekAll.filter(r=>(!hasPF||((pf.an==='*'||(r.analista||'')===pf.an)&&(!pf.day||r.fecha===pf.day)))&&(!pq||norm([r.cliente,r.proyecto,r.job,r.descripcion,r.comercial].join(' ')).includes(pq)))
+      .sort((a,b)=>(a.analista?1:0)-(b.analista?1:0)||nameOf(a.analista).localeCompare(nameOf(b.analista))||byDate(a,b)).map(deco);
+    const planFilterLabel=hasPF?[pf.an==='*'?'Todos':pf.an?nameOf(pf.an):'Sin asignar',pf.day?fmtD(pf.day):''].filter(Boolean).join(' · '):'';
+    const balanceMoves=(s.balance||[]).map(m=>{const r=s.reqs.find(x=>x.id===m.ids[0])||{};return {job:m.job,proyecto:r.proyecto,n:String(m.ids.length),from:m.from?nameOf(m.from):'Sin asignar',to:nameOf(m.to)};});
+    const wkSet=new Set([CUR,NEXT,s.planWeek,...s.reqs.filter(r=>r.tipo===s.planUnit).map(r=>mondayOf(r.fecha)).filter(w=>w>=addDays(CUR,-7))]);
+    const weekOpts=[...wkSet].sort().map(w=>({name:weekName(w),label:weekLabel(w),active:s.planWeek===w,pick:()=>this.setState({planWeek:w,balance:null,planFilter:{an:'',day:''}})}));
+    // histórico
+    const hm=s.histMode,href=s.histRef;let hFrom,hTo,histLabel;
+    if(hm==='semana'){hFrom=mondayOf(href);hTo=addDays(hFrom,6);histLabel=`Semana ${weekLabel(hFrom)}`;}
+    else{const d0=pISO(href);hFrom=iso(new Date(d0.getFullYear(),d0.getMonth(),1));hTo=iso(new Date(d0.getFullYear(),d0.getMonth()+1,0));histLabel=`${MESES_L[d0.getMonth()]} ${d0.getFullYear()}`;}
+    const hShift=k=>{if(hm==='semana')this.setState({histRef:addDays(mondayOf(href),7*k)});else{const d0=pISO(href);this.setState({histRef:iso(new Date(d0.getFullYear(),d0.getMonth()+k,1))});}};
+    const hAll=s.reqs.filter(r=>r.fecha>=hFrom&&r.fecha<=hTo);
+    const hItems=hAll.filter(r=>!s.anFilter||r.analista===s.anFilter);
+    const onTime=r=>r.estado==='ok'&&!!r.okAt&&r.okAt.slice(0,10)<=r.fecha;
+    const hst=list=>{const ok=list.filter(r=>r.estado==='ok');const ot=ok.filter(onTime).length;return {n:list.length,ok:ok.length,okPct:list.length?Math.round(ok.length/list.length*100):0,ot:ok.length?Math.round(ot/ok.length*100):0,late:list.filter(r=>(r.estado==='ok'&&!onTime(r))||late(r)).length};};
+    const hs=hst(hItems);
+    const histKpis=[{label:'Entregables',value:String(hs.n),note:`${hItems.filter(r=>r.tipo==='proc').length} DP · ${hItems.filter(r=>r.tipo==='cod').length} COD · ${hItems.filter(r=>r.tipo==='script').length} scripts`},
+      {label:'Con OK',value:hs.okPct+'%',note:`${hs.ok} de ${hs.n}`},{label:'OK a tiempo',value:hs.ok?hs.ot+'%':'—',note:'Sobre los que tienen OK'},{label:'Con atraso',value:String(hs.late),note:'OK tardío o abierto vencido'},
+      {label:'Horas registradas',value:fmtH(hItems.reduce((a,r)=>a+(r.horas||0),0)),note:(()=>{const w=hItems.filter(r=>r.horas>0);return w.length?`Prom. ${fmtH(w.reduce((a,r)=>a+r.horas,0)/w.length)} por entregable`:'DP + scripts con OK';})()},
+      {label:'Registros codificados',value:fmtN(hItems.reduce((a,r)=>a+(r.registros||0),0)),note:`IA ${fmtN(hItems.filter(r=>r.metodo==='IA').reduce((a,r)=>a+(r.registros||0),0))} · Manual ${fmtN(hItems.filter(r=>r.metodo==='Manual').reduce((a,r)=>a+(r.registros||0),0))}`}];
+    let buckets=[];
+    if(hm==='semana')buckets=[0,1,2,3,4].map(i=>{const d0=addDays(hFrom,i);return {label:fmtD(d0),list:hItems.filter(r=>r.fecha===d0)};});
+    else{let w=mondayOf(hFrom);while(w<=hTo){const ww=w;buckets.push({label:`Sem. ${weekLabel(ww)}`,w:ww,list:hItems.filter(r=>mondayOf(r.fecha)===ww)});w=addDays(w,7);}}
+    const maxB=Math.max(1,...buckets.map(b=>b.list.length));
+    const histRows=buckets.map(b=>{const st=hst(b.list);return {label:b.label,n:String(st.n),ok:String(st.ok),ot:st.ok?st.ot+'%':'—',late:String(st.late),pct:(st.n/maxB*100)+'%',okPct:(st.n?st.ok/st.n*100:0)+'%',cursor:b.w?'pointer':'default',pick:()=>{if(b.w)this.setState({histMode:'semana',histRef:b.w});}};});
+    const histAnalysts=s.users.filter(u=>u.rol==='analista').map(u=>{const m=hAll.filter(r=>r.analista===u.id);const st=hst(m);return {u,m,st};}).filter(x=>x.m.length)
+      .map(({u,m,st})=>({nombre:u.nombre+(s.anFilter===u.id?' ●':''),dp:String(m.filter(r=>r.tipo==='proc').length),cod:String(m.filter(r=>r.tipo==='cod').length),hrs:(()=>{const t=m.reduce((a,r)=>a+(r.horas||0),0);return t?fmtH(t):'—';})(),reg:(()=>{const t=m.reduce((a,r)=>a+(r.registros||0),0);return t?fmtN(t):'—';})(),sc:String(m.filter(r=>r.tipo==='script').length),ok:`${st.ok}/${st.n}`,ot:st.ok?st.ot+'%':'—',late:String(st.late),lateWeight:st.late?'700':'400',pick:()=>this.setState({anFilter:s.anFilter===u.id?'':u.id})}));
+    const hSorted=hItems.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.job.localeCompare(b.job));
+    const histList=hSorted.slice(0,100).map(r=>{const d0=deco(r);const ot=onTime(r);return {...d0,otLabel:r.estado==='ok'?`${ot?'A tiempo':'Tardío'} · ${fmtDT(r.okAt)}${d0.okSuffix}`:late(r)?'Vencido sin OK':'—',otColor:r.estado==='ok'&&ot?'var(--color-accent-700)':late(r)||r.estado==='ok'?'var(--color-accent-900)':'var(--color-neutral-700)',otWeight:(r.estado==='ok'&&!ot)||late(r)?'700':'400'};});
+    // motivos de atraso
+    const aItems=hItems.filter(r=>s.atrUnit==='all'||r.tipo===s.atrUnit);
+    const aOk=aItems.filter(r=>r.estado==='ok'),aLate=aOk.filter(isLateOk);
+    const dAt=r=>daysBetween(r.fecha,r.okAt.slice(0,10));
+    const avgD=l=>l.length?(l.reduce((a,r)=>a+dAt(r),0)/l.length).toFixed(1).replace('.',','):'—';
+    const byResp=k=>aLate.filter(r=>k==='operaciones'?r.atrasoResp==='operaciones':effResp(r)===k);
+    const pctOf=(n,d)=>d?Math.round(n/d*100):0;
+    const aOpen=aItems.filter(late);
+    const atrKpis=[
+      {label:'Entregas con atraso',value:String(aLate.length),color:'var(--danger)',note:`${pctOf(aLate.length,aOk.length)}% de ${aOk.length} entregas con OK`},
+      {label:'Días promedio de atraso',value:avgD(aLate),color:'var(--ink)',note:'Desde el día comprometido al OK'},
+      ...[...['proc','script','cod'].filter(t=>s.atrUnit==='all'||s.atrUnit===t).map(t=>'op_'+t),'comercial','campo'].map(k=>({label:k==='comercial'?'Causa materiales comerciales':k==='campo'?'Causa campo':'Causa '+RESPX[k].label,value:pctOf(byResp(k).length,aLate.length)+'%',color:k==='comercial'?'var(--warning)':k==='campo'?'var(--ink)':'var(--teal-text)',note:`${byResp(k).length} entregas · ${avgD(byResp(k))} días prom.`})),
+      {label:'Vencidos sin cerrar',value:String(aOpen.length),color:aOpen.length?'var(--danger)':'var(--ink)',note:'Abiertos con fecha pasada'}];
+    const respKeys=[...['proc','script','cod'].filter(t=>s.atrUnit==='all'||s.atrUnit===t).map(t=>'op_'+t),'comercial','campo',...(byResp('sin').length?['sin']:[])];
+    const atrStack=respKeys.map(k=>{const l=byResp(k);return {label:RESPX[k].label,color:RESPX[k].color,n:String(l.length),pct:pctOf(l.length,aLate.length)+'%',pctLabel:pctOf(l.length,aLate.length)+'%',dias:avgD(l)};});
+    const atrUnits=['proc','script','cod'].filter(t=>s.atrUnit==='all'||s.atrUnit===t).map(t=>{const ok=aOk.filter(r=>r.tipo===t),lt=ok.filter(isLateOk);const c=k=>String(lt.filter(r=>r.atrasoResp===k).length);
+      return {unidad:TIPO[t].label,entregas:String(ok.length),atrasos:`${lt.length} (${pctOf(lt.length,ok.length)}%)`,ops:c('operaciones'),com:c('comercial'),campo:c('campo'),dias:avgD(lt)};});
+    const mg={};aLate.forEach(r=>{const k=effResp(r)+'|'+(r.atrasoMotivo||'Sin motivo');mg[k]=(mg[k]||0)+1;});
+    const mMax=Math.max(1,...Object.values(mg));
+    const atrMotivos=Object.entries(mg).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,n])=>{const [rk,m]=k.split('|');return {motivo:m,respLabel:RESPX[rk].label,color:RESPX[rk].color,n:String(n),pct:(n/mMax*100)+'%'};});
+    const groupTop=(list,keyFn,lim)=>{const g={};list.forEach(r=>{const k=keyFn(r)||'—';(g[k]=g[k]||[]).push(r);});return Object.entries(g).sort((a,b)=>b[1].length-a[1].length).slice(0,lim||8).map(([nombre,l])=>{const mc={};l.forEach(r=>mc[r.atrasoMotivo]=(mc[r.atrasoMotivo]||0)+1);const top=Object.entries(mc).sort((a,b)=>b[1]-a[1])[0];return {nombre,n:String(l.length),dias:avgD(l),top:top?`${top[0]} (${top[1]})`:'—'};});};
+    const atrComerciales=groupTop(byResp('comercial'),r=>(r.comercial||'').split('/')[0].trim());
+    const atrCampo=groupTop(byResp('campo'),r=>r.atrasoCampo||'Sin área',CAMPOS.length+1);
+    const aSorted=aLate.slice().sort((a,b)=>dAt(b)-dAt(a)||b.fecha.localeCompare(a.fecha));
+    const atrList=aSorted.slice(0,100).map(r=>{const d0=deco(r),mt=r.materialesAt&&r.materialesAt>=r.fecha;return {...d0,okDia:fmtD(r.okAt.slice(0,10)),diasLabel:`+${dAt(r)} d`,
+      matLabel2:r.materialesAt?fmtD(r.materialesAt)+(mt?' · tarde':''):'Sin registrar',matColor:mt?'var(--warning)':'var(--ink-muted)',matWeight:mt?'600':'400',
+      respLabel:respLabelOf(r),respColor:RESPX[effResp(r)].color,motivoLabel:(r.atrasoMotivo||'—')+(r.atrasoDetalle?' — '+r.atrasoDetalle:'')};});
+    // notificaciones
+    const mailRows=s.mails.map(m=>({...m,when:fmtDT(m.at),kindLabel:({asignacion:'Asignación',atraso:'Atraso sin gestión',solicitud:'Nueva solicitud'})[m.kind],kindClass:({asignacion:'be be-neutral',atraso:'be be-danger',solicitud:'be be-warning'})[m.kind],toLabel:m.to.join(', '),ccLabel:m.cc.length?m.cc.join(', '):'—',isOpen:s.mailOpen===m.id,rowDisplay:s.mailOpen===m.id?'table-row':'none',toggle:()=>this.setState({mailOpen:s.mailOpen===m.id?null:m.id})}));
+    const nA=P.notifyAssign??true,nO=P.notifyOverdue??true,stale=P.staleDays??2;
+    const notifRules=[{title:'Asignación',state:nA?'Activa':'Desactivada',tagClass:nA?'tag tag-accent':'tag tag-neutral',desc:'Al asignar o reasignar (manual, balanceo, importación, nuevo script) se envía un correo al analista con el detalle. Las acciones masivas envían un solo correo por analista.'},
+      {title:'Atraso sin gestión',state:nO?'Activa':'Desactivada',tagClass:nO?'tag tag-accent':'tag tag-neutral',desc:`Revisión diaria: si un requerimiento pasó su día de entrega sin OK y sigue pendiente o lleva ${stale}+ días sin actualización, se avisa al analista con copia al líder (máximo un aviso por día).`},
+      {title:'Nueva solicitud comercial',state:'Activa',tagClass:'tag tag-accent',desc:'Cuando un área comercial envía una solicitud, se avisa al líder del equipo correspondiente (según "Equipos a cargo"; si no hay, a todos los líderes) con copia al solicitante. No se asigna analista.'}];
+    const dow=pISO(TODAY).getDay();const nextThu=addDays(TODAY,(4-dow+7)%7);
+    const thursdayLine=dow===4?`Hoy es jueves: arma y publica la planificación de la semana siguiente (${weekLabel(NEXT)}).`:`Se arma cada jueves para la semana siguiente. Próximo cierre: ${fmtD(nextThu)}. Carga medida en entregables; capacidad ${cap} por analista.`;
+    // scripts
+    const ranking=this.rank(s.reqs);const top=ranking[0];
+    const rec=top?{nombre:top.a.nombre,reason:top.active===0?'Libre: sin scripts activos'+(top.lastOk?` · último OK ${fmtDT(top.lastOk)}`:''):top.active>=wip?`Todo el equipo está al límite (${top.active}/${wip}). Es quien tiene menos carga.`:`Menor carga activa del equipo: ${top.active} de ${wip}`+(top.dpToday?` · además ${top.dpToday} entregables DP hoy`:'')}:{nombre:'Sin analistas activos',reason:'Activa usuarios de scripting en Usuarios.'};
+    const lanes=ranking.map((x,i)=>{
+      const items=s.reqs.filter(r=>r.tipo==='script'&&r.analista===x.a.id&&r.estado!=='ok').sort(byDate).map(deco);
+      const full=x.active>=wip;
+      return {nombre:x.a.nombre,ini:iniOf(x.a.nombre),items,free:!items.length,metaLine:`${x.active} activos de ${wip}${has(x.a,'proc')?` · ${x.dpToday} entregables DP hoy`:''} · ${x.okCount} con OK · último OK ${x.lastOk?fmtDT(x.lastOk):'—'}`,
+        label:i===0?'Siguiente':x.active===0?'Libre':full?'Al límite':'Disponible',tagClass:i===0?'be be-success':full?'be be-danger':'be be-neutral',
+        border:i===0?'var(--color-accent)':'var(--color-divider)',
+        slots:Array.from({length:Math.max(wip,x.active)},(_,k)=>({bg:k<x.active?(k>=wip?'var(--color-accent-900)':'var(--color-accent)'):'var(--color-neutral-200)'}))};
+    });
+    const unassigned=s.reqs.filter(r=>r.tipo==='script'&&!r.analista&&r.estado!=='ok');
+    // summary
+    const leadScope=s.reqs.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&mondayOf(r.fecha)===CUR));
+    const pendingList=leadScope.filter(r=>r.estado!=='ok').sort((a,b)=>byDate(a,b)||(a.estado==='pendiente'?0:1)-(b.estado==='pendiente'?0:1)).map((r,i)=>({...deco(r),rank:String(i+1)}));
+    const perAnalyst=s.users.filter(u=>u.rol==='analista'&&u.activo).map(a=>{const m=leadScope.filter(r=>r.analista===a.id);const l=m.filter(late).length;return {nombre:a.nombre,equipoLabel:eqLabel(a),pend:String(m.filter(r=>r.estado==='pendiente').length),curso:String(m.filter(r=>r.estado==='en_curso').length),ok:String(m.filter(r=>r.estado==='ok').length),late:String(l),lateWeight:l?'700':'400'};});
+    const sco=leadScope.filter(r=>r.tipo==='cod'),sp=leadScope.filter(r=>r.tipo==='proc'),ss=leadScope.filter(r=>r.tipo==='script');
+    const kpis=[
+      {label:'Pendientes de OK',value:String(pendingList.length),note:`${pendingList.filter(late).length} atrasados`},
+      {label:'En curso',value:String(leadScope.filter(r=>r.estado==='en_curso').length),note:'Procesamiento + scripts'},
+      {label:'OK procesamiento',value:`${sp.filter(r=>r.estado==='ok').length}/${sp.length}`,note:`Semana ${weekLabel(CUR)}`},
+      {label:'OK codificación',value:`${sco.filter(r=>r.estado==='ok').length}/${sco.length}`,note:`${fmtN(sco.reduce((a,r)=>a+(r.registros||0),0))} registros codificados`},
+      {label:'OK scripts',value:`${ss.filter(r=>r.estado==='ok').length}/${ss.length}`,note:'Activos + cerrados esta semana'}];
+    // users
+    const roleCards=[
+      {label:'Líder de equipo',count:String(s.users.filter(u=>u.rol==='lider'&&u.activo).length),desc:'Ve tablero, planificación de procesamiento y scripting completos. Asigna, balancea, importa, administra usuarios.'},
+      {label:'Comercial',count:String(s.users.filter(u=>u.rol==='comercial'&&u.activo).length),desc:'Ingresa solicitudes a Operaciones y sigue su estado. No ve la carga de los equipos. Sus solicitudes llegan sin analista al líder del equipo.'},
+      {label:'Analista DP',count:String(this.active('proc').length),desc:'Solo ve su carga asignada (semana actual y siguiente). Actualiza estado, da OK y descarga su semana.'},
+      {label:'Analista de scripting',count:String(this.active('script').length),desc:'Solo ve sus scripts asignados. Un analista puede estar en ambos equipos y ver DP + scripts juntos.'},
+      {label:'Analista de codificación',count:String(this.active('cod').length),desc:'Gestiona entregables planificados por semana como DP. Al dar OK registra la cantidad de registros codificados y si fue por IA o Manual.'},
+      {label:'Consulta (sin cuenta)',count:'—',desc:'Cualquier persona de la organización busca por Job, proyecto o cliente y ve asignación y día de entrega. Solo lectura.'}];
+    const RO={lider:0,analista:1,comercial:2};
+    const userRows=s.users.slice().sort((a,b)=>RO[a.rol]-RO[b.rol]||(a.equipos||[]).join().localeCompare((b.equipos||[]).join())||a.nombre.localeCompare(b.nombre)).map(u=>{
+      const act=s.reqs.filter(r=>r.analista===u.id&&r.estado!=='ok').length;
+      return {...u,rolLabel:({lider:'Líder de equipo',analista:'Analista',comercial:'Comercial'})[u.rol],rolClass:({lider:'be be-info',analista:'be be-neutral',comercial:'be be-navy'})[u.rol],equipoLabel:eqLabel(u),
+        carga:u.rol==='analista'?String(act):u.rol==='comercial'?`${new Set(s.reqs.filter(r=>r.solBy===u.id).map(r=>r.solId)).size} solicitudes`:'—',estadoLabel:u.activo?'Activo':'Inactivo',opacity:u.activo?'1':'0.55',
+        toggle:()=>{if(u.id===me.id){this.flash('No puedes desactivar tu propio usuario');return;}this.setState(st=>({users:st.users.map(x=>x.id===u.id?{...x,activo:!x.activo}:x)}));if(u.activo&&act)this.flash(`${u.nombre} tiene ${act} requerimientos activos: reasígnalos`);},
+        edit:()=>this.setState({ud:{...u},udErr:''})};
+    });
+    const ud=s.ud;
+    const onUd={};['nombre','email'].forEach(k=>onUd[k]=e=>{const v=e.target.value;this.setState(st=>({ud:{...st.ud,[k]:v},udErr:''}));});
+    const saveUser=()=>{const u=s.ud;if(!u.nombre.trim()||!u.email.trim()){this.setState({udErr:'Nombre y correo son obligatorios.'});return;}
+      if(s.users.some(x=>x.id!==u.id&&norm(x.email)===norm(u.email))){this.setState({udErr:'Ya existe un usuario con ese correo.'});return;}
+      if(u.id===me.id&&u.rol!=='lider'){this.setState({udErr:'No puedes quitarte el rol de líder.'});return;}
+      if(u.rol==='analista'&&!(u.equipos||[]).length){this.setState({udErr:'Selecciona al menos un equipo.'});return;}
+      const clean={...u,nombre:u.nombre.trim(),email:u.email.trim(),equipos:u.rol==='comercial'?[]:(u.equipos||[])};delete clean.equipo;
+      this.setState(st=>({users:u.id?st.users.map(x=>x.id===u.id?clean:x):[...st.users,{...clean,id:'u'+Date.now(),activo:true}],ud:null}));this.flash('Usuario guardado');};
+    // detail
+    const det=s.reqs.find(r=>r.id===s.detailId&&(lead||r.analista===me.id));
+    let d={};
+    if(det){d={...deco(det),
+      facts:[['Día',fmtD(det.fecha)],['Cliente',det.cliente],['Comercial',det.comercial||'—'],['BU',det.bu||'—'],['Técnica',det.tecnica||'—'],['Analista',nameOf(det.analista)]].map(([k,v])=>({k,v})),
+      fechaLabel:det.tipo==='script'?'Fecha compromiso':'Día de entrega',
+      options:this.active(det.tipo),setFecha:e=>this.upd(det.id,{fecha:e.target.value||det.fecha}),
+      setNota:e=>this.upd(det.id,{nota:e.target.value}),
+      estados:ESTADOS.map(e=>({label:e.label,active:det.estado===e.id,pick:()=>this.moveTo(det.id,e.id)})),
+      copyLink:()=>{const url=location.href.split('#')[0]+'#consulta?job='+encodeURIComponent(det.job);(navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>this.flash('Enlace de consulta copiado'),()=>this.flash(url));},
+      askOk:()=>this.askOk(det.id),canReopen:det.estado==='ok'&&lead,
+      reopen:()=>this.upd(det.id,{estado:'en_curso',okAt:null,okBy:'',okNota:'',horas:null,registros:null,metodo:'',atrasoResp:'',atrasoMotivo:'',atrasoDetalle:'',atrasoCampo:''}),
+      isCampo:det.atrasoResp==='campo',atrasoCampo:det.atrasoCampo||'',setCampo:e=>this.upd(det.id,{atrasoCampo:e.target.value}),
+      isLateOk:isLateOk(det),diasAtrasoLabel:isLateOk(det)?`+${daysBetween(det.fecha,det.okAt.slice(0,10))} días`:'',roMotivo:!this.canEdit(det),atrasoResp:det.atrasoResp||'',atrasoMotivo:det.atrasoMotivo||'',
+      motivoOpts:det.atrasoResp?MOTIVOS[det.atrasoResp]:[],respOpts:respListFor(det.tipo),setResp:e=>{const v=e.target.value;this.upd(det.id,{atrasoResp:v,atrasoMotivo:'',atrasoCampo:v==='campo'?(det.atrasoCampo||campoFrom(det.tecnica)):''});},setMotivo:e=>this.upd(det.id,{atrasoMotivo:e.target.value}),
+      remove:()=>{if(confirm(`¿Eliminar ${det.job} · ${det.descripcion}?`)){this.setState(st=>({reqs:st.reqs.filter(r=>r.id!==det.id),detailId:null}));this.flash(`${det.job} eliminado`);}}};}
+    const okR=s.reqs.find(r=>r.id===s.okId);
+    // new
+    const dr=s.draft;
+    const on={};['cliente','proyecto','job','bu','tecnica','entregable','descripcion','comercial','analista','fecha'].forEach(k=>on[k]=e=>{const v=e.target.value;this.setState(st=>({draft:{...st.draft,[k]:v},err:''}));});
+    const res=s.importOpen?this.parseMatrix(this.currentMatrix()):null;
+    const importPreview=!res||(!s.importMatrix&&!s.importText.trim())?['Esperando archivo o datos…']:[
+      `${res.rows.length} entregables nuevos listos para importar${res.weeks.size?' · '+[...res.weeks].sort().map(w=>`${weekName(w)} ${weekLabel(w)}`).join(', '):''}`,
+      ...(res.dup?[`${res.dup} filas duplicadas se omitirán`]:[]),...(res.invalid?[`${res.invalid} filas sin DIA o JOB válidos`]:[]),
+      ...(res.unknown.size?[`Analistas no reconocidos (quedarán sin asignar): ${[...res.unknown].join(', ')}`]:[])];
+
+    return {...base,
+      me:{nombre:me.nombre,ini:iniOf(me.nombre),rolLabel:lead?'Líder · '+eqLabel(me):com?'Área comercial':'Analista '+(me.equipos||[]).map(t=>({proc:'DP',script:'Scripting',cod:'Codificación'})[t]).join(' + '),equipoLabel:eqLabel(me)},
+      openPublic:()=>this.setState({publicView:true}),
+      anFilter:s.anFilter,planAn:s.planFilter.an==='*'?'':s.planFilter.an,onAnFilter:e=>{const v=e.target.value;this.setState({anFilter:v,planFilter:{an:v,day:''}});},
+      allAnalysts:s.users.filter(u=>u.rol==='analista'&&u.activo),
+      isAtr:tab==='atrasos',atrKpis,atrStack,atrEmpty:!aLate.length,atrUnits,atrMotivos,atrComerciales,atrComEmpty:!atrComerciales.length,atrCampo,atrCampoEmpty:!atrCampo.length,atrList,
+      atrListNote:aSorted.length>100?`· mostrando 100 de ${aSorted.length}`:`· ${aSorted.length}`,respList:RESP_LIST,
+      atrUnitOpts:[['all','Todas'],['proc','Procesamiento'],['script','Scripting'],['cod','Codificación']].map(([id,label])=>({label,active:s.atrUnit===id,pick:()=>this.setState({atrUnit:id})})),
+      downloadAtr:()=>{if(!aSorted.length){this.flash('No hay atrasos en este periodo');return;}this.download(aSorted,`Atrasos_${hFrom}_${hTo}`,`Motivos de atraso · ${histLabel}`);},
+      okLate:!!okR&&TODAY>okR.fecha,okLateLine:okR?`comprometido ${fmtD(okR.fecha)}, se cierra hoy (+${daysBetween(okR.fecha,TODAY)} días)`:'',
+      okRespOpts:[['operaciones',okR?TIPO[okR.tipo].label:'Operaciones'],['comercial','Área comercial'],['campo','Campo']].map(([id,label])=>({label,active:s.okResp===id,pick:()=>this.setState({okResp:id,okMotivo:id==='comercial'&&s.okMat&&okR&&s.okMat>=okR.fecha?'Materiales entregados tarde':'',okErr:''})})),
+      okMotivoOpts:s.okResp?MOTIVOS[s.okResp]:[],okIsCampo:s.okResp==='campo',okCampo:s.okCampo||'',onOkCampo:e=>this.setState({okCampo:e.target.value,okErr:''}),campos:CAMPOS,okMotivo:s.okMotivo||'',onOkMotivo:e=>this.setState({okMotivo:e.target.value,okErr:''}),okDetalle:s.okDetalle||'',onOkDetalle:e=>this.setState({okDetalle:e.target.value}),
+      okHasHint:!!okR&&TODAY>okR.fecha,okHint:!okR?'':!s.okMat?'Registra la fecha de recepción de materiales para respaldar la clasificación.':s.okMat>=okR.fecha?`Los materiales se recibieron el ${fmtD(s.okMat)}, el día de entrega o después: probablemente es un atraso de materiales del área comercial.`:`Los materiales se recibieron el ${fmtD(s.okMat)}, antes del día de entrega.`,
+      isHist:tab==='historico',isNotif:tab==='notif',histLabel,histKpis,histRows,histAnalysts,histList,histBucketTitle:hm==='semana'?'Por día':'Por semana',
+      histListNote:hSorted.length>100?`· mostrando 100 de ${hSorted.length} (descarga el periodo para ver todo)`:`· ${hSorted.length}`,
+      histModeOpts:[['semana','Semana'],['mes','Mes']].map(([id,label])=>({label,active:hm===id,pick:()=>this.setState({histMode:id})})),
+      histPrev:()=>hShift(-1),histNext:()=>hShift(1),downloadHist:()=>this.download(hItems,`Historico_${hFrom}_${hTo}`,`Histórico ${histLabel}${s.anFilter?' · '+nameOf(s.anFilter):''}`),
+      mailRows,mailsEmpty:!mailRows.length,notifRules,runOverdue:()=>{const n=this.checkOverdue(true);this.flash(n?`${n} correo(s) de atraso enviados`:'No hay requerimientos atrasados sin gestión');},
+      downloadWeek:()=>this.download(weekAll.concat(s.reqs.filter(r=>r.tipo==='script'&&mondayOf(r.fecha)===s.planWeek&&!weekAll.includes(r))),`Planificacion_${s.planWeek}`,`Planificación semana ${weekLabel(s.planWeek)}`),
+      downloadMine:()=>this.download(myWeekRows,`Mi_semana_${me.nombre.split(' ')[0]}_${s.myWeek}`,`${me.nombre} · semana ${weekLabel(s.myWeek)}`),
+      logout:()=>this.setState({session:null,tab:'tablero',detailId:null,draft:null,importOpen:false,ud:null}),
+      tabs,navGroup:lead?'Gestión de carga':com?'Solicitudes a Operaciones':'Mi trabajo',
+      hasInboxAlert:lead&&tab!=='bandeja'&&myOpen.length>0,inboxAlertLine:`${myOpen.length} solicitud(es) comercial(es) sin asignar${myTeams.length?' para '+myTeams.map(t=>TIPO[t].label).join(' y '):''}. Descárgalas para planificar y asígnalas.`,goInbox:()=>this.setState({tab:'bandeja'}),
+      isInbox:tab==='bandeja',inboxCards:inboxSel.map(solCard),inboxEmpty:!inboxSel.length,
+      inboxStats:`${inboxSel.filter(openSol).length} por asignar · ${inboxRows.length} entregables en la descarga`,
+      inboxUnitOpts:[['all','Todas'],['proc','Procesamiento'],['cod','Codificación'],['script','Scripting']].map(([id,label])=>({label:id==='all'?label:`${label} (${openSols.filter(g=>g[0].tipo===id).length})`,active:s.inboxUnit===id,pick:()=>this.setState({inboxUnit:id})})),
+      inboxStateOpts:[['pend','Por asignar'],['all','Todas']].map(([id,label])=>({label,active:s.inboxState===id,pick:()=>this.setState({inboxState:id})})),
+      downloadInbox:()=>{if(!inboxRows.length){this.flash('No hay solicitudes para descargar con este filtro');return;}const ids=new Set(inboxRows.map(r=>r.id)),t=nowStr();
+        this.download(inboxRows,`Solicitudes_${s.inboxUnit==='all'?'todas':s.inboxUnit}_${TODAY}`,`Solicitudes comerciales ${s.inboxState==='pend'?'por asignar':''} · ${fmtD(TODAY)}`);
+        this.setState(st=>({reqs:st.reqs.map(r=>ids.has(r.id)&&!r.descargadaAt?{...r,descargadaAt:t}:r)}));},
+      isSolNew:tab==='solnueva',isSolMine:tab==='solmias',goSolNew:()=>this.setState({tab:'solnueva'}),
+      mySols:com?solGroups(s.reqs.filter(r=>r.solBy===me.id)).sort((a,b)=>(b[0].solAt||'').localeCompare(a[0].solAt||'')).map(solCard):[],
+      mySolsEmpty:com&&!s.reqs.some(r=>r.solBy===me.id),
+      sd,onSd,sdNotScript:sd.tipo!=='script',sls:SLS,sdEntTitle:sd.tipo==='script'?'Tipo de requerimiento':'Entregables solicitados',hasSdErr:!!s.sdErr,sdErr:s.sdErr,submitSol,resetSol:()=>this.setState({sd:null,sdErr:''}),
+      sdRouteLine:`Llegará a ${teamLeadersOf(s.users,sd.tipo).map(u=>u.nombre).join(', ')} (líder de ${TIPO[sd.tipo].label}). No se asigna analista automáticamente: el líder la planifica y asigna.`,
+      solUnitOpts:[['proc','Procesamiento de datos'],['cod','Codificación'],['script','Programación de script']].map(([id,label])=>({label,active:sd.tipo===id,pick:()=>setSd({tipo:id,ents:[]})})),
+      solEntOpts:sdEntList.map(e=>{const on=sd.ents.includes(e);return {label:e,active:on,mark:on?'✓ ':'',bg:on?'var(--teal-50)':'var(--surface-200)',border:on?'var(--teal)':'var(--border)',weight:on?'600':'400',pick:()=>setSd({ents:on?sd.ents.filter(x=>x!==e):[...sd.ents,e]})};}),isBoard:tab==='tablero',isMyList:tab==='lista',isPlan:tab==='plan',isScripts:tab==='scripts',isSummary:tab==='resumen',isUsers:tab==='usuarios',
+      mine,myListTitle:`Mi semana · ${eqLabel(me)}`,
+      myWeekOpts:[CUR,NEXT].map(w=>({name:weekName(w),label:weekLabel(w),active:s.myWeek===w,pick:()=>this.setState({myWeek:w})})),myRows,myEmpty:!myRows.length,
+      boardTitle:lead?'Tablero de requerimientos':'Mi tablero',boardSub:lead?`Procesamiento y codificación semana ${weekLabel(CUR)} + scripts. Arrastra las tarjetas para cambiar su estado.`:'Solo ves lo que tienes asignado. Arrastra tus tarjetas para actualizar el estado; soltar en OK pide confirmación.',
+      openNewDefault:()=>this.openNew(tab==='scripts'?'script':tab==='plan'?s.planUnit:'proc'),openNewProc:()=>this.openNew(s.planUnit),
+      planUnitLabel:UT.label==='Procesamiento'?'Procesamiento de datos':UT.label,planUnitOpts:[['proc','Procesamiento'],['cod','Codificación']].map(([id,label])=>({label,active:s.planUnit===id,pick:()=>this.setState({planUnit:id,balance:null,planFilter:{an:'',day:''},anFilter:''})})),openNewScript:()=>this.openNew('script'),
+      q:s.q,onQ:e=>this.setState({q:e.target.value}),teamOpts,columns,showMeta:!(P.compactCards??false),curWeekLabel:weekLabel(CUR),
+      weekOpts,thursdayLine,capCards,planStats,agendaDays:days.map(d=>({label:fmtD(d).split(' ').slice(0,2).join(' ')})),agendaRows,
+      planRows,planEmpty:!planRows.length,procAnalysts:procA,hasPlanFilter:hasPF,planFilterLabel,clearPlanFilter:()=>this.setState({planFilter:{an:'',day:''}}),
+      planQ:s.planQ,onPlanQ:e=>this.setState({planQ:e.target.value}),
+      suggestBalance:()=>this.suggestBalance(),hasBalance:!!(s.balance&&s.balance.length),balanceMoves,
+      balanceSummary:`${balanceMoves.length} movimiento(s). Se reasignan jobs completos (todos sus entregables) solo si están pendientes, desde el analista más cargado al menos cargado, hasta que la diferencia sea mínima.`,
+      applyBalance:()=>this.applyBalance(),dismissBalance:()=>this.setState({balance:null}),
+      openImport:()=>this.setState({importOpen:true}),hasImport:s.importOpen,closeImport:()=>this.setState({importOpen:false,importMatrix:null,importFile:''}),
+      importText:s.importText,onImportText:e=>this.setState({importText:e.target.value,importMatrix:null,importFile:''}),onImportFile:e=>this.onImportFile(e),
+      importFileLabel:s.importFile?`Archivo: ${s.importFile} (clic para cambiar)`:'Seleccionar planilla .xlsx o .csv',importPreview,doImport:()=>this.doImport(),
+      wip:String(wip),rec,lanes,hasUnassignedScripts:!!unassigned.length,unassignedScripts:String(unassigned.length),
+      autoAssignScripts:()=>{let reqs=s.reqs;unassigned.forEach(u=>{const t=this.rank(reqs)[0];if(t)reqs=reqs.map(r=>r.id===u.id?{...r,analista:t.a.id}:r);});this.setState({reqs});const n=this.notifyAssign(reqs.filter(r=>r.analista&&unassigned.some(u=>u.id===r.id)));this.flash(`Scripts asignados · ${n} correo(s) enviados`);},
+      kpis,pendingList,perAnalyst,summaryText:lead?this.buildSummary():'',
+      copySummary:()=>{const t=this.buildSummary();const done=()=>this.flash('Resumen copiado al portapapeles');(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(done,()=>this.flash('No se pudo copiar — selecciona el texto manualmente'));},
+      roleCards,userRows,openNewUser:()=>this.setState({ud:{id:'',nombre:'',email:'',rol:'analista',equipos:['proc'],activo:true},udErr:''}),
+      hasUserDraft:!!ud,ud:ud||{},onUd,userDraftTitle:ud&&ud.id?'Editar usuario':'Nuevo usuario',closeUser:()=>this.setState({ud:null}),saveUser,
+      udRolOpts:[['lider','Líder de equipo'],['analista','Analista'],['comercial','Comercial']].map(([id,label])=>({label,active:!!ud&&ud.rol===id,pick:()=>this.setState(st=>({ud:{...st.ud,rol:id}}))})),
+      udEqOpts:[['proc','Procesamiento (DP)'],['cod','Codificación'],['script','Scripting']].map(([id,label])=>{const on=!!ud&&(ud.equipos||[]).includes(id);return {label,active:on,mark:on?'✓':'',pick:()=>this.setState(st=>{const e=st.ud.equipos||[];return {ud:{...st.ud,equipos:e.includes(id)?e.filter(x=>x!==id):[...e,id]},udErr:''};})};}),
+      udIsAnalyst:!!ud&&ud.rol==='analista',udShowEq:!!ud&&ud.rol!=='comercial',udEqTitle:ud&&ud.rol==='lider'?'Equipos a cargo (recibe sus solicitudes; ninguno = todos)':'Equipos (uno o más)',hasUdErr:!!s.udErr,udErr:s.udErr,
+      hasDetail:!!det,d,closeDetail:()=>this.setState({detailId:null}),
+      hasOk:!!okR,okReq:okR?deco(okR):{},okNota:s.okNota,onOkNota:e=>this.setState({okNota:e.target.value}),
+      cancelOk:()=>this.setState({okId:null}),
+      okIsCod:!!okR&&okR.tipo==='cod',okIsHoras:!!okR&&okR.tipo!=='cod',okHoras:s.okHoras,onOkHoras:e=>this.setState({okHoras:e.target.value,okErr:''}),
+      okRegistros:s.okRegistros,onOkRegistros:e=>this.setState({okRegistros:e.target.value,okErr:''}),okMat:s.okMat,onOkMat:e=>this.setState({okMat:e.target.value,okErr:''}),
+      okMetodoOpts:['IA','Manual'].map(m=>({label:m,active:s.okMetodo===m,pick:()=>this.setState({okMetodo:m,okErr:''})})),hasOkErr:!!s.okErr,okErr:s.okErr,
+      confirmOk:()=>{const r=okR;const at=nowStr();let patch={estado:'ok',okAt:at,okBy:me.id,okNota:s.okNota.trim(),materialesAt:s.okMat||''};let msg;
+        if(r.tipo==='cod'){const n=parseInt(String(s.okRegistros).replace(/\D/g,''),10);
+          if(!(n>0)){this.setState({okErr:'Ingresa la cantidad de registros codificados.'});return;}
+          if(!s.okMetodo){this.setState({okErr:'Indica si la codificación se realizó por IA o Manual.'});return;}
+          patch={...patch,registros:n,metodo:s.okMetodo,horas:null};msg=`${fmtN(n)} registros · ${s.okMetodo}`;}
+        else{const hv=parseFloat(String(s.okHoras).replace(',','.'));
+          if(!(hv>0&&hv<=200)){this.setState({okErr:'Ingresa las horas dedicadas (mayor a 0, ej. 3,5).'});return;}
+          patch={...patch,horas:Math.round(hv*100)/100,registros:null,metodo:''};msg=fmtH(patch.horas);}
+        const lateNow=at.slice(0,10)>r.fecha;
+        if(lateNow&&(!s.okResp||!s.okMotivo)){this.setState({okErr:'La entrega está atrasada: indica el responsable y el motivo del atraso.'});return;}
+        if(lateNow&&s.okResp==='campo'&&!s.okCampo){this.setState({okErr:'Indica el área de campo responsable del atraso.'});return;}
+        patch={...patch,atrasoCampo:lateNow&&s.okResp==='campo'?s.okCampo:'',atrasoResp:lateNow?s.okResp:'',atrasoMotivo:lateNow?s.okMotivo:'',atrasoDetalle:lateNow?(s.okDetalle||'').trim():''};
+        if(patch.materialesAt&&patch.materialesAt>at.slice(0,10)){this.setState({okErr:'La fecha de materiales no puede ser posterior a hoy.'});return;}
+        this.upd(r.id,patch);this.setState({okId:null});this.flash(`OK registrado · ${r.job} · ${msg}`);},
+      hasNew:!!dr,draft:dr||{},on,closeNew:()=>this.setState({draft:null}),saveNew:()=>this.saveNew(),
+      tipoOpts:[['proc','Procesamiento'],['cod','Codificación'],['script','Script']].map(([id,label])=>({label,active:!!dr&&dr.tipo===id,pick:()=>this.setState(st=>({draft:{...st.draft,tipo:id,analista:'',entregable:(id==='cod'?ENT_COD:id==='script'?ENT_SCRIPT:ENT_SOL)[0]}}))})),
+      draftIsProc:!!dr&&dr.tipo!=='script',draftIsScript:!!dr&&dr.tipo==='script',draftFechaLabel:dr&&dr.tipo==='script'?'Fecha compromiso':'Día de entrega',
+      draftAnalysts:dr?this.active(dr.tipo):[],autoLabel:dr&&dr.tipo==='script'?`Automático · primer disponible (${rec.nombre})`:'Sin asignar',
+      saveLabel:dr&&dr.tipo==='script'?'Crear y asignar':'Agregar a la planificación',
+      bus:BUS,entregables:dr?(dr.tipo==='cod'?ENT_COD:dr.tipo==='script'?ENT_SCRIPT:ENT_SOL):ENT_SOL,draftEntLabel:dr&&dr.tipo==='script'?'Tipo de requerimiento':'Entregable',hasErr:!!s.err,err:s.err,
+    };
+  }
+}
+</script>
+</body>
+</html>
