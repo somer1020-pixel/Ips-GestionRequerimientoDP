@@ -42,6 +42,12 @@ GestionRequerimientoDP.slnx
    ```
 3. F5 con el perfil `http` o `https`. En **Development** la app aplica las migraciones y carga los datos semilla al iniciar. Para hacerlo a mano: `Update-Database` (Package Manager Console, proyecto Infrastructure).
 
+## Crear la base de datos con script (SSMS)
+
+Como alternativa a las migraciones automáticas, `database/GestionRequerimientoDP.sql` crea la base `GestionRequerimientoDP` y todas sus tablas. Se abre en SSMS 22 y se ejecuta con F5, o con `sqlcmd -S <servidor> -E -i database\GestionRequerimientoDP.sql`. Es idempotente y registra la migración, así que la app no intenta recrear nada. Los datos de ejemplo los carga la app al iniciar si `Database:Seed` está activo y no hay usuarios.
+
+Para regenerarlo después de una migración nueva: `dotnet ef migrations script --idempotent -p src/GestionRequerimientoDP.Infrastructure -s src/GestionRequerimientoDP.Infrastructure`.
+
 ## Ejecutar en Linux / contenedor
 
 ```bash
