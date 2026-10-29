@@ -43,6 +43,7 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapAccountEndpoints();
+app.MapSsoEndpoints();
 app.MapExportEndpoints();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 

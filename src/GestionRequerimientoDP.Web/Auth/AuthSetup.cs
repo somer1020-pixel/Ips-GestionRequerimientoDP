@@ -70,7 +70,10 @@ public static class AuthSetup
         }
         else
         {
-            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o =>
+            var auth = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme);
+            // SSO con Active Directory: la cuenta Windows se negocia solo en /cuenta/sso; la sesión sigue siendo la cookie.
+            if (builder.Configuration.GetValue<bool>($"{SsoOptions.Section}:Enabled")) auth.AddNegotiate();
+            auth.AddCookie(o =>
             {
                 o.Cookie.Name = "grdp.session"; // la sesión persiste hasta "Salir"
                 o.LoginPath = "/cuenta/ingresar";
@@ -96,6 +99,9 @@ public static class AuthSetup
                 };
             });
         }
+        builder.Services.Configure<SsoOptions>(builder.Configuration.GetSection(SsoOptions.Section));
+        builder.Services.AddMemoryCache();
+        builder.Services.AddSingleton<SsoTicketService>();
         builder.Services.AddAuthorizationBuilder()
             .AddPolicy(Policies.Lider, p => p.RequireRole(nameof(Rol.Lider)))
             .AddPolicy(Policies.Analista, p => p.RequireRole(nameof(Rol.Analista)))
@@ -129,10 +135,11 @@ public static class AuthSetup
                 new AuthenticationProperties { IsPersistent = true });
             return Results.Redirect(u!.Rol == Rol.Comercial ? "/solicitar" : "/");
         }).WithMetadata(new RequireAntiforgeryTokenAttribute(true));
-        g.MapPost("/salir", async (HttpContext http) =>
+        g.MapPost("/salir", async (HttpContext http, Microsoft.Extensions.Options.IOptionsMonitor<SsoOptions> sso) =>
         {
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return Results.Redirect("/cuenta/ingresar");
+            // Con SSO, volver al ingreso manual: si no, la cuenta Windows volvería a entrar sola.
+            return Results.Redirect(sso.CurrentValue.Enabled ? "/cuenta/ingresar?manual=1" : "/cuenta/ingresar");
         }).WithMetadata(new RequireAntiforgeryTokenAttribute(true));
     }
 }

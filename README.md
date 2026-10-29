@@ -42,6 +42,35 @@ GestionRequerimientoDP.slnx
    ```
 3. F5 con el perfil `http` o `https`. En **Development** la app aplica las migraciones y carga los datos semilla al iniciar. Para hacerlo a mano: `Update-Database` (Package Manager Console, proyecto Infrastructure).
 
+## Single Sign-On con Active Directory
+
+Adaptado del proyecto Ipsos.Bhe.Auth. Los colaboradores en la red interna o la VPN ingresan con su cuenta de Windows, sin escribir contraseña. El ingreso con correo y contraseña sigue disponible.
+
+- **Quién entra:** solo los usuarios registrados y activos en **Usuarios**. La cuenta `DOMINIO\usuario` se busca primero en "Cuenta de dominio" y luego por el correo `usuario@<Sso:EmailDomain>`. Una cuenta no registrada vuelve al ingreso con el mensaje "pide acceso al líder".
+- **Intento automático:** desde una IP interna (`Sso:InternalIpPrefixes`), la pantalla de ingreso va sola a `/cuenta/sso`. En ventanas InPrivate o incógnito, o si no hay respuesta en 3,5 s, muestra el formulario. `?manual=1` o `?external=1` fuerzan el formulario. Al salir se vuelve al ingreso manual para poder cambiar de cuenta.
+- **Un solo servidor** (`Sso:InternalHost` vacío): la misma app negocia Kerberos/NTLM y abre la sesión.
+- **Dos servidores** (sitio público detrás de un proxy + IIS interno con Windows Authentication): el host interno emite un ticket HMAC-SHA256 de un solo uso (60 s) hacia `Sso:PublicHost/cuenta/sso/consumir`. Ambos hosts deben compartir `Sso:TicketSecret` (mínimo 32 caracteres). El formato del ticket es compatible con Ipsos.Bhe.Auth.
+
+Configuración (`appsettings.json` → `Sso`; el secreto, en user-secrets o variables de entorno):
+
+```json
+"Sso": { "Enabled": true, "EmailDomain": "ipsos.com", "InternalHost": "", "PublicHost": "", "TrustForwardedHeaders": false }
+```
+
+```powershell
+dotnet user-secrets set "Sso:TicketSecret" "<clave aleatoria de 32+ caracteres>"   # solo en modo de dos servidores
+```
+
+**IIS:**
+1. En el sitio o aplicación, activa **Autenticación de Windows** y deja también activa la **Autenticación anónima**.
+2. Proveedores: Negotiate primero, luego NTLM.
+3. El `web.config` incluido deja pasar la página de vuelta del 401 (`existingResponse="PassThrough"`).
+4. Los navegadores envían la cuenta automáticamente solo a sitios de la zona Intranet local: si hace falta, agrega el host a la zona Intranet por GPO.
+
+**Detrás de un proxy:** `TrustForwardedHeaders: true` toma la IP del cliente de `CF-Connecting-IP` / `X-Forwarded-For`. Actívalo solo si el proxy es de confianza.
+
+**En Visual Studio (Kestrel en Windows):** con `Sso:Enabled = true`, el perfil `http` negocia tu sesión de Windows de inmediato. Prueba entrando con el botón "Ingresar con mi cuenta corporativa".
+
 ## Crear la base de datos con script (SSMS)
 
 Como alternativa a las migraciones automáticas, `database/GestionRequerimientoDP.sql` crea la base `GestionRequerimientoDP` y todas sus tablas. Se abre en SSMS 22 y se ejecuta con F5, o con `sqlcmd -S <servidor> -E -i database\GestionRequerimientoDP.sql`. Es idempotente y registra la migración, así que la app no intenta recrear nada. Los datos de ejemplo los carga la app al iniciar si `Database:Seed` está activo y no hay usuarios.
@@ -80,6 +109,7 @@ Los datos semilla reproducen la planilla `Prog DP.xlsx` (49 entregables), 8 sema
 | `ConnectionStrings:GestionRequerimientoDP` | SQL Server (user-secrets o variable de entorno) |
 | `Auth:Mode` | `Cookie` (ingreso propio) o `Windows` (Negotiate; mapea `DOMINIO\usuario` a `Usuario.DomainAccount`) |
 | `Auth:DemoMode` | Accesos de demostración sin contraseña |
+| `Sso:*` | Single Sign-On con Active Directory (ver sección Single Sign-On) |
 | `Auth:ConsultaRequiereSesion` | Exige sesión para la consulta pública `/consulta` |
 | `Reglas:*` | `ProcCapacity`, `CodCapacity`, `ScriptWip`, `StaleDays`, `NotifyAssign`, `NotifyOverdue`, `CompactCards` |
 | `Smtp:*` | Servidor de correo. Sin `Host`, los correos se simulan y quedan registrados en **Notificaciones** |
