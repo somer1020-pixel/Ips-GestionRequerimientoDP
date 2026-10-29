@@ -3,7 +3,7 @@
 @attribute [AllowAnonymous]
 @attribute [ExcludeFromInteractiveRouting]
 @inject IUsuarioService Users
-@inject Microsoft.Extensions.Options.IOptions<AuthOptions> AuthOpts
+@inject Microsoft.Extensions.Options.IOptionsMonitor<AuthOptions> AuthOpts
 @inject NavigationManager Nav
 
 <PageTitle>Ingresar · @AppInfo.Nombre</PageTitle>
@@ -67,7 +67,7 @@
     [SupplyParameterFromQuery] public string? Email { get; set; }
     [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
 
-    bool Demo => AuthOpts.Value.DemoMode;
+    bool Demo => AuthOpts.CurrentValue.DemoMode;
     List<(string Label, List<Usuario> Users)> Groups = [];
 
     protected override async Task OnInitializedAsync()

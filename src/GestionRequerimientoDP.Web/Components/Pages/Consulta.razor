@@ -2,7 +2,7 @@
 @layout PublicLayout
 @attribute [AllowAnonymous]
 @inject IConsultaService Search
-@inject Microsoft.Extensions.Options.IOptions<AuthOptions> AuthOpts
+@inject Microsoft.Extensions.Options.IOptionsMonitor<AuthOptions> AuthOpts
 @inject NavigationManager Nav
 
 <PageTitle>Consulta de requerimientos · @AppInfo.Nombre</PageTitle>
@@ -71,7 +71,7 @@
     protected override async Task OnInitializedAsync()
     {
         _logged = (await AuthState).User.Identity?.IsAuthenticated == true;
-        _blocked = AuthOpts.Value.ConsultaRequiereSesion && !_logged;
+        _blocked = AuthOpts.CurrentValue.ConsultaRequiereSesion && !_logged;
         if (!_blocked && !string.IsNullOrWhiteSpace(Job)) { _q = Job; _res = await Search.BuscarAsync(_q); }
     }
 

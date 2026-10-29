@@ -114,7 +114,7 @@ public static class AuthSetup
     public static void MapAccountEndpoints(this WebApplication app)
     {
         var g = app.MapGroup("/cuenta");
-        g.MapPost("/login", async (HttpContext http, IUsuarioService users, IPasswordService passwords, Microsoft.Extensions.Options.IOptions<AuthOptions> o) =>
+        g.MapPost("/login", async (HttpContext http, IUsuarioService users, IPasswordService passwords, Microsoft.Extensions.Options.IOptionsMonitor<AuthOptions> o) =>
         {
             var form = await http.Request.ReadFormAsync();
             var email = form["email"].ToString();
@@ -123,7 +123,7 @@ public static class AuthSetup
             var u = await users.FindByEmailAsync(email);
             string? err = null;
             if (u is null || !u.Activo) err = "Correo no registrado o usuario inactivo.";
-            else if (!o.Value.DemoMode && (demo || u.PasswordHash is null || !passwords.Verify(u.PasswordHash, password))) err = "Correo o contraseña incorrectos.";
+            else if (!o.CurrentValue.DemoMode && (demo || u.PasswordHash is null || !passwords.Verify(u.PasswordHash, password))) err = "Correo o contraseña incorrectos.";
             if (err != null) return Results.Redirect($"/cuenta/ingresar?error={Uri.EscapeDataString(err)}&email={Uri.EscapeDataString(email)}");
             await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, Claims.Principal(u!, CookieAuthenticationDefaults.AuthenticationScheme),
                 new AuthenticationProperties { IsPersistent = true });
