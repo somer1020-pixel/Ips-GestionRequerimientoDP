@@ -14,6 +14,31 @@ namespace GestionRequerimientoDP.Web.Auth;
 /// </summary>
 public static class SsoEndpoints
 {
+    const string FailureKey = "grdp:sso-error";
+
+    /// <summary>
+    /// El intercambio Kerberos/NTLM falló (cuenta no de dominio, Entra ID / Azure AD, SPN, etc.).
+    /// Negotiate respondería 400 sin cuerpo; se registra la causa para la vuelta al ingreso.
+    /// </summary>
+    public static Task OnNegotiateFailed(Microsoft.AspNetCore.Authentication.Negotiate.AuthenticationFailedContext ctx)
+    {
+        ctx.HttpContext.RequestServices.GetRequiredService<ILogger<SsoTicketService>>()
+            .LogWarning(ctx.Exception, "SSO: falló la negociación de la cuenta Windows");
+        ctx.HttpContext.Items[FailureKey] = ctx.Exception.Message;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Reemplaza la respuesta 400 de Negotiate por la vuelta al ingreso manual con la causa (detallada en Development).</summary>
+    public static IApplicationBuilder UseSsoErrorRedirect(this WebApplication app) => app.Use(async (ctx, next) =>
+    {
+        await next();
+        if (ctx.Response.HasStarted || ctx.Response.StatusCode != StatusCodes.Status400BadRequest || !ctx.Items.TryGetValue(FailureKey, out var msg)) return;
+        var o = ctx.RequestServices.GetRequiredService<IOptionsMonitor<SsoOptions>>().CurrentValue;
+        var detail = app.Environment.IsDevelopment() ? $" Detalle: {msg}" : "";
+        ctx.Response.Clear();
+        ctx.Response.Redirect(LoginUrl(ctx, o, $"Windows no pudo validar tu cuenta corporativa en este equipo. Ingresa con tu correo y contraseña.{detail}", true));
+    });
+
     public static void MapSsoEndpoints(this WebApplication app)
     {
         var g = app.MapGroup("/cuenta/sso").AllowAnonymous();

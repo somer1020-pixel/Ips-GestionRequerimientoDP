@@ -143,8 +143,18 @@ public class SsoFlowTests : IClassFixture<SsoFlowTests.Factory>
     }
 
     sealed class FakeWindowsHandler(IOptionsMonitor<AuthenticationSchemeOptions> o, Microsoft.Extensions.Logging.ILoggerFactory l, UrlEncoder e)
-        : AuthenticationHandler<AuthenticationSchemeOptions>(o, l, e)
+        : AuthenticationHandler<AuthenticationSchemeOptions>(o, l, e), IAuthenticationRequestHandler
     {
+        /// <summary>Igual que NegotiateHandler ante un error de credenciales: dispara el evento y responde 400.</summary>
+        public async Task<bool> HandleRequestAsync()
+        {
+            if (!Request.Headers.ContainsKey("X-Test-Windows-Fail")) return false;
+            await SsoEndpoints.OnNegotiateFailed(new Microsoft.AspNetCore.Authentication.Negotiate.AuthenticationFailedContext(Context, Scheme,
+                new Microsoft.AspNetCore.Authentication.Negotiate.NegotiateOptions()) { Exception = new Exception("The logon attempt failed") });
+            Response.StatusCode = 400;
+            return true;
+        }
+
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             var name = Request.Headers["X-Test-Windows"].FirstOrDefault();
@@ -170,6 +180,18 @@ public class SsoFlowTests : IClassFixture<SsoFlowTests.Factory>
         Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
         Assert.Contains("Negotiate", r.Headers.WwwAuthenticate.ToString());
         Assert.Contains("/cuenta/ingresar?manual=1", await r.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Falla_de_negociacion_vuelve_al_ingreso_con_la_causa()
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, "/cuenta/sso?returnUrl=%2F");
+        req.Headers.Add("X-Test-Windows-Fail", "1");
+        var r = await Client().SendAsync(req);
+        Assert.Equal(HttpStatusCode.Redirect, r.StatusCode); // no el 400 en blanco
+        var loc = Uri.UnescapeDataString(r.Headers.Location!.OriginalString);
+        Assert.StartsWith("/cuenta/ingresar?manual=1", loc);
+        Assert.Contains("The logon attempt failed", loc); // detalle visible en Development
     }
 
     [Fact]

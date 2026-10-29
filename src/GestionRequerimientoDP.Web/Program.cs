@@ -37,6 +37,7 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
+app.UseSsoErrorRedirect(); // antes de UseAuthentication: convierte el 400 de Negotiate en vuelta al ingreso
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();

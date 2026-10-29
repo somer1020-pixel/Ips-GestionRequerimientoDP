@@ -72,7 +72,8 @@ public static class AuthSetup
         {
             var auth = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme);
             // SSO con Active Directory: la cuenta Windows se negocia solo en /cuenta/sso; la sesión sigue siendo la cookie.
-            if (builder.Configuration.GetValue<bool>($"{SsoOptions.Section}:Enabled")) auth.AddNegotiate();
+            if (builder.Configuration.GetValue<bool>($"{SsoOptions.Section}:Enabled"))
+                auth.AddNegotiate(o => o.Events = new() { OnAuthenticationFailed = SsoEndpoints.OnNegotiateFailed });
             auth.AddCookie(o =>
             {
                 o.Cookie.Name = "grdp.session"; // la sesión persiste hasta "Salir"
