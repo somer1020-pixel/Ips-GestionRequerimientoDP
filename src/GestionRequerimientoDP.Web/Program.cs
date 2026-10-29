@@ -1,5 +1,6 @@
 using GestionRequerimientoDP.Application;
 using GestionRequerimientoDP.Infrastructure;
+using GestionRequerimientoDP.Web;
 using GestionRequerimientoDP.Web.Auth;
 using GestionRequerimientoDP.Web.Components;
 using GestionRequerimientoDP.Web.Endpoints;
@@ -15,6 +16,18 @@ builder.Services.AddScoped<UiState>();
 builder.AddAppAuth();
 
 var app = builder.Build();
+
+// Si la base no responde al iniciar, la app no se cae: muestra la causa en el navegador
+// (Visual Studio solo diría "No se puede conectar al servidor web").
+var dbError = await StartupDatabase.InitializeAsync(app);
+if (dbError != null)
+    app.Use(async (ctx, next) =>
+    {
+        if (ctx.Request.Path.StartsWithSegments("/_framework") || ctx.Request.Path.StartsWithSegments("/css")) { await next(); return; }
+        ctx.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        ctx.Response.ContentType = "text/html; charset=utf-8";
+        await ctx.Response.WriteAsync(dbError);
+    });
 
 if (!app.Environment.IsDevelopment())
 {
@@ -32,11 +45,6 @@ app.MapStaticAssets();
 app.MapAccountEndpoints();
 app.MapExportEndpoints();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
-
-await app.Services.InitializeDatabaseAsync(
-    migrate: app.Configuration.GetValue("Database:MigrateOnStartup", app.Environment.IsDevelopment()),
-    seed: app.Configuration.GetValue("Database:Seed", app.Environment.IsDevelopment()),
-    app.Logger);
 
 app.Run();
 
