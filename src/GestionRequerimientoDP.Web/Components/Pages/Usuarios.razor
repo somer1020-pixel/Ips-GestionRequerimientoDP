@@ -35,7 +35,13 @@
                         <td>@Reglas.EquipoLabel(u)</td>
                         <td>@(u.Rol switch { Rol.Analista => _carga.GetValueOrDefault(u.Id).ToString(), Rol.Comercial => $"{_sols.GetValueOrDefault(u.Id)} solicitudes", _ => "—" })</td>
                         <td><button class="btn btn-ghost" @onclick="() => Toggle(u)" style="font-size:13px;padding:2px 6px">@(u.Activo ? "Activo" : "Inactivo")</button></td>
-                        <td><button class="btn btn-outline-secondary" @onclick="() => _edit = UsuarioInput.From(u)" style="font-size:13px;padding:3px 10px">Editar</button></td>
+                        <td class="nowrap">
+                            <button class="btn btn-outline-secondary" @onclick="() => _edit = UsuarioInput.From(u)" style="font-size:13px;padding:3px 10px">Editar</button>
+                            @if (u.Id != Me.Id && !_historial.Contains(u.Id))
+                            {
+                                <button class="btn btn-ghost" @onclick="() => Eliminar(u)" style="font-size:13px;padding:3px 8px;color:var(--danger)">Eliminar</button>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -51,6 +57,7 @@
 @code {
     List<Usuario> _users = [];
     Dictionary<int, int> _carga = [], _sols = [];
+    HashSet<int> _historial = [];
     UsuarioInput? _edit;
 
     protected override ChangeKind[] ReloadOn => [ChangeKind.Usuarios, ChangeKind.Requerimientos, ChangeKind.Solicitudes];
@@ -75,6 +82,21 @@
         _users = await Users.ListAsync();
         _carga = await Users.CargaActivaAsync();
         _sols = await Users.SolicitudesPorComercialAsync();
+        _historial = await Users.ConHistorialAsync();
+    }
+
+    async Task Eliminar(Usuario u)
+    {
+        var act = _carga.GetValueOrDefault(u.Id);
+        var msg = $"¿Eliminar a {u.Nombre} ({u.Email})? Esta acción no se puede deshacer."
+                  + (act > 0 ? $" Sus {act} requerimiento(s) activo(s) quedarán sin asignar." : "");
+        if (!await JS.InvokeAsync<bool>("grdp.confirm", msg)) return;
+        await Run(async () =>
+        {
+            var n = await Users.EliminarAsync(Me, u.Id);
+            Ui.Flash($"{u.Nombre} eliminado" + (n > 0 ? $" · {n} requerimiento(s) quedaron sin asignar" : ""));
+            await LoadAsync();
+        });
     }
 
     Task Toggle(Usuario u) => Run(async () =>

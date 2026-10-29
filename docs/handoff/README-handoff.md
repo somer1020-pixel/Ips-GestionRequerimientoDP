@@ -56,6 +56,7 @@ interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos
 - La sesión persiste en `localStorage['cargaops.session']`. "Salir" la cierra.
 - **Usuarios inactivos:** no pueden ingresar, no aparecen en asignaciones, balanceo ni ranking de scripts y se muestran atenuados. Al desactivar a alguien con requerimientos activos se avisa para reasignarlos.
 - Un líder no puede desactivarse ni quitarse el rol de líder a sí mismo.
+- **Eliminar usuario** (solo líder): botón en la tabla de Usuarios, con confirmación, disponible solo para usuarios **sin historial** (sin entregables terminados, sin OK registrados y sin solicitudes) y nunca para uno mismo. Sus requerimientos abiertos quedan sin asignar. Con historial se desactiva en vez de eliminar.
 - El correo debe ser único.
 - Usuarios semilla:
   - Líder: Carolina Méndez.

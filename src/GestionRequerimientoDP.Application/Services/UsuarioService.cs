@@ -37,6 +37,10 @@ public interface IUsuarioService
     Task<Usuario> SaveAsync(UsuarioActual me, UsuarioInput input, CancellationToken ct = default);
     /// <summary>Activa o desactiva. Devuelve un aviso si quedan requerimientos activos por reasignar.</summary>
     Task<string?> ToggleActivoAsync(UsuarioActual me, int id, CancellationToken ct = default);
+    /// <summary>Ids de usuarios con historial (entregables terminados, OK dados o solicitudes): no se pueden eliminar.</summary>
+    Task<HashSet<int>> ConHistorialAsync(CancellationToken ct = default);
+    /// <summary>Elimina un usuario sin historial. Sus requerimientos abiertos quedan sin asignar. Devuelve cuántos se liberaron.</summary>
+    Task<int> EliminarAsync(UsuarioActual me, int id, CancellationToken ct = default);
 }
 
 public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier changes, IPasswordService passwords) : IUsuarioService
@@ -114,6 +118,32 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Usuarios);
         return entity;
+    }
+
+    public async Task<HashSet<int>> ConHistorialAsync(CancellationToken ct = default)
+    {
+        await using var db = factory.Create();
+        var ok = await db.Requerimientos.Where(r => r.OkById != null).Select(r => r.OkById!.Value).Distinct().ToListAsync(ct);
+        var hechos = await db.Requerimientos.Where(r => r.AnalistaId != null && r.Estado == Estado.Ok).Select(r => r.AnalistaId!.Value).Distinct().ToListAsync(ct);
+        var sols = await db.Solicitudes.Select(s => s.SolicitanteId).Distinct().ToListAsync(ct);
+        return [.. ok, .. hechos, .. sols];
+    }
+
+    public async Task<int> EliminarAsync(UsuarioActual me, int id, CancellationToken ct = default)
+    {
+        Guard.Lider(me);
+        if (id == me.Id) throw new ReglaException("No puedes eliminar tu propio usuario.");
+        if ((await ConHistorialAsync(ct)).Contains(id))
+            throw new ReglaException("El usuario tiene historial (entregables terminados, OK registrados o solicitudes). Desactívalo en vez de eliminarlo.");
+        await using var db = factory.Create();
+        var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ReglaException("El usuario ya no existe.");
+        var abiertos = await db.Requerimientos.Where(r => r.AnalistaId == id).ToListAsync(ct);
+        foreach (var r in abiertos) r.AnalistaId = null;
+        db.Usuarios.Remove(u);
+        await db.SaveAsync(ct);
+        changes.Publish(ChangeKind.Usuarios);
+        if (abiertos.Count > 0) changes.Publish(ChangeKind.Requerimientos);
+        return abiertos.Count;
     }
 
     public async Task<string?> ToggleActivoAsync(UsuarioActual me, int id, CancellationToken ct = default)
