@@ -36,7 +36,12 @@ public partial class AccountFlowTests : IClassFixture<AccountFlowTests.Factory>
             b.UseSetting("Jobs:Enabled", "false");
             b.UseSetting("Auth:DemoMode", "false");
             b.UseSetting("Proxy:PathBase", Base);
-            b.ConfigureTestServices(s => s.AddSingleton<IAppDbContextFactory>(App.Factory));
+            b.ConfigureTestServices(s =>
+            {
+                s.AddSingleton<IAppDbContextFactory>(App.Factory);
+                // Sso:Enabled activado con la app ya iniciada: Negotiate no quedó registrado.
+                s.PostConfigure<SsoOptions>(o => o.Enabled = true);
+            });
         }
     }
 
@@ -150,6 +155,16 @@ public partial class AccountFlowTests : IClassFixture<AccountFlowTests.Factory>
         Assert.Contains("RESET_SOLICITADO", acciones);
         Assert.Contains("RESET_OK", acciones);
         Assert.Empty(await db.Notificaciones.Where(n => n.Body.Contains(token)).ToListAsync()); // el enlace no queda en el registro de correos
+    }
+
+    [Fact]
+    public async Task Sso_activado_sin_reiniciar_no_cae_y_vuelve_al_ingreso()
+    {
+        var r = await Client().GetAsync(Base + "/cuenta/sso?returnUrl=%2F");
+        Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
+        Assert.Contains("Reiníciala", Loc(r));
+        var html = await (await Client().GetAsync(Base + "/cuenta/ingresar")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Ingresar con mi cuenta corporativa", html); // no se ofrece hasta reiniciar
     }
 
     [Theory]

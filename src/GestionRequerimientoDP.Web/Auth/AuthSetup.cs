@@ -65,6 +65,9 @@ public static class AuthSetup
         var opts = builder.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions>() ?? new AuthOptions();
         builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.Section));
 
+        // Negotiate se registra al iniciar: activar Sso:Enabled con la app corriendo exige reiniciarla.
+        var negotiate = opts.IsWindows || builder.Configuration.GetValue<bool>($"{SsoOptions.Section}:Enabled");
+        builder.Services.AddSingleton(new SsoRuntime(negotiate));
         if (opts.IsWindows)
         {
             builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme).AddNegotiate();
@@ -74,7 +77,7 @@ public static class AuthSetup
         {
             var auth = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme);
             // SSO con Active Directory: la cuenta Windows se negocia solo en /cuenta/sso; la sesión sigue siendo la cookie.
-            if (builder.Configuration.GetValue<bool>($"{SsoOptions.Section}:Enabled"))
+            if (negotiate)
                 auth.AddNegotiate(o => o.Events = new() { OnAuthenticationFailed = SsoEndpoints.OnNegotiateFailed });
             auth.AddCookie(o =>
             {

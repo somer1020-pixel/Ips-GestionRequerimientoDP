@@ -45,10 +45,16 @@ public static class SsoEndpoints
         var g = app.MapGroup("/cuenta/sso").AllowAnonymous();
 
         g.MapGet("/", async (HttpContext http, string? returnUrl, IOptionsMonitor<SsoOptions> opts, IUsuarioService users, IAccesoService acceso,
-            IAuditoriaService audit, IDirectorioService directorio, SsoTicketService tickets, ILogger<SsoTicketService> log) =>
+            IAuditoriaService audit, IDirectorioService directorio, SsoTicketService tickets, SsoRuntime runtime, ILogger<SsoTicketService> log) =>
         {
             var o = opts.CurrentValue;
             if (!o.Enabled) return Results.NotFound();
+            if (!runtime.NegotiateRegistrado)
+            {
+                log.LogWarning("SSO: Sso:Enabled se activó con la app en ejecución; reiníciala para habilitar la autenticación de Windows");
+                return Results.Redirect(AccountEndpoints.In(http, $"/cuenta/ingresar?manual=1&error={Uri.EscapeDataString(
+                    "El ingreso con cuenta corporativa se activó después de iniciar la aplicación. Reiníciala para habilitarlo; mientras tanto, ingresa con tu correo y contraseña.")}"));
+            }
             var ret = SsoRules.SafeReturnUrl(returnUrl, http.Request.PathBase);
             var ip = SsoRules.ClientIp(http, o);
 

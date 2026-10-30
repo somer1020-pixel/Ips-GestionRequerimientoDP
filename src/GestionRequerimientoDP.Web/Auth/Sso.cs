@@ -62,6 +62,13 @@ public sealed class SsoOptions
             || string.Equals(a.Trim(), email, StringComparison.OrdinalIgnoreCase)));
 }
 
+/// <summary>Lo que quedó registrado al iniciar la app (la configuración puede cambiar después sin reiniciar).</summary>
+public sealed record SsoRuntime(bool NegotiateRegistrado)
+{
+    /// <summary>¿Este sitio puede ofrecer el ingreso con la cuenta corporativa ahora?</summary>
+    public bool Disponible(SsoOptions o) => o.Enabled && (NegotiateRegistrado || o.UsesTickets);
+}
+
 public sealed record SsoTicket(string Username, string Email, string Role);
 
 /// <summary>
