@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -134,6 +135,7 @@ public class SsoFlowTests : IClassFixture<SsoFlowTests.Factory>
             b.UseSetting("Sso:TicketSecret", "clave-de-prueba-de-al-menos-32-caracteres!!");
             b.UseSetting("Sso:EmailDomain", "empresa.cl");
             b.UseSetting("Sso:TrustForwardedHeaders", "true");
+            b.UseSetting("Sso:Administradores:0", "jefa.ops");
             b.ConfigureTestServices(s =>
             {
                 s.AddSingleton<IAppDbContextFactory>(App.Factory);
@@ -206,17 +208,60 @@ public class SsoFlowTests : IClassFixture<SsoFlowTests.Factory>
         Assert.Contains(r.Headers.GetValues("Set-Cookie"), v => v.StartsWith("grdp.session="));
     }
 
-    [Fact]
-    public async Task Cuenta_no_registrada_vuelve_con_mensaje()
+    async Task<HttpResponseMessage> Sso(string cuenta, string returnUrl = "%2F")
     {
-        var req = new HttpRequestMessage(HttpMethod.Get, "/cuenta/sso?returnUrl=https%3A%2F%2Fevil.com");
-        req.Headers.Add("X-Test-Windows", @"IPSOSGROUP\nadie");
-        var r = await Client().SendAsync(req);
+        var req = new HttpRequestMessage(HttpMethod.Get, $"/cuenta/sso?returnUrl={returnUrl}");
+        req.Headers.Add("X-Test-Windows", cuenta);
+        return await Client().SendAsync(req);
+    }
+
+    static bool ConSesion(HttpResponseMessage r) => r.Headers.TryGetValues("Set-Cookie", out var ck) && ck.Any(v => v.StartsWith("grdp.session="));
+
+    [Fact]
+    public async Task Cuenta_no_registrada_deja_solicitud_pendiente_sin_sesion()
+    {
+        var r = await Sso(@"IPSOSGROUP\nadie", "https%3A%2F%2Fevil.com");
         Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
         var loc = Uri.UnescapeDataString(r.Headers.Location!.OriginalString);
-        Assert.StartsWith("/cuenta/ingresar?manual=1", loc);
-        Assert.Contains("no está registrada", loc);
-        Assert.False(r.Headers.TryGetValues("Set-Cookie", out var ck) && ck.Any(v => v.StartsWith("grdp.session=")));
+        Assert.StartsWith("/cuenta/ingresar?manual=1&ok=", loc);
+        Assert.Contains("Registramos tu solicitud", loc);
+        Assert.False(ConSesion(r));
+
+        await using (var db = _f.App.Factory.Create())
+        {
+            var u = await db.Usuarios.SingleAsync(x => x.Email == "nadie@empresa.cl");
+            Assert.True(u.Pendiente);
+            Assert.False(u.Activo);
+            Assert.Equal(OrigenUsuario.ActiveDirectory, u.Origen);
+            Assert.Equal(@"IPSOSGROUP\nadie", u.DomainAccount);
+            Assert.Equal(1, await db.Notificaciones.CountAsync(n => n.Kind == NotificacionKind.Acceso && n.Subject.Contains("nadie")));
+        }
+
+        // Segundo intento: sigue pendiente, sin otro aviso a los líderes.
+        var again = await Sso(@"IPSOSGROUP\nadie");
+        Assert.Contains("pendiente de aprobación", Uri.UnescapeDataString(again.Headers.Location!.OriginalString));
+        Assert.False(ConSesion(again));
+        await using (var db = _f.App.Factory.Create())
+        {
+            Assert.Equal(1, await db.Notificaciones.CountAsync(n => n.Kind == NotificacionKind.Acceso && n.Subject.Contains("nadie")));
+            Assert.Contains(await db.Auditoria.Select(a => a.Accion).ToListAsync(), a => a == "ACCESO_SOLICITADO_AD");
+        }
+    }
+
+    [Fact]
+    public async Task Administrador_configurado_entra_como_lider_sin_aprobacion()
+    {
+        var r = await Sso(@"IPSOSGROUP\jefa.ops");
+        Assert.Equal("/", r.Headers.Location!.OriginalString);
+        Assert.True(ConSesion(r));
+        await using var db = _f.App.Factory.Create();
+        var u = await db.Usuarios.Include(x => x.Equipos).SingleAsync(x => x.Email == "jefa.ops@empresa.cl");
+        Assert.Equal(Rol.Lider, u.Rol);
+        Assert.True(u.Activo);
+        Assert.False(u.Pendiente);
+        Assert.Empty(u.Equipos);
+        Assert.NotNull(u.UltimoAcceso);
+        Assert.Contains(await db.Auditoria.Where(a => a.Usuario == @"IPSOSGROUP\jefa.ops").Select(a => a.Accion).ToListAsync(), a => a == "LOGIN_OK_SSO");
     }
 
     [Fact]

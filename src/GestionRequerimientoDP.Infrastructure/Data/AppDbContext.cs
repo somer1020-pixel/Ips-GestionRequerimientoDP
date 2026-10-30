@@ -11,6 +11,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Solicitud> Solicitudes => Set<Solicitud>();
     public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
     public DbSet<OkLog> OkLogs => Set<OkLog>();
+    public DbSet<AuditoriaAcceso> Auditoria => Set<AuditoriaAcceso>();
+    public DbSet<PasswordResetToken> ResetTokens => Set<PasswordResetToken>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder b)
     {
@@ -28,6 +30,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.DomainAccount).HasMaxLength(200);
             e.HasIndex(x => x.DomainAccount).IsUnique().HasFilter("[DomainAccount] IS NOT NULL");
             e.Property(x => x.PasswordHash).HasMaxLength(400);
+            e.Property(x => x.Rut).HasMaxLength(12);
+            e.HasIndex(x => x.Rut).IsUnique().HasFilter("[Rut] IS NOT NULL");
+            e.Property(x => x.SolicitudMotivo).HasMaxLength(500);
+            e.Property(x => x.Aprobacion).HasDefaultValue(Aprobacion.Aprobado).HasSentinel(Aprobacion.Aprobado);
+            e.Property(x => x.Origen).HasDefaultValue(OrigenUsuario.Admin).HasSentinel(OrigenUsuario.Admin);
+            e.Ignore(x => x.Pendiente);
             e.HasMany(x => x.Equipos).WithOne().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
             e.Ignore(x => x.EquiposOrdenados);
         });
@@ -85,6 +93,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => new { x.Status, x.CreatedAt });
             e.Ignore(x => x.ToList);
             e.Ignore(x => x.CcList);
+        });
+
+        b.Entity<AuditoriaAcceso>(e =>
+        {
+            e.ToTable("AuditoriaAccesos");
+            e.Property(x => x.Usuario).HasMaxLength(200);
+            e.Property(x => x.Accion).HasMaxLength(60);
+            e.Property(x => x.Metodo).HasMaxLength(40);
+            e.Property(x => x.Ip).HasMaxLength(60);
+            e.Property(x => x.Detalle).HasMaxLength(1000);
+            e.HasIndex(x => x.At);
+        });
+
+        b.Entity<PasswordResetToken>(e =>
+        {
+            e.ToTable("PasswordResetTokens");
+            e.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Ip).HasMaxLength(60);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<OkLog>(e =>

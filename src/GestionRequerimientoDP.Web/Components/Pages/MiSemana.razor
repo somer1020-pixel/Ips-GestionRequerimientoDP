@@ -14,7 +14,7 @@
         </div>
         <div class="page-actions">
             <Seg T="DateOnly" Options="WeekOpts" Value="_week" ValueChanged="w => _week = w" />
-            <button class="btn btn-outline-secondary" @onclick="@(() => Download($"/export/mi-semana?semana={Fechas.Iso(_week)}"))"><Icon Name="download" />Descargar mi semana</button>
+            <button class="btn btn-outline-secondary" @onclick="@(() => Download($"export/mi-semana?semana={Fechas.Iso(_week)}"))"><Icon Name="download" />Descargar mi semana</button>
         </div>
     </div>
     <div class="scroll-x">

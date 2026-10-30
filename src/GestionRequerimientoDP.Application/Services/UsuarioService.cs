@@ -17,12 +17,15 @@ public sealed class UsuarioInput
     public Rol Rol { get; set; } = Rol.Analista;
     public List<Equipo> Equipos { get; set; } = [Equipo.Procesamiento];
     public string DomainAccount { get; set; } = "";
+    /// <summary>RUT opcional (cualquier formato; se guarda normalizado).</summary>
+    public string Rut { get; set; } = "";
     /// <summary>Vacío = no cambiar.</summary>
     public string Password { get; set; } = "";
 
     public static UsuarioInput From(Usuario u) => new()
     {
         Id = u.Id, Nombre = u.Nombre, Email = u.Email, Rol = u.Rol, Equipos = u.EquiposOrdenados.ToList(), DomainAccount = u.DomainAccount ?? "",
+        Rut = string.IsNullOrEmpty(u.Rut) ? "" : Domain.Rut.Format(u.Rut),
     };
 }
 
@@ -32,6 +35,8 @@ public interface IUsuarioService
     Task<Usuario?> GetAsync(int id, CancellationToken ct = default);
     Task<Usuario?> FindByEmailAsync(string email, CancellationToken ct = default);
     Task<Usuario?> FindByDomainAccountAsync(string account, CancellationToken ct = default);
+    /// <summary>Busca por correo o por RUT (cualquier formato).</summary>
+    Task<Usuario?> FindByLoginAsync(string emailOrRut, CancellationToken ct = default);
     Task<Dictionary<int, int>> CargaActivaAsync(CancellationToken ct = default);
     Task<Dictionary<int, int>> SolicitudesPorComercialAsync(CancellationToken ct = default);
     Task<Usuario> SaveAsync(UsuarioActual me, UsuarioInput input, CancellationToken ct = default);
@@ -63,6 +68,14 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         if (e.Length == 0) return null;
         await using var db = factory.Create();
         return await db.UsuariosConEquipos().FirstOrDefaultAsync(u => u.Email.ToLower() == e, ct);
+    }
+
+    public async Task<Usuario?> FindByLoginAsync(string emailOrRut, CancellationToken ct = default)
+    {
+        if (!Domain.Rut.IsCandidate(emailOrRut)) return await FindByEmailAsync(emailOrRut, ct);
+        var rut = Domain.Rut.Normalize(emailOrRut);
+        await using var db = factory.Create();
+        return await db.UsuariosConEquipos().FirstOrDefaultAsync(u => u.Rut == rut, ct);
     }
 
     public async Task<Usuario?> FindByDomainAccountAsync(string account, CancellationToken ct = default)
@@ -97,11 +110,20 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         if (u.Id == me.Id && u.Rol != Rol.Lider) throw new ReglaException("No puedes quitarte el rol de líder.");
         var equipos = u.Rol == Rol.Comercial ? [] : u.Equipos.Distinct().ToList();
         if (u.Rol == Rol.Analista && equipos.Count == 0) throw new ReglaException("Selecciona al menos un equipo.");
+        string? rut = null;
+        if (!string.IsNullOrWhiteSpace(u.Rut))
+        {
+            if (!Domain.Rut.IsValid(u.Rut)) throw new ReglaException("El RUT no es válido (revisa el dígito verificador).");
+            rut = Domain.Rut.Normalize(u.Rut);
+            if (await db.Usuarios.AnyAsync(x => x.Id != u.Id && x.Rut == rut, ct)) throw new ReglaException("Ya existe un usuario con ese RUT.");
+        }
+        if (!string.IsNullOrWhiteSpace(u.Password) && PoliticaContrasena.Validar(u.Password, email, u.Nombre) is { Count: > 0 } errs)
+            throw new ReglaException("Contraseña: " + string.Join(" ", errs));
 
         Usuario entity;
         if (u.Id == 0)
         {
-            entity = new Usuario { Activo = true };
+            entity = new Usuario { Activo = true, Origen = OrigenUsuario.Admin, CreadoAt = DateTimeOffset.UtcNow };
             db.Usuarios.Add(entity);
         }
         else
@@ -113,6 +135,7 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         entity.Email = email;
         entity.Rol = u.Rol;
         entity.DomainAccount = string.IsNullOrWhiteSpace(u.DomainAccount) ? null : u.DomainAccount.Trim();
+        entity.Rut = rut;
         entity.Equipos.AddRange(equipos.Select(e => new UsuarioEquipo { Equipo = e }));
         if (!string.IsNullOrWhiteSpace(u.Password)) entity.PasswordHash = passwords.Hash(u.Password);
         await db.SaveAsync(ct);
@@ -152,6 +175,7 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         if (id == me.Id) throw new ReglaException("No puedes desactivar tu propio usuario");
         await using var db = factory.Create();
         var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ReglaException("El usuario ya no existe.");
+        if (u.Pendiente) throw new ReglaException("La solicitud de acceso está pendiente: apruébala o recházala en Solicitudes de acceso.");
         u.Activo = !u.Activo;
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Usuarios);

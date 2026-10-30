@@ -173,6 +173,6 @@
     async Task DownloadAtr()
     {
         if (_v!.Total == 0) { Ui.Flash("No hay atrasos en este periodo"); return; }
-        await Download($"/export/atrasos?modo={(_p.Modo == PeriodoModo.Mes ? "mes" : "semana")}&ref={Fechas.Iso(_p.Desde)}&unidad={_unit}{(Ui.AnFilter is { } a ? $"&analista={a}" : "")}");
+        await Download($"export/atrasos?modo={(_p.Modo == PeriodoModo.Mes ? "mes" : "semana")}&ref={Fechas.Iso(_p.Desde)}&unidad={_unit}{(Ui.AnFilter is { } a ? $"&analista={a}" : "")}");
     }
 }

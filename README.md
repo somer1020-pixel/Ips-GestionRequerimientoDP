@@ -42,34 +42,80 @@ GestionRequerimientoDP.slnx
    ```
 3. F5 con el perfil `http` o `https`. En **Development** la app aplica las migraciones y carga los datos semilla al iniciar. Para hacerlo a mano: `Update-Database` (Package Manager Console, proyecto Infrastructure).
 
+## Acceso y cuentas
+
+- **Ingreso con correo o RUT** y contraseña. Con una clave incorrecta el mensaje es siempre el mismo: no revela si la cuenta existe, está pendiente o desactivada.
+- **Política de contraseñas:** 8 a 100 caracteres, con mayúscula, minúscula, número y símbolo, y sin el nombre ni la parte inicial del correo. Se aplica al crear usuarios, al solicitar acceso y al restablecer.
+- **Solicitar acceso** (`/cuenta/registro`, se desactiva con `Auth:RegistroHabilitado = false`): la persona deja nombre, correo, RUT opcional, motivo y contraseña. La cuenta queda **pendiente** e inactiva, y los líderes reciben un correo. En **Usuarios → Solicitudes de acceso** el líder asigna rol y equipos y la aprueba, o la rechaza. En ambos casos se avisa por correo.
+- **Recuperar contraseña** (`/cuenta/recuperar`): envía un enlace de un solo uso que vence en 60 minutos. Solo se guarda el hash SHA-256 del token, vale solo el último enlace y hay un máximo de 3 por hora. La respuesta es la misma exista o no la cuenta. Las cuentas que entran solo con Windows se derivan a TI. En Development sin SMTP, el enlace se muestra en pantalla para poder probar.
+- **Auditoría de accesos** (**Usuarios → Auditoría de accesos**, solo líderes): ingresos, fallos, bloqueos, salidas, SSO, solicitudes, aprobaciones, recuperaciones y cambios de usuarios, con IP y detalle.
+- **Búsqueda en Active Directory** al crear un usuario (servidor Windows con `ActiveDirectory:Enabled = true`): busca por nombre, usuario o correo y completa nombre, correo y cuenta de dominio. Usa la identidad del App Pool o una cuenta de servicio (`ActiveDirectory:Usuario` / `Clave`, en variables de entorno).
+
 ## Single Sign-On con Active Directory
 
 Adaptado del proyecto Ipsos.Bhe.Auth. Los colaboradores en la red interna o la VPN ingresan con su cuenta de Windows, sin escribir contraseña. El ingreso con correo y contraseña sigue disponible.
 
-- **Quién entra:** solo los usuarios registrados y activos en **Usuarios**. La cuenta `DOMINIO\usuario` se busca primero en "Cuenta de dominio" y luego por el correo `usuario@<Sso:EmailDomain>`. Una cuenta no registrada vuelve al ingreso con el mensaje "pide acceso al líder".
+- **Quién entra:** usuarios registrados, aprobados y activos en **Usuarios**. La cuenta `DOMINIO\usuario` se busca primero en "Cuenta de dominio" y luego por el correo `usuario@<Sso:EmailDomain>`.
+- **Cuenta corporativa sin usuario** (`Sso:SolicitudAutomatica`, activo por defecto): se crea una solicitud de acceso pendiente con el nombre y el correo de Active Directory, y se avisa a los líderes una sola vez. La persona ve "Registramos tu solicitud…".
+- **Administradores** (`Sso:Administradores`): cuentas de Windows o correos que entran como líder sin aprobación la primera vez. Sirve para arrancar con una base vacía. Configúralo en el servidor, no en el repositorio. Si después un líder desactiva esa cuenta, sigue desactivada.
 - **Intento automático:** desde una IP interna (`Sso:InternalIpPrefixes`), la pantalla de ingreso va sola a `/cuenta/sso`. En ventanas InPrivate o incógnito, o si no hay respuesta en 3,5 s, muestra el formulario. `?manual=1` o `?external=1` fuerzan el formulario. Al salir se vuelve al ingreso manual para poder cambiar de cuenta.
 - **Un solo servidor** (`Sso:InternalHost` vacío): la misma app negocia Kerberos/NTLM y abre la sesión.
-- **Dos servidores** (sitio público detrás de un proxy + IIS interno con Windows Authentication): el host interno emite un ticket HMAC-SHA256 de un solo uso (60 s) hacia `Sso:PublicHost/cuenta/sso/consumir`. Ambos hosts deben compartir `Sso:TicketSecret` (mínimo 32 caracteres). El formato del ticket es compatible con Ipsos.Bhe.Auth.
+- **Dos servidores** (sitio público detrás de un proxy + IIS interno con Windows Authentication): el host interno emite un ticket HMAC-SHA256 de un solo uso (60 s) hacia `Sso:PublicHost/cuenta/sso/consumir`. Ambos hosts deben compartir `Sso:TicketSecret` (mínimo 32 caracteres) y `DataProtection:ApplicationName`. El formato del ticket es compatible con Ipsos.Bhe.Auth.
 
 Configuración (`appsettings.json` → `Sso`; el secreto, en user-secrets o variables de entorno):
 
 ```json
-"Sso": { "Enabled": true, "EmailDomain": "ipsos.com", "InternalHost": "", "PublicHost": "", "TrustForwardedHeaders": false }
+"Sso": { "Enabled": true, "EmailDomain": "ipsos.com", "InternalHost": "", "PublicHost": "", "SolicitudAutomatica": true, "Administradores": [] }
 ```
 
 ```powershell
 dotnet user-secrets set "Sso:TicketSecret" "<clave aleatoria de 32+ caracteres>"   # solo en modo de dos servidores
 ```
 
-**IIS:**
-1. En el sitio o aplicación, activa **Autenticación de Windows** y deja también activa la **Autenticación anónima**.
-2. Proveedores: Negotiate primero, luego NTLM.
-3. El `web.config` incluido deja pasar la página de vuelta del 401 (`existingResponse="PassThrough"`).
-4. Los navegadores envían la cuenta automáticamente solo a sitios de la zona Intranet local: si hace falta, agrega el host a la zona Intranet por GPO.
-
-**Detrás de un proxy:** `TrustForwardedHeaders: true` toma la IP del cliente de `CF-Connecting-IP` / `X-Forwarded-For`. Actívalo solo si el proxy es de confianza.
-
 **En Visual Studio (Kestrel en Windows):** con `Sso:Enabled = true`, el perfil `http` negocia tu sesión de Windows de inmediato. Prueba entrando con el botón "Ingresar con mi cuenta corporativa".
+
+## Publicar en IIS
+
+`tools/deploy-iis.ps1` (PowerShell como administrador, en el servidor) hace lo siguiente:
+
+- Publica la app.
+- Crea el App Pool (sin código administrado, siempre activo).
+- Crea el sitio o la sub-aplicación (`-AppPath /gestionreq`).
+- Activa la autenticación Anónima + Windows (Negotiate y luego NTLM).
+- Escribe `appsettings.Production.json` con la cadena de conexión, un `TicketSecret` aleatorio y la carpeta de claves, legible solo por el App Pool.
+- Da permisos sobre las claves y los logs.
+
+```powershell
+.\tools\deploy-iis.ps1 -SiteName "Default Web Site" -AppPath "/gestionreq" -PhysicalPath "D:\inetpub\gestionreq" `
+    -ConnectionString "Server=SQLSERVER;Database=GestionRequerimientoDP;Trusted_Connection=True;TrustServerCertificate=True" `
+    -EmailDomain "ipsos.com" -Dominio "DOMINIO" -Administradores "usuario.admin"
+.\tools\test-sso.ps1 -BaseUrl http://localhost/gestionreq
+```
+
+Requisitos del servidor:
+
+- ASP.NET Core Hosting Bundle para .NET 10.
+- Características de IIS "Autenticación de Windows" y "Protocolo WebSocket" (Blazor Server usa WebSockets).
+- Si el App Pool usa una identidad de dominio, el SPN `HTTP/<host>` debe estar registrado para que Kerberos funcione. Si no, se usa NTLM.
+
+Además:
+
+- **Sub-ruta:** como sub-aplicación de IIS, la app recibe la sub-ruta sola. Todos los enlaces son relativos a `<base href>`, así que funciona en `/gestionreq` sin cambios.
+- **Claves de sesión (`DataProtection`):** `KeysPath` persiste las claves que cifran la cookie y los formularios. Sin esto, cada reciclaje del App Pool cierra todas las sesiones. Con `ProtegerConDpapi` las claves quedan cifradas con DPAPI de la máquina.
+- **Zona Intranet:** los navegadores envían la cuenta automáticamente solo a sitios de la zona Intranet local. Si hace falta, agrega el host por GPO.
+- `web.config` incluye:
+  - `forwardWindowsAuthToken`.
+  - `existingResponse="PassThrough"`, para la página de vuelta del 401 de `/cuenta/sso`.
+  - WebSockets.
+  - Cabeceras de seguridad.
+
+**Detrás de un proxy inverso (Apache / Nginx / Cloudflare):**
+
+- `Proxy:Enabled = true` procesa `X-Forwarded-For`, `-Proto`, `-Host` y `-Prefix`. Limítalo con `Proxy:KnownProxies` o `KnownNetworks`.
+- `Proxy:PathBase` fija la sub-ruta cuando el proxy no envía `X-Forwarded-Prefix`.
+- `Sso:TrustForwardedHeaders = true` toma la IP del cliente de `CF-Connecting-IP` / `X-Forwarded-For`, para el intento automático de SSO y la auditoría.
+- Hay una plantilla genérica de Apache en `infrastructure/apache/gestionreq.conf.template`.
+- Kerberos no atraviesa bien un proxy. Para el SSO desde afuera usa el modo de dos servidores.
 
 ## Crear la base de datos con script (SSMS)
 
@@ -109,7 +155,11 @@ Los datos semilla reproducen la planilla `Prog DP.xlsx` (49 entregables), 8 sema
 | `ConnectionStrings:GestionRequerimientoDP` | SQL Server (user-secrets o variable de entorno) |
 | `Auth:Mode` | `Cookie` (ingreso propio) o `Windows` (Negotiate; mapea `DOMINIO\usuario` a `Usuario.DomainAccount`) |
 | `Auth:DemoMode` | Accesos de demostración sin contraseña |
+| `Auth:RegistroHabilitado` | Muestra "Solicitar acceso" en el ingreso (por defecto `true`) |
 | `Sso:*` | Single Sign-On con Active Directory (ver sección Single Sign-On) |
+| `ActiveDirectory:*` | Búsqueda en el directorio al crear usuarios y nombre de las cuentas nuevas (solo Windows): `Enabled`, `LdapPath`, `Dominio`, `Usuario`, `Clave` |
+| `Proxy:*` | Proxy inverso y sub-ruta: `Enabled`, `KnownProxies`, `KnownNetworks`, `PathBase` |
+| `DataProtection:*` | `KeysPath`, `ApplicationName`, `ProtegerConDpapi` (ver Publicar en IIS) |
 | `Auth:ConsultaRequiereSesion` | Exige sesión para la consulta pública `/consulta` |
 | `Reglas:*` | `ProcCapacity`, `CodCapacity`, `ScriptWip`, `StaleDays`, `NotifyAssign`, `NotifyOverdue`, `CompactCards` |
 | `Smtp:*` | Servidor de correo. Sin `Host`, los correos se simulan y quedan registrados en **Notificaciones** |
@@ -122,19 +172,35 @@ Los datos semilla reproducen la planilla `Prog DP.xlsx` (49 entregables), 8 sema
 dotnet test GestionRequerimientoDP.slnx
 ```
 
-- **xUnit (42):**
+- **Application.Tests (75, xUnit + EF InMemory):**
   - Ranking de scripts (empates, WIP lleno, mixtos).
   - Balanceo (no separa jobs, no mueve en curso ni OK, converge).
   - `ToIsoDate` y duplicados en la importación.
   - Validaciones del OK.
   - `campoFrom`, `effResp`, sin gestión, atrasado, próximo día hábil y `teamLeadersOf`.
   - Servicios con filtros de seguridad por rol, solicitudes, avisos de atraso y balanceo aplicado.
-- **bUnit (10):**
-  - Íconos rojo y amarillo.
-  - `ReqCard`.
-  - `OkModal` según el tipo y con atraso.
-  - Menú por rol.
-  - La consulta pública no muestra notas.
+  - Eliminación de usuarios.
+  - Acceso:
+    - RUT (módulo 11) y política de contraseñas.
+    - Ingreso por correo o RUT.
+    - Solicitud → aprobación / rechazo.
+    - Cuentas AD y administradores.
+    - Tokens de recuperación (un uso, vencimiento, límite).
+    - Auditoría.
+- **Web.Tests (43, bUnit + WebApplicationFactory):**
+  - Componentes:
+    - Íconos rojo y amarillo.
+    - `ReqCard`.
+    - `OkModal`.
+    - Menú por rol.
+    - La consulta pública no muestra notas.
+  - SSO:
+    - Ticket HMAC.
+    - Mapeo de cuentas.
+    - 401 / 400.
+    - Solicitud automática.
+    - Administradores.
+  - Flujos HTTP de cuenta bajo la sub-ruta `/gestionreq`: ingreso con RUT, solicitud de acceso, recuperación de contraseña de punta a punta y `ReturnUrl`.
 
 ## Diferencias respecto del mockup
 

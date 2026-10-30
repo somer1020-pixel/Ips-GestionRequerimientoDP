@@ -1,0 +1,35 @@
+@* Marco de las pantallas públicas de cuenta (ingreso, solicitud de acceso, recuperación). *@
+<div style="flex:1;display:grid;place-items:center;padding:var(--space-8) var(--space-4)">
+    <div style="width:min(@(Width)px,100%);display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="display:flex;flex-direction:column;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--surface-200)">
+            <div style="background:var(--navy);color:#fff;padding:20px;display:flex;align-items:center;gap:12px">
+                <span class="brand-mark" style="width:36px;height:36px;font-size:14px">@AppInfo.Marca</span>
+                <div style="display:flex;flex-direction:column;line-height:1.2">
+                    <span style="font-weight:600;font-size:20px">@AppInfo.Nombre</span>
+                    <span style="font-size:13px;opacity:.8">@AppInfo.Subtitulo</span>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:var(--space-4);padding:var(--space-6)">
+                <h3 style="margin:0">@Title</h3>
+                @if (!string.IsNullOrEmpty(Ok))
+                {
+                    <div role="status" style="font-size:13px;color:var(--success);background:var(--success-50);border-radius:6px;padding:var(--space-2) var(--space-3)">@Ok</div>
+                }
+                @if (!string.IsNullOrEmpty(Error))
+                {
+                    <div role="alert" style="font-size:13px;color:var(--danger);font-weight:500">@Error</div>
+                }
+                @ChildContent
+            </div>
+        </div>
+        <a class="btn btn-ghost" href="cuenta/ingresar?manual=1" style="align-self:flex-start;font-size:14px"><Icon Name="left" Size="15" />Volver al ingreso</a>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public string? Ok { get; set; }
+    [Parameter] public int Width { get; set; } = 440;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

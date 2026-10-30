@@ -1,0 +1,32 @@
+# Plantilla: Apache como proxy inverso público delante de IIS / Kestrel con la app en una sub-ruta.
+# Reemplaza los valores <...>. Requiere mod_proxy, mod_proxy_http, mod_proxy_wstunnel, mod_headers, mod_rewrite y mod_ssl.
+#
+# En la app (appsettings.Production.json del servidor de destino):
+#   "Proxy": { "Enabled": true, "KnownProxies": [ "<IP de este Apache>" ] }
+#   "Sso":   { "TrustForwardedHeaders": true }
+# La sub-ruta llega en X-Forwarded-Prefix; no hace falta Proxy:PathBase.
+#
+# SSO: Kerberos/NTLM no atraviesa bien un proxy. Usa el modo de dos hosts: Sso:InternalHost apunta
+# al servidor IIS interno (accesible desde la red corporativa / VPN) y Sso:PublicHost a esta URL pública.
+
+<VirtualHost *:443>
+    ServerName <servidor.publico.ejemplo>
+
+    SSLEngine on
+    SSLCertificateFile    <ruta/certificado.crt>
+    SSLCertificateKeyFile <ruta/certificado.key>
+
+    ProxyPreserveHost On
+    ProxyRequests Off
+    RequestHeader set X-Forwarded-Proto "https"
+    RequestHeader set X-Forwarded-Prefix "/gestionreq"
+
+    # Blazor Server: el circuito usa WebSockets.
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule ^/gestionreq/(.*) ws://<servidor-app>:<puerto>/$1 [P,L]
+
+    ProxyPass        /gestionreq/ http://<servidor-app>:<puerto>/ timeout=300
+    ProxyPassReverse /gestionreq/ http://<servidor-app>:<puerto>/
+    RedirectMatch ^/gestionreq$ /gestionreq/
+</VirtualHost>

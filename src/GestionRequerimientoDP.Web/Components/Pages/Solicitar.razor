@@ -107,7 +107,7 @@
         {
             var s = await Sols.EnviarAsync(Me, _d);
             Ui.Flash($"Solicitud {s.Codigo} enviada · aviso a {_destino}");
-            Nav.NavigateTo("/mis-solicitudes");
+            Nav.NavigateTo("mis-solicitudes");
         }
         catch (ReglaException ex) { _err = ex.Message; }
         catch (PermisoException ex) { _err = ex.Message; }

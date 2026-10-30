@@ -6,6 +6,7 @@
 @inject IClock Clock
 @inject IRequerimientoService Reqs
 @inject ISolicitudService Sols
+@inject IAccesoService Acceso
 
 @if (Me is null)
 {
@@ -16,7 +17,7 @@
 <div style="min-height:100vh;display:flex;flex-direction:column;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)">
     <header class="topbar" data-screen-label="Header">
         <div class="inner">
-            <a class="brand" href="@(Me.EsComercial ? "/solicitar" : "/")"><span class="brand-mark">@AppInfo.Marca</span><span>@AppInfo.Nombre <small class="hide-sm">· @AppInfo.Subtitulo</small></span></a>
+            <a class="brand" href="@(Me.EsComercial ? "solicitar" : "./")"><span class="brand-mark">@AppInfo.Marca</span><span>@AppInfo.Nombre <small class="hide-sm">· @AppInfo.Subtitulo</small></span></a>
             <div style="flex:1"></div>
             @if (Me.EsLider)
             {
@@ -29,7 +30,7 @@
                     <span style="font-size:12px;opacity:.75;white-space:nowrap">@RolLabel</span>
                 </div>
             </div>
-            <form method="post" action="/cuenta/salir" style="margin:0">
+            <form method="post" action="cuenta/salir" style="margin:0">
                 <AntiforgeryToken />
                 <button class="btn btn-onnavy" type="submit" aria-label="Cerrar sesión"><Icon Name="logout" Size="15" Stroke="1.75" />Salir</button>
             </form>
@@ -38,7 +39,7 @@
     <nav class="mobnav">
         @foreach (var t in Tabs)
         {
-            <a class="mob-i" href="@t.Href" aria-current="@(IsCurrent(t) ? "page" : "false")" style="text-decoration:none">@t.Label</a>
+            <a class="mob-i" href="@Rel(t.Href)" aria-current="@(IsCurrent(t) ? "page" : "false")" style="text-decoration:none">@t.Label</a>
         }
     </nav>
     <div class="shell">
@@ -46,7 +47,7 @@
             <div class="grp lbl">@NavGroup</div>
             @foreach (var t in Tabs)
             {
-                <a class="nav-i" href="@t.Href" aria-current="@(IsCurrent(t) ? "page" : "false")" style="text-decoration:none">
+                <a class="nav-i" href="@Rel(t.Href)" aria-current="@(IsCurrent(t) ? "page" : "false")" style="text-decoration:none">
                     <Icon Name="@t.Id" Size="17" Stroke="1.75" Round="true" /><span>@t.Label</span>
                     @if (t.Count > 0)
                     {
@@ -61,7 +62,7 @@
                 <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-3) var(--space-4);border:1px solid var(--warning);background:var(--warning-50);border-radius:6px">
                     <span style="color:var(--warning)"><Icon Name="bandeja" Size="18" Stroke="1.75" Round="true" /></span>
                     <span style="font-size:14px;flex:1;min-width:220px">@_solsMine solicitud(es) comercial(es) sin asignar@(Me.Equipos.Count > 0 ? " para " + string.Join(" y ", Me.Equipos.Select(e => Reglas.Tipo(e).Label)) : ""). Descárgalas para planificar y asígnalas.</span>
-                    <a class="btn btn-outline-secondary" href="/solicitudes">Revisar solicitudes</a>
+                    <a class="btn btn-outline-secondary" href="solicitudes">Revisar solicitudes</a>
                 </div>
             }
             @if (Me.EsAnalista)
@@ -71,7 +72,7 @@
                     <span style="font-size:14px;color:var(--color-neutral-800);flex:1;min-width:240px">@_mineLine</span>
                     @if (_myNext > 0)
                     {
-                        <a class="btn btn-outline-secondary" href="/mi-semana?semana=siguiente">Semana siguiente: @_myNext asignados →</a>
+                        <a class="btn btn-outline-secondary" href="mi-semana?semana=siguiente">Semana siguiente: @_myNext asignados →</a>
                     }
                 </div>
             }
@@ -103,7 +104,7 @@
     sealed record Tab(string Id, string Label, string Href, int Count);
 
     UsuarioActual? Me;
-    int _late, _solsMine, _solsTotal, _myNext;
+    int _late, _solsMine, _solsTotal, _myNext, _accesos;
     string _mineLine = "";
 
     string RolLabel => Me!.Rol switch
@@ -123,10 +124,13 @@
             new("tablero", "Tablero", "/", 0), new("bandeja", "Solicitudes nuevas", "/solicitudes", _solsTotal),
             new("plan", "Planificación semanal", "/planificacion", 0), new("scripts", "Scripts", "/scripts", 0), new("resumen", "Resumen", "/resumen", _late),
             new("historico", "Histórico", "/historico", 0), new("atrasos", "Motivos de atraso", "/atrasos", 0), new("notif", "Notificaciones", "/notificaciones", 0),
-            new("usuarios", "Usuarios", "/usuarios", 0),
+            new("usuarios", "Usuarios", "/usuarios", _accesos),
         ],
         _ => [new("tablero", "Mi tablero", "/", 0), new("lista", "Mi semana", "/mi-semana", _late)],
     };
+
+    /// <summary>Enlace relativo a &lt;base href&gt; (funciona bajo una sub-ruta de IIS).</summary>
+    static string Rel(string href) => href == "/" ? "./" : href.TrimStart('/');
 
     string CurrentPath => "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].TrimEnd('/');
     string CurrentId => Tabs.FirstOrDefault(IsCurrent)?.Id ?? "";
@@ -147,6 +151,7 @@
         if (Me is null) return;
         _late = await Reqs.AtrasadosAsync(Me);
         (_solsMine, _solsTotal) = await Sols.PendientesAsync(Me);
+        if (Me.EsLider) _accesos = (await Acceso.PendientesAsync(Me)).Count;
         if (Me.EsAnalista)
         {
             var today = Clock.Today;
@@ -164,7 +169,7 @@
 
     void OnData(ChangeKind k)
     {
-        if (k is ChangeKind.Requerimientos or ChangeKind.Solicitudes)
+        if (k is ChangeKind.Requerimientos or ChangeKind.Solicitudes or ChangeKind.Usuarios)
             _ = InvokeAsync(async () => { try { await LoadCountersAsync(); StateHasChanged(); } catch { /* circuito cerrado */ } });
     }
 

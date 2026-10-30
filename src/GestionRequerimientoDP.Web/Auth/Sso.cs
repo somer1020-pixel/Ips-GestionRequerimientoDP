@@ -44,7 +44,22 @@ public sealed class SsoOptions
     /// <summary>Usar CF-Connecting-IP / X-Forwarded-For para la IP del cliente (solo detrás de un proxy de confianza).</summary>
     public bool TrustForwardedHeaders { get; set; }
 
+    /// <summary>Una cuenta corporativa sin usuario registrado deja una solicitud de acceso pendiente para los líderes.</summary>
+    public bool SolicitudAutomatica { get; set; } = true;
+
+    /// <summary>
+    /// Cuentas (usuario de Windows o correo) que entran como líder sin aprobación la primera vez.
+    /// Sirve para arrancar una base vacía; se configura en el servidor, no en el repositorio.
+    /// </summary>
+    public string[] Administradores { get; set; } = [];
+
     public bool UsesTickets => !string.IsNullOrWhiteSpace(InternalHost);
+
+    public bool EsAdministrador(string windowsName, string email) =>
+        Administradores.Any(a => !string.IsNullOrWhiteSpace(a) && (
+            string.Equals(a.Trim(), windowsName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(SsoRules.SamAccount(a.Trim()), SsoRules.SamAccount(windowsName), StringComparison.OrdinalIgnoreCase) && !a.Contains('@')
+            || string.Equals(a.Trim(), email, StringComparison.OrdinalIgnoreCase)));
 }
 
 public sealed record SsoTicket(string Username, string Email, string Role);
@@ -166,4 +181,15 @@ public static class SsoRules
     /// <summary>Solo rutas locales ("/algo", nunca "//host" ni URLs absolutas): evita redirecciones abiertas.</summary>
     public static string SafeReturnUrl(string? returnUrl) =>
         !string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/') && !returnUrl.StartsWith("//") && !returnUrl.StartsWith("/\\") ? returnUrl : "/";
+
+    /// <summary>
+    /// Igual, pero relativa a la app: la cookie de sesión manda ReturnUrl con la sub-ruta incluida (/gestionreq/planificacion → /planificacion).
+    /// </summary>
+    public static string SafeReturnUrl(string? returnUrl, PathString pathBase)
+    {
+        var r = SafeReturnUrl(returnUrl);
+        return pathBase.HasValue && new PathString(r.Split('?')[0]).StartsWithSegments(pathBase, out var rest)
+            ? (rest.HasValue ? rest.Value! : "/") + (r.Contains('?') ? r[r.IndexOf('?')..] : "")
+            : r;
+    }
 }

@@ -69,8 +69,8 @@
         }
     }
 
-    static string KindLabel(NotificacionKind k) => k switch { NotificacionKind.Atraso => "Atraso sin gestión", NotificacionKind.Solicitud => "Nueva solicitud", _ => "Asignación" };
-    static string KindCss(NotificacionKind k) => k switch { NotificacionKind.Atraso => "be be-danger", NotificacionKind.Solicitud => "be be-warning", _ => "be be-neutral" };
+    static string KindLabel(NotificacionKind k) => k switch { NotificacionKind.Atraso => "Atraso sin gestión", NotificacionKind.Solicitud => "Nueva solicitud", NotificacionKind.Acceso => "Acceso", _ => "Asignación" };
+    static string KindCss(NotificacionKind k) => k switch { NotificacionKind.Atraso => "be be-danger", NotificacionKind.Solicitud => "be be-warning", NotificacionKind.Acceso => "be be-info", _ => "be be-neutral" };
     static string StatusLabel(Notificacion m) => m.Status switch
     {
         NotificacionStatus.Enviado => m.Error.Length > 0 ? "Enviado (simulado)" : "Enviado",

@@ -54,7 +54,19 @@ interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos
 - **Consulta sin cuenta** (personas de la organización que no participan de la gestión): enlace en el login → vista pública de solo lectura. Detalle en §3.5.
 - **Login:** correo + contraseña. En el mockup la contraseña no se valida; los botones "Accesos de demostración" permiten entrar con cualquier usuario. En producción usar SSO o auth real y aplicar los permisos **en el backend**: el filtro "solo lo asignado" debe ir en la API, no solo en la UI.
 - La sesión persiste en `localStorage['cargaops.session']`. "Salir" la cierra.
-- **Single Sign-On (implementación):** colaboradores en la red interna o VPN ingresan con su cuenta de Windows / Active Directory (patrón de Ipsos.Bhe.Auth: Negotiate en `/cuenta/sso` y, con dos hosts, ticket HMAC-SHA256 de un solo uso). Solo entran usuarios registrados y activos, mapeados por cuenta de dominio o `usuario@dominio`. InPrivate o fallo → formulario de correo y contraseña.
+- **Single Sign-On (implementación):** colaboradores en la red interna o VPN ingresan con su cuenta de Windows / Active Directory (patrón de Ipsos.Bhe.Auth: Negotiate en `/cuenta/sso` y, con dos hosts, ticket HMAC-SHA256 de un solo uso).
+  - Entran los usuarios registrados, aprobados y activos, mapeados por cuenta de dominio o `usuario@dominio`.
+  - Una cuenta corporativa sin usuario deja una **solicitud de acceso** pendiente, con nombre y correo de AD.
+  - Las cuentas de `Sso:Administradores` entran como líder la primera vez.
+  - InPrivate o fallo → formulario de ingreso.
+- **Acceso y cuentas (implementación, sin pantalla en el mockup):**
+  - El ingreso acepta **correo o RUT**. Con clave incorrecta el mensaje no revela si la cuenta existe.
+  - **Política de contraseñas:** 8+ caracteres, con mayúscula, minúscula, número y símbolo, y sin nombre ni correo.
+  - **"Solicitar acceso"** en el ingreso: la cuenta queda pendiente e inactiva y se avisa a los líderes.
+  - En Usuarios, la sección **Solicitudes de acceso** (con contador en la pestaña) permite aprobarlas con rol y equipos o rechazarlas, avisando por correo. Tipo de correo nuevo: `Acceso`.
+  - **"¿Olvidaste tu contraseña?":** enlace de un solo uso que vence en 60 min. Solo se guarda su hash, máximo 3 por hora, y no pasa por el registro de Notificaciones.
+  - **Auditoría de accesos** (`/usuarios/auditoria`, solo líderes) con filtros Todo / Fallos y bloqueos / Administración.
+  - El formulario de usuario agrega **RUT** y, en servidores Windows con AD, **búsqueda en Active Directory**.
 - **Usuarios inactivos:** no pueden ingresar, no aparecen en asignaciones, balanceo ni ranking de scripts y se muestran atenuados. Al desactivar a alguien con requerimientos activos se avisa para reasignarlos.
 - Un líder no puede desactivarse ni quitarse el rol de líder a sí mismo.
 - **Eliminar usuario** (solo líder): botón en la tabla de Usuarios, con confirmación, disponible solo para usuarios **sin historial** (sin entregables terminados, sin OK registrados y sin solicitudes) y nunca para uno mismo. Sus requerimientos abiertos quedan sin asignar. Con historial se desactiva en vez de eliminar.

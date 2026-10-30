@@ -1,11 +1,49 @@
 @inherits AppPage
 @inject IUsuarioService Users
+@inject IAccesoService Acceso
+@inject IAuditoriaService Audit
+@inject IDirectorioService Directorio
 
 <div class="dialog-backdrop" @onclick="OnClose">
     <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="@Title" @onclick:stopPropagation="true" style="background:var(--color-bg)">
         <div class="dialog-title">@Title</div>
+        @if (Aprobar)
+        {
+            <div class="sub">Revisa los datos, asigna el rol y los equipos. Al aprobar, la cuenta queda activa y se le avisa por correo.</div>
+        }
+        else if (Input.Id == 0 && Directorio.Disponible)
+        {
+            <div class="field">
+                <label for="u-ad">Buscar en Active Directory</label>
+                <div style="display:flex;gap:var(--space-2)">
+                    <input id="u-ad" class="form-control" @bind="_q" @onkeydown="AdKey" placeholder="Nombre, usuario o correo" />
+                    <button class="btn btn-outline-secondary" @onclick="Buscar" disabled="@_buscando">@(_buscando ? "Buscando…" : "Buscar")</button>
+                </div>
+                @if (_res is { } res)
+                {
+                    @if (res.Count == 0)
+                    {
+                        <div class="sub">Sin resultados.</div>
+                    }
+                    else
+                    {
+                        <div style="display:flex;flex-direction:column;gap:2px;max-height:180px;overflow:auto;border:1px solid var(--color-neutral-200);border-radius:6px;padding:4px">
+                            @foreach (var d in res)
+                            {
+                                <button class="btn btn-ghost" style="text-align:left;font-size:13px;padding:4px 8px" @onclick="() => Elegir(d)">
+                                    <b>@d.Nombre</b> · @d.Email <span class="sub">@d.Cuenta@(string.IsNullOrEmpty(d.Departamento) ? "" : " · " + d.Departamento)</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        }
         <div class="field"><label for="u-nom">Nombre *</label><input id="u-nom" class="form-control" @bind="Input.Nombre" /></div>
-        <div class="field"><label for="u-mail">Correo *</label><input id="u-mail" class="form-control" type="email" @bind="Input.Email" placeholder="nombre@empresa.cl" /></div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:var(--space-3)">
+            <div class="field"><label for="u-mail">Correo *</label><input id="u-mail" class="form-control" type="email" @bind="Input.Email" placeholder="nombre@empresa.cl" /></div>
+            <div class="field"><label for="u-rut">RUT</label><input id="u-rut" class="form-control" @bind="Input.Rut" placeholder="12.345.678-5" /></div>
+        </div>
         <div class="field">
             <label>Rol</label>
             <Seg T="Rol" Options="RolOpts" Value="Input.Rol" ValueChanged="r => { Input.Rol = r; _err = null; }" Stretch="true" Style="display:flex" />
@@ -23,12 +61,13 @@
                 </div>
             </div>
         }
-        <details>
+        <details open="@(Aprobar || !string.IsNullOrEmpty(Input.DomainAccount))">
             <summary class="sub" style="cursor:pointer">Acceso (contraseña y cuenta de dominio)</summary>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-top:var(--space-2)">
                 <div class="field"><label for="u-pw">Contraseña @(Input.Id == 0 ? "" : "(vacío = sin cambio)")</label><input id="u-pw" class="form-control" type="password" autocomplete="new-password" @bind="Input.Password" /></div>
                 <div class="field"><label for="u-dom">Cuenta de dominio</label><input id="u-dom" class="form-control" @bind="Input.DomainAccount" placeholder="DOMINIO\usuario" /></div>
             </div>
+            <div class="sub" style="font-size:12px">@PoliticaContrasena.Resumen</div>
         </details>
         @if (_err != null)
         {
@@ -36,22 +75,24 @@
         }
         <div class="dialog-actions">
             <button class="btn btn-outline-secondary" @onclick="OnClose">Cancelar</button>
-            <button class="btn btn-primary" @onclick="Save" disabled="@_busy">Guardar</button>
+            <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(Aprobar ? "Aprobar acceso" : "Guardar")</button>
         </div>
     </div>
 </div>
 
 @code {
     [Parameter, EditorRequired] public UsuarioInput Input { get; set; } = default!;
+    [Parameter] public bool Aprobar { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
-    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public EventCallback<string> OnSaved { get; set; }
 
     static readonly IReadOnlyList<(Rol, string)> RolOpts = [(Rol.Lider, "Líder de equipo"), (Rol.Analista, "Analista"), (Rol.Comercial, "Comercial")];
     static readonly (Equipo, string)[] EqOpts = [(Equipo.Procesamiento, "Procesamiento (DP)"), (Equipo.Codificacion, "Codificación"), (Equipo.Script, "Scripting")];
-    string? _err;
-    bool _busy;
+    string? _err, _q;
+    bool _busy, _buscando;
+    List<DirectorioUsuario>? _res;
 
-    string Title => Input.Id == 0 ? "Nuevo usuario" : "Editar usuario";
+    string Title => Aprobar ? "Aprobar solicitud de acceso" : Input.Id == 0 ? "Nuevo usuario" : "Editar usuario";
     protected override ChangeKind[] ReloadOn => [];
     protected override Task LoadAsync() => Task.CompletedTask;
 
@@ -61,14 +102,51 @@
         _err = null;
     }
 
+    async Task AdKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Buscar();
+    }
+
+    async Task Buscar()
+    {
+        if (_buscando || string.IsNullOrWhiteSpace(_q)) return;
+        _buscando = true;
+        try { _res = await Directorio.BuscarAsync(_q!); }
+        finally { _buscando = false; }
+    }
+
+    void Elegir(DirectorioUsuario d)
+    {
+        Input.Nombre = d.Nombre;
+        Input.Email = d.Email;
+        Input.DomainAccount = Directorio.CuentaDominio(d.Cuenta);
+        _res = null;
+        _err = null;
+    }
+
     async Task Save()
     {
         if (_busy) return;
         _busy = true;
         try
         {
-            await Users.SaveAsync(Me, Input);
-            await OnSaved.InvokeAsync();
+            var nuevo = Input.Id == 0;
+            var conClave = !string.IsNullOrEmpty(Input.Password);
+            string mensaje;
+            if (Aprobar)
+            {
+                var u = await Acceso.AprobarAsync(Me, Input);
+                await Audit.RegistrarAsync(u.Email, "ACCESO_APROBADO", "Admin", "", $"{Reglas.RolLabel(u.Rol)} · por {Me.Nombre}");
+                mensaje = $"Acceso de {u.Nombre} aprobado · se le avisó por correo";
+            }
+            else
+            {
+                await Users.SaveAsync(Me, Input);
+                await Audit.RegistrarAsync(Input.Email.Trim(), nuevo ? "USUARIO_CREADO" : "USUARIO_EDITADO", "Admin", "", $"{Reglas.RolLabel(Input.Rol)} · por {Me.Nombre}");
+                mensaje = nuevo ? $"{Input.Nombre} creado" : "Usuario actualizado";
+            }
+            if (conClave) await Audit.RegistrarAsync(Input.Email.Trim(), "PASSWORD_ASIGNADA", "Admin", "", $"por {Me.Nombre}");
+            await OnSaved.InvokeAsync(mensaje);
         }
         catch (ReglaException ex) { _err = ex.Message; }
         catch (PermisoException ex) { _err = ex.Message; }

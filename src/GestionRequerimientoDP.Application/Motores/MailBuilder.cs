@@ -68,6 +68,29 @@ public static class MailBuilder
             $"{P} Nueva solicitud {codigo} · {unidad} · {f.Proyecto}", string.Join('\n', lines), items.Select(r => r.Id).ToList());
     }
 
+    public static MailDraft SolicitudAcceso(IReadOnlyList<Usuario> lideres, Usuario u)
+    {
+        var lines = new List<string>
+        {
+            $"Hola {string.Join(", ", lideres.Select(l => First(l.Nombre)))},", "",
+            $"{u.Nombre} ({u.Email}) solicitó acceso a {AppInfo.Nombre}.",
+            $"• Origen: {(u.Origen == OrigenUsuario.ActiveDirectory ? $"cuenta corporativa {u.DomainAccount}" : "formulario de solicitud")}",
+        };
+        if (!string.IsNullOrEmpty(u.Rut)) lines.Add($"• RUT: {Rut.Format(u.Rut)}");
+        if (!string.IsNullOrEmpty(u.SolicitudMotivo)) lines.Add($"• Motivo: {u.SolicitudMotivo}");
+        lines.AddRange(["", $"Revísala en {AppInfo.Nombre} → Usuarios → Solicitudes de acceso: asígnale un rol y apruébala, o recházala.", "", $"Mensaje automático de {AppInfo.Nombre}."]);
+        return new(NotificacionKind.Acceso, lideres.Select(l => l.Email).ToList(), [], $"{P} Solicitud de acceso: {u.Nombre}", string.Join('\n', lines), []);
+    }
+
+    public static MailDraft AccesoAprobado(Usuario u) => new(NotificacionKind.Acceso, [u.Email], [], $"{P} Tu acceso fue aprobado",
+        string.Join('\n', $"Hola {First(u.Nombre)},", "", $"Tu acceso a {AppInfo.Nombre} fue aprobado con el rol {Reglas.RolLabel(u.Rol)}.",
+            u.Origen == OrigenUsuario.ActiveDirectory ? "Ingresa con tu cuenta corporativa (Windows)." : "Ingresa con tu correo o RUT y la contraseña que registraste.",
+            "", $"Mensaje automático de {AppInfo.Nombre}."), []);
+
+    public static MailDraft AccesoRechazado(Usuario u) => new(NotificacionKind.Acceso, [u.Email], [], $"{P} Tu solicitud de acceso no fue aprobada",
+        string.Join('\n', $"Hola {First(u.Nombre)},", "", $"Tu solicitud de acceso a {AppInfo.Nombre} no fue aprobada. Si crees que es un error, comunícate con el líder de Operaciones.",
+            "", $"Mensaje automático de {AppInfo.Nombre}."), []);
+
     /// <summary>Un correo por analista con todos sus requerimientos (acciones masivas).</summary>
     public static List<MailDraft> AsignacionPorAnalista(IEnumerable<Requerimiento> asignados, IReadOnlyDictionary<int, Usuario> usuarios) =>
         asignados.Where(r => r.AnalistaId != null)

@@ -262,3 +262,131 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    ALTER TABLE [Usuarios] ADD [Aprobacion] nvarchar(20) NOT NULL DEFAULT N'Aprobado';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    ALTER TABLE [Usuarios] ADD [CreadoAt] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    ALTER TABLE [Usuarios] ADD [Origen] nvarchar(20) NOT NULL DEFAULT N'Admin';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    ALTER TABLE [Usuarios] ADD [Rut] nvarchar(12) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    ALTER TABLE [Usuarios] ADD [SolicitudMotivo] nvarchar(500) NOT NULL DEFAULT N'';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    ALTER TABLE [Usuarios] ADD [UltimoAcceso] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    CREATE TABLE [AuditoriaAccesos] (
+        [Id] bigint NOT NULL IDENTITY,
+        [At] datetimeoffset NOT NULL,
+        [Usuario] nvarchar(200) NOT NULL,
+        [Accion] nvarchar(60) NOT NULL,
+        [Metodo] nvarchar(40) NOT NULL,
+        [Ip] nvarchar(60) NOT NULL,
+        [Detalle] nvarchar(1000) NOT NULL,
+        CONSTRAINT [PK_AuditoriaAccesos] PRIMARY KEY ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    CREATE TABLE [PasswordResetTokens] (
+        [Id] bigint NOT NULL IDENTITY,
+        [UsuarioId] int NOT NULL,
+        [TokenHash] nvarchar(64) NOT NULL,
+        [CreatedAt] datetimeoffset NOT NULL,
+        [ExpiresAt] datetimeoffset NOT NULL,
+        [UsedAt] datetimeoffset NULL,
+        [Ip] nvarchar(60) NOT NULL,
+        CONSTRAINT [PK_PasswordResetTokens] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_PasswordResetTokens_Usuarios_UsuarioId] FOREIGN KEY ([UsuarioId]) REFERENCES [Usuarios] ([Id]) ON DELETE CASCADE
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Usuarios_Rut] ON [Usuarios] ([Rut]) WHERE [Rut] IS NOT NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    CREATE INDEX [IX_AuditoriaAccesos_At] ON [AuditoriaAccesos] ([At]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_PasswordResetTokens_TokenHash] ON [PasswordResetTokens] ([TokenHash]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    CREATE INDEX [IX_PasswordResetTokens_UsuarioId] ON [PasswordResetTokens] ([UsuarioId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030133049_AccesoYAuditoria'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261030133049_AccesoYAuditoria', N'10.0.13');
+END;
+
+COMMIT;
+GO
+

@@ -89,6 +89,8 @@ public abstract class AppComponentTest : BunitContext
         s.AddSingleton<IScriptAssignmentService>(App.Scripts);
         s.AddScoped<IUsuarioService, UsuarioService>();
         s.AddScoped<IConsultaService, ConsultaService>();
+        s.AddScoped<IAccesoService, AccesoService>();
+        s.AddScoped<IAuditoriaService, AuditoriaService>();
     }
 
     protected UsuarioActual LoginAs(string email)

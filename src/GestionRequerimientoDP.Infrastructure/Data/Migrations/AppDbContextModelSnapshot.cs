@@ -22,6 +22,49 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("GestionRequerimientoDP.Domain.AuditoriaAcceso", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Accion")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Detalle")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Ip")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Metodo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Usuario")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("At");
+
+                    b.ToTable("AuditoriaAccesos", (string)null);
+                });
+
             modelBuilder.Entity("GestionRequerimientoDP.Domain.Notificacion", b =>
                 {
                     b.Property<int>("Id")
@@ -112,6 +155,46 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
                     b.HasIndex("ReqId");
 
                     b.ToTable("OkLog", (string)null);
+                });
+
+            modelBuilder.Entity("GestionRequerimientoDP.Domain.PasswordResetToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Ip")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("PasswordResetTokens", (string)null);
                 });
 
             modelBuilder.Entity("GestionRequerimientoDP.Domain.Requerimiento", b =>
@@ -312,6 +395,16 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
                     b.Property<bool>("Activo")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Aprobacion")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Aprobado");
+
+                    b.Property<DateTimeOffset?>("CreadoAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("DomainAccount")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -326,6 +419,13 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
 
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Admin");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
@@ -335,6 +435,18 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("Rut")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("SolicitudMotivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("UltimoAcceso")
+                        .HasColumnType("datetimeoffset");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DomainAccount")
@@ -343,6 +455,10 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("Rut")
+                        .IsUnique()
+                        .HasFilter("[Rut] IS NOT NULL");
 
                     b.ToTable("Usuarios", (string)null);
                 });
@@ -359,6 +475,15 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
                     b.HasKey("UsuarioId", "Equipo");
 
                     b.ToTable("UsuarioEquipos", (string)null);
+                });
+
+            modelBuilder.Entity("GestionRequerimientoDP.Domain.PasswordResetToken", b =>
+                {
+                    b.HasOne("GestionRequerimientoDP.Domain.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("GestionRequerimientoDP.Domain.Requerimiento", b =>

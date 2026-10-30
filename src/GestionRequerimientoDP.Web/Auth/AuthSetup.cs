@@ -19,6 +19,8 @@ public sealed class AuthOptions
     public bool DemoMode { get; set; }
     /// <summary>La consulta pública requiere sesión (en producción: SSO corporativo sin rol en la app).</summary>
     public bool ConsultaRequiereSesion { get; set; }
+    /// <summary>Muestra "Solicitar acceso" en la pantalla de ingreso (las solicitudes quedan pendientes hasta que un líder las aprueba).</summary>
+    public bool RegistroHabilitado { get; set; } = true;
     public bool IsWindows => string.Equals(Mode, "Windows", StringComparison.OrdinalIgnoreCase);
 }
 
@@ -103,6 +105,11 @@ public static class AuthSetup
         builder.Services.Configure<SsoOptions>(builder.Configuration.GetSection(SsoOptions.Section));
         builder.Services.AddMemoryCache();
         builder.Services.AddSingleton<SsoTicketService>();
+        builder.Services.Configure<ActiveDirectoryOptions>(builder.Configuration.GetSection(ActiveDirectoryOptions.Section));
+        if (OperatingSystem.IsWindows() && builder.Configuration.GetValue<bool>($"{ActiveDirectoryOptions.Section}:Enabled"))
+            builder.Services.AddSingleton<IDirectorioService, ActiveDirectoryDirectorio>();
+        else
+            builder.Services.AddSingleton<IDirectorioService, SinDirectorio>();
         builder.Services.AddAuthorizationBuilder()
             .AddPolicy(Policies.Lider, p => p.RequireRole(nameof(Rol.Lider)))
             .AddPolicy(Policies.Analista, p => p.RequireRole(nameof(Rol.Analista)))
@@ -116,32 +123,6 @@ public static class AuthSetup
         if (ctx.Request.Path.StartsWithSegments("/export")) ctx.Response.StatusCode = status;
         else ctx.Response.Redirect(ctx.RedirectUri);
         return Task.CompletedTask;
-    }
-
-    public static void MapAccountEndpoints(this WebApplication app)
-    {
-        var g = app.MapGroup("/cuenta");
-        g.MapPost("/login", async (HttpContext http, IUsuarioService users, IPasswordService passwords, Microsoft.Extensions.Options.IOptionsMonitor<AuthOptions> o) =>
-        {
-            var form = await http.Request.ReadFormAsync();
-            var email = form["email"].ToString();
-            var password = form["password"].ToString();
-            var demo = form["demo"].ToString() == "1";
-            var u = await users.FindByEmailAsync(email);
-            string? err = null;
-            if (u is null || !u.Activo) err = "Correo no registrado o usuario inactivo.";
-            else if (!o.CurrentValue.DemoMode && (demo || u.PasswordHash is null || !passwords.Verify(u.PasswordHash, password))) err = "Correo o contraseña incorrectos.";
-            if (err != null) return Results.Redirect($"/cuenta/ingresar?error={Uri.EscapeDataString(err)}&email={Uri.EscapeDataString(email)}");
-            await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, Claims.Principal(u!, CookieAuthenticationDefaults.AuthenticationScheme),
-                new AuthenticationProperties { IsPersistent = true });
-            return Results.Redirect(u!.Rol == Rol.Comercial ? "/solicitar" : "/");
-        }).WithMetadata(new RequireAntiforgeryTokenAttribute(true));
-        g.MapPost("/salir", async (HttpContext http, Microsoft.Extensions.Options.IOptionsMonitor<SsoOptions> sso) =>
-        {
-            await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            // Con SSO, volver al ingreso manual: si no, la cuenta Windows volvería a entrar sola.
-            return Results.Redirect(sso.CurrentValue.Enabled ? "/cuenta/ingresar?manual=1" : "/cuenta/ingresar");
-        }).WithMetadata(new RequireAntiforgeryTokenAttribute(true));
     }
 }
 

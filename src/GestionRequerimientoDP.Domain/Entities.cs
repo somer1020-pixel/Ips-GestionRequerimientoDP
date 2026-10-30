@@ -11,6 +11,16 @@ public class Usuario
     public string? DomainAccount { get; set; }
     /// <summary>Hash de contraseña (ASP.NET Core PasswordHasher). Nulo = solo acceso de demostración / Windows Auth.</summary>
     public string? PasswordHash { get; set; }
+    /// <summary>RUT normalizado "12345678-K" (opcional). Permite ingresar con RUT en vez de correo.</summary>
+    public string? Rut { get; set; }
+    public Aprobacion Aprobacion { get; set; } = Aprobacion.Aprobado;
+    public OrigenUsuario Origen { get; set; } = OrigenUsuario.Admin;
+    /// <summary>Motivo o área informada al solicitar acceso.</summary>
+    public string SolicitudMotivo { get; set; } = "";
+    public DateTimeOffset? CreadoAt { get; set; }
+    public DateTimeOffset? UltimoAcceso { get; set; }
+
+    public bool Pendiente => Aprobacion == Aprobacion.Pendiente;
     /// <summary>Analista: equipos a los que pertenece. Líder: equipos a cargo (vacío = todos).</summary>
     public List<UsuarioEquipo> Equipos { get; set; } = [];
 

@@ -2,6 +2,8 @@
 @attribute [Authorize(Policy = Policies.Lider)]
 @inherits AppPage
 @inject IUsuarioService Users
+@inject IAccesoService Acceso
+@inject IAuditoriaService Audit
 
 <PageTitle>Usuarios · @AppInfo.Nombre</PageTitle>
 
@@ -11,8 +13,43 @@
             <h2 style="margin:0">Usuarios y roles</h2>
             <div class="sub">Líder de equipo: ve y administra toda la planificación. Analista: solo ve y actualiza su carga asignada (puede pertenecer a Procesamiento, Scripting, Codificación o varios). Los usuarios inactivos no reciben asignaciones.</div>
         </div>
-        <button class="btn btn-primary" @onclick="() => _edit = new UsuarioInput()"><Icon Name="plus" />Nuevo usuario</button>
+        <div class="page-actions">
+            <a class="btn btn-outline-secondary" href="usuarios/auditoria"><Icon Name="historico" />Auditoría de accesos</a>
+            <button class="btn btn-primary" @onclick="() => { _edit = new UsuarioInput(); _aprobar = false; }"><Icon Name="plus" />Nuevo usuario</button>
+        </div>
     </div>
+
+    @if (_pendientes.Count > 0)
+    {
+        <div class="card" style="gap:var(--space-3);border-color:var(--warning)">
+            <div style="display:flex;align-items:center;gap:var(--space-2)">
+                <h4 style="margin:0">Solicitudes de acceso</h4><span class="cnt" style="margin-left:0">@_pendientes.Count</span>
+            </div>
+            <div class="sub">Personas que pidieron acceso desde la pantalla de ingreso o que entraron con su cuenta corporativa sin estar registradas. Asígnales un rol al aprobar.</div>
+            <div class="scroll-x">
+                <table class="table">
+                    <thead><tr><th>Solicitado</th><th>Nombre</th><th>Correo / RUT</th><th>Origen</th><th>Motivo</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var p in _pendientes)
+                        {
+                            <tr @key="p.Id">
+                                <td class="nowrap" style="font-size:13px">@Fechas.FmtDT(p.CreadoAt)</td>
+                                <td style="font-weight:500">@p.Nombre</td>
+                                <td style="font-size:13px">@p.Email@(string.IsNullOrEmpty(p.Rut) ? "" : " · " + Rut.Format(p.Rut))</td>
+                                <td><span class="@(p.Origen == OrigenUsuario.ActiveDirectory ? "be be-info" : "be be-neutral")">@(p.Origen == OrigenUsuario.ActiveDirectory ? $"Windows · {p.DomainAccount}" : "Formulario")</span></td>
+                                <td style="font-size:13px">@p.SolicitudMotivo</td>
+                                <td class="nowrap">
+                                    <button class="btn btn-primary" @onclick="() => { _edit = UsuarioInput.From(p); _aprobar = true; }" style="font-size:13px;padding:3px 10px">Aprobar…</button>
+                                    <button class="btn btn-ghost" @onclick="() => Rechazar(p)" style="font-size:13px;padding:3px 8px;color:var(--danger)">Rechazar</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-6);padding:6px">
         @foreach (var (label, count, desc) in RoleCards)
         {
@@ -24,19 +61,20 @@
     </div>
     <div class="scroll-x">
         <table class="table">
-            <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Equipos</th><th>Carga activa</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Correo / RUT</th><th>Rol</th><th>Equipos</th><th>Carga activa</th><th>Último acceso</th><th>Estado</th><th></th></tr></thead>
             <tbody>
                 @foreach (var u in Sorted)
                 {
                     <tr @key="u.Id" style="opacity:@(u.Activo ? "1" : "0.55")">
                         <td style="font-weight:500;white-space:nowrap">@u.Nombre</td>
-                        <td style="font-size:13px">@u.Email</td>
+                        <td style="font-size:13px">@u.Email@if (!string.IsNullOrEmpty(u.Rut)) {<br /><span class="sub">@Rut.Format(u.Rut)</span>}</td>
                         <td><span class="@(u.Rol switch { Rol.Lider => "be be-info", Rol.Comercial => "be be-navy", _ => "be be-neutral" })">@Reglas.RolLabel(u.Rol)</span></td>
                         <td>@Reglas.EquipoLabel(u)</td>
                         <td>@(u.Rol switch { Rol.Analista => _carga.GetValueOrDefault(u.Id).ToString(), Rol.Comercial => $"{_sols.GetValueOrDefault(u.Id)} solicitudes", _ => "—" })</td>
+                        <td class="nowrap" style="font-size:13px">@(u.UltimoAcceso is null ? "—" : Fechas.FmtDT(u.UltimoAcceso))</td>
                         <td><button class="btn btn-ghost" @onclick="() => Toggle(u)" style="font-size:13px;padding:2px 6px">@(u.Activo ? "Activo" : "Inactivo")</button></td>
                         <td class="nowrap">
-                            <button class="btn btn-outline-secondary" @onclick="() => _edit = UsuarioInput.From(u)" style="font-size:13px;padding:3px 10px">Editar</button>
+                            <button class="btn btn-outline-secondary" @onclick="() => { _edit = UsuarioInput.From(u); _aprobar = false; }" style="font-size:13px;padding:3px 10px">Editar</button>
                             @if (u.Id != Me.Id && !_historial.Contains(u.Id))
                             {
                                 <button class="btn btn-ghost" @onclick="() => Eliminar(u)" style="font-size:13px;padding:3px 8px;color:var(--danger)">Eliminar</button>
@@ -51,18 +89,19 @@
 
 @if (_edit is { } ed)
 {
-    <UserModal Input="ed" OnClose="() => _edit = null" OnSaved="Saved" />
+    <UserModal Input="ed" Aprobar="_aprobar" OnClose="() => _edit = null" OnSaved="Saved" />
 }
 
 @code {
-    List<Usuario> _users = [];
+    List<Usuario> _users = [], _pendientes = [];
     Dictionary<int, int> _carga = [], _sols = [];
     HashSet<int> _historial = [];
     UsuarioInput? _edit;
+    bool _aprobar;
 
     protected override ChangeKind[] ReloadOn => [ChangeKind.Usuarios, ChangeKind.Requerimientos, ChangeKind.Solicitudes];
 
-    IEnumerable<Usuario> Sorted => _users.OrderBy(u => u.Rol switch { Rol.Lider => 0, Rol.Analista => 1, _ => 2 })
+    IEnumerable<Usuario> Sorted => _users.Where(u => !u.Pendiente).OrderBy(u => u.Rol switch { Rol.Lider => 0, Rol.Analista => 1, _ => 2 })
         .ThenBy(u => string.Join(",", u.EquiposOrdenados), StringComparer.Ordinal).ThenBy(u => u.Nombre, StringComparer.CurrentCulture);
 
     int Act(Equipo e) => _users.Count(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(e));
@@ -80,6 +119,7 @@
     protected override async Task LoadAsync()
     {
         _users = await Users.ListAsync();
+        _pendientes = await Acceso.PendientesAsync(Me);
         _carga = await Users.CargaActivaAsync();
         _sols = await Users.SolicitudesPorComercialAsync();
         _historial = await Users.ConHistorialAsync();
@@ -94,7 +134,20 @@
         await Run(async () =>
         {
             var n = await Users.EliminarAsync(Me, u.Id);
+            await Audit.RegistrarAsync(u.Email, "USUARIO_ELIMINADO", "Admin", "", $"por {Me.Nombre}");
             Ui.Flash($"{u.Nombre} eliminado" + (n > 0 ? $" · {n} requerimiento(s) quedaron sin asignar" : ""));
+            await LoadAsync();
+        });
+    }
+
+    async Task Rechazar(Usuario u)
+    {
+        if (!await JS.InvokeAsync<bool>("grdp.confirm", $"¿Rechazar la solicitud de acceso de {u.Nombre} ({u.Email})? Se le avisará por correo.")) return;
+        await Run(async () =>
+        {
+            await Acceso.RechazarAsync(Me, u.Id);
+            await Audit.RegistrarAsync(u.Email, "ACCESO_RECHAZADO", "Admin", "", $"por {Me.Nombre}");
+            Ui.Flash($"Solicitud de {u.Nombre} rechazada");
             await LoadAsync();
         });
     }
@@ -102,13 +155,14 @@
     Task Toggle(Usuario u) => Run(async () =>
     {
         var warn = await Users.ToggleActivoAsync(Me, u.Id);
+        await Audit.RegistrarAsync(u.Email, u.Activo ? "USUARIO_DESACTIVADO" : "USUARIO_ACTIVADO", "Admin", "", $"por {Me.Nombre}");
         if (warn != null) Ui.Flash(warn);
     });
 
-    async Task Saved()
+    async Task Saved(string mensaje)
     {
         _edit = null;
-        Ui.Flash("Usuario guardado");
+        Ui.Flash(mensaje);
         await LoadAsync();
     }
 }

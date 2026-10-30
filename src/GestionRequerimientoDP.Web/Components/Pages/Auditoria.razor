@@ -1,0 +1,69 @@
+@page "/usuarios/auditoria"
+@attribute [Authorize(Policy = Policies.Lider)]
+@inherits AppPage
+@inject IAuditoriaService Audit
+
+<PageTitle>Auditoría de accesos · @AppInfo.Nombre</PageTitle>
+
+<section data-screen-label="Auditoría" class="stack">
+    <div class="page-head">
+        <div>
+            <h2 style="margin:0">Auditoría de accesos</h2>
+            <div class="sub">Ingresos, intentos fallidos, salidas, solicitudes de acceso, recuperación de contraseñas y cambios de usuarios. Se muestran los últimos @Take registros.</div>
+        </div>
+        <div class="page-actions">
+            <a class="btn btn-outline-secondary" href="usuarios">← Usuarios</a>
+        </div>
+    </div>
+    <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
+        <input class="form-control" style="max-width:320px" placeholder="Filtrar por usuario, acción, IP o detalle" @bind="_filtro" @bind:after="LoadAsync" />
+        <Seg T="string" Options="Grupos" Value="_grupo" ValueChanged="g => _grupo = g" />
+    </div>
+    <div class="scroll-x">
+        <table class="table">
+            <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Método</th><th>IP</th><th>Detalle</th></tr></thead>
+            <tbody>
+                @foreach (var a in Filtrados)
+                {
+                    <tr @key="a.Id">
+                        <td class="nowrap" style="font-size:13px">@Fechas.FmtDT(a.At)</td>
+                        <td style="font-size:13px">@a.Usuario</td>
+                        <td><span class="@Css(a.Accion)">@a.Accion</span></td>
+                        <td style="font-size:13px">@a.Metodo</td>
+                        <td class="nowrap" style="font-size:13px">@a.Ip</td>
+                        <td style="font-size:13px">@a.Detalle</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!Filtrados.Any())
+        {
+            <div class="empty">Sin registros.</div>
+        }
+    </div>
+</section>
+
+@code {
+    const int Take = 300;
+    List<AuditoriaAcceso> _items = [];
+    string? _filtro;
+    string _grupo = "todo";
+
+    static readonly IReadOnlyList<(string, string)> Grupos = [("todo", "Todo"), ("fallos", "Fallos y bloqueos"), ("admin", "Administración")];
+
+    protected override ChangeKind[] ReloadOn => [ChangeKind.Usuarios];
+
+    IEnumerable<AuditoriaAcceso> Filtrados => _grupo switch
+    {
+        "fallos" => _items.Where(a => EsFallo(a.Accion)),
+        "admin" => _items.Where(a => a.Metodo == "Admin"),
+        _ => _items,
+    };
+
+    static bool EsFallo(string accion) => accion.Contains("FALLIDO") || accion.Contains("BLOQUEADO") || accion.Contains("FALLO") || accion.Contains("RECHAZADO");
+
+    static string Css(string accion) =>
+        EsFallo(accion) ? "be be-danger" : accion.StartsWith("LOGIN_OK") ? "be be-success" : accion.Contains("SOLICITADO") ? "be be-warning" : "be be-neutral";
+
+    protected override async Task LoadAsync() => _items = await Audit.ListAsync(Me, _filtro, Take);
+}

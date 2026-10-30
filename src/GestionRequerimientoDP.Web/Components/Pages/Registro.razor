@@ -1,0 +1,41 @@
+@page "/cuenta/registro"
+@layout PublicLayout
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@inject Microsoft.Extensions.Options.IOptionsMonitor<AuthOptions> AuthOpts
+
+<PageTitle>Solicitar acceso · @AppInfo.Nombre</PageTitle>
+
+<AuthShell Title="Solicitar acceso" Error="@Error" Width="520">
+    @if (!AuthOpts.CurrentValue.RegistroHabilitado)
+    {
+        <p class="sub">La solicitud de acceso está desactivada. Pide tu cuenta al líder de Operaciones.</p>
+    }
+    else
+    {
+        <p class="sub" style="margin:0">Completa tus datos. Un líder de Operaciones revisará la solicitud, te asignará un rol y te avisaremos por correo.</p>
+        <form method="post" action="cuenta/solicitar-acceso" style="display:flex;flex-direction:column;gap:var(--space-3)">
+            <AntiforgeryToken />
+            <div class="field"><label for="r-nombre">Nombre completo *</label><input id="r-nombre" name="nombre" class="form-control" value="@Nombre" required maxlength="120" autocomplete="name" /></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-3)">
+                <div class="field"><label for="r-email">Correo *</label><input id="r-email" name="email" type="email" class="form-control" value="@Email" required autocomplete="email" /></div>
+                <div class="field"><label for="r-rut">RUT (opcional)</label><input id="r-rut" name="rut" class="form-control" value="@Rut" placeholder="12.345.678-9" /></div>
+            </div>
+            <div class="field"><label for="r-motivo">Área y motivo *</label><textarea id="r-motivo" name="motivo" class="form-control" required maxlength="500" placeholder="Ej. Área comercial CEX · para ingresar solicitudes a Operaciones" style="min-height:70px">@Motivo</textarea></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-3)">
+                <div class="field"><label for="r-pw">Contraseña *</label><input id="r-pw" name="password" type="password" class="form-control" required autocomplete="new-password" /></div>
+                <div class="field"><label for="r-pw2">Repite la contraseña *</label><input id="r-pw2" name="confirmacion" type="password" class="form-control" required autocomplete="new-password" /></div>
+            </div>
+            <div class="note">@PoliticaContrasena.Resumen</div>
+            <button class="btn btn-primary btn-block" type="submit" style="min-height:40px">Enviar solicitud</button>
+        </form>
+    }
+</AuthShell>
+
+@code {
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public string? Nombre { get; set; }
+    [SupplyParameterFromQuery] public string? Email { get; set; }
+    [SupplyParameterFromQuery] public string? Rut { get; set; }
+    [SupplyParameterFromQuery] public string? Motivo { get; set; }
+}

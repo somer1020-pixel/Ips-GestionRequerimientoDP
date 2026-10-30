@@ -11,6 +11,8 @@ public interface IAppDbContext : IDisposable, IAsyncDisposable
     DbSet<Solicitud> Solicitudes { get; }
     DbSet<Notificacion> Notificaciones { get; }
     DbSet<OkLog> OkLogs { get; }
+    DbSet<AuditoriaAcceso> Auditoria { get; }
+    DbSet<PasswordResetToken> ResetTokens { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
 

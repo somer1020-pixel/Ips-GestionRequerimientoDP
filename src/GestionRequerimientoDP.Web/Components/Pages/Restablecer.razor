@@ -1,0 +1,35 @@
+@page "/cuenta/restablecer"
+@layout PublicLayout
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@inject IAccesoService Acceso
+
+<PageTitle>Nueva contraseña · @AppInfo.Nombre</PageTitle>
+
+<AuthShell Title="Crear nueva contraseña" Error="@(_invalido ?? Error)">
+    @if (_usuario is { } u)
+    {
+        <p class="sub" style="margin:0">Cuenta: <strong>@u.Email</strong></p>
+        <form method="post" action="cuenta/cambiar-clave" style="display:flex;flex-direction:column;gap:var(--space-3)">
+            <AntiforgeryToken />
+            <input type="hidden" name="token" value="@Token" />
+            <div class="field"><label for="rs-pw">Nueva contraseña</label><input id="rs-pw" name="password" type="password" class="form-control" required autocomplete="new-password" /></div>
+            <div class="field"><label for="rs-pw2">Repite la contraseña</label><input id="rs-pw2" name="confirmacion" type="password" class="form-control" required autocomplete="new-password" /></div>
+            <div class="note">@PoliticaContrasena.Resumen</div>
+            <button class="btn btn-primary btn-block" type="submit" style="min-height:40px">Guardar contraseña</button>
+        </form>
+    }
+    else
+    {
+        <a class="btn btn-outline-secondary" href="cuenta/recuperar">Solicitar un nuevo enlace</a>
+    }
+</AuthShell>
+
+@code {
+    [SupplyParameterFromQuery] public string? Token { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    Usuario? _usuario;
+    string? _invalido;
+
+    protected override async Task OnInitializedAsync() => (_usuario, _invalido) = await Acceso.ValidarResetAsync(Token ?? "");
+}

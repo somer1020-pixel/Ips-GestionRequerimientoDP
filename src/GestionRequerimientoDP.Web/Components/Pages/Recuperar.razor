@@ -1,0 +1,29 @@
+@page "/cuenta/recuperar"
+@layout PublicLayout
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+
+<PageTitle>Recuperar contraseña · @AppInfo.Nombre</PageTitle>
+
+<AuthShell Title="Recuperar contraseña" Error="@Error"
+           Ok="@(Enviado == "1" ? "Si los datos corresponden a una cuenta activa, te enviamos un correo con un enlace para crear una nueva contraseña. Vence en 60 minutos." : null)">
+    @if (!string.IsNullOrEmpty(Enlace))
+    {
+        <div style="font-size:13px;background:var(--warning-50);color:var(--ink);border-radius:6px;padding:var(--space-2) var(--space-3);word-break:break-all">
+            <strong>Modo desarrollo sin servidor de correo:</strong> <a href="@Enlace">abrir el enlace de recuperación</a>
+        </div>
+    }
+    <p class="sub" style="margin:0">Ingresa tu correo o RUT. Si tienes una cuenta activa con contraseña, te enviaremos un enlace para crear una nueva.</p>
+    <form method="post" action="cuenta/enviar-recuperacion" style="display:flex;flex-direction:column;gap:var(--space-3)">
+        <AntiforgeryToken />
+        <div class="field"><label for="rc-login">Correo o RUT</label><input id="rc-login" name="login" class="form-control" required autocomplete="username" /></div>
+        <button class="btn btn-primary btn-block" type="submit" style="min-height:40px">Enviar enlace</button>
+    </form>
+    <div class="note">Si ingresas con tu cuenta corporativa de Windows, esa contraseña se cambia desde Windows o con la Mesa de Ayuda TI.</div>
+</AuthShell>
+
+@code {
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public string? Enviado { get; set; }
+    [SupplyParameterFromQuery] public string? Enlace { get; set; }
+}

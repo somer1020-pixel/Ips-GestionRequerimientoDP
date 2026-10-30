@@ -11,7 +11,7 @@
     <header class="topbar">
         <div class="inner">
             <div class="brand" style="flex:1"><span class="brand-mark">@AppInfo.Marca</span><span>@AppInfo.Nombre <small>· Consulta de requerimientos</small></span></div>
-            <a class="btn btn-onnavy" href="@(_logged ? "/" : "/cuenta/ingresar")">@(_logged ? "Volver a la app" : $"Ingresar a {AppInfo.Nombre}")</a>
+            <a class="btn btn-onnavy" href="@(_logged ? "./" : "cuenta/ingresar")">@(_logged ? "Volver a la app" : $"Ingresar a {AppInfo.Nombre}")</a>
         </div>
     </header>
     <main class="portal" style="width:100%;display:flex;flex-direction:column;gap:var(--space-6)">

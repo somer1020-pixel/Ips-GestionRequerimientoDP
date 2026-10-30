@@ -14,8 +14,10 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<UiState>();
 builder.AddAppAuth();
+builder.AddAppHosting();
 
 var app = builder.Build();
+app.UseAppHosting(); // proxy inverso / sub-ruta de IIS: primero de todo
 
 // Si la base no responde al iniciar, la app no se cae: muestra la causa en el navegador
 // (Visual Studio solo diría "No se puede conectar al servidor web").

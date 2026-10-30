@@ -29,7 +29,7 @@
                 <Seg T="DateOnly" Options="WeekOpts" Value="_week" ValueChanged="SetWeek" />
                 <button class="btn btn-outline-secondary" @onclick="() => _importOpen = true"><Icon Name="upload" />Importar planilla</button>
                 <button class="btn btn-outline-secondary" @onclick="Suggest"><Icon Name="balance" />Sugerir balanceo</button>
-                <button class="btn btn-outline-secondary" @onclick="@(() => Download($"/export/planificacion?unidad={Reglas.TipoKey(_unit)}&semana={Fechas.Iso(_week)}"))"><Icon Name="download" />Descargar planificación</button>
+                <button class="btn btn-outline-secondary" @onclick="@(() => Download($"export/planificacion?unidad={Reglas.TipoKey(_unit)}&semana={Fechas.Iso(_week)}"))"><Icon Name="download" />Descargar planificación</button>
             </div>
         </div>
 

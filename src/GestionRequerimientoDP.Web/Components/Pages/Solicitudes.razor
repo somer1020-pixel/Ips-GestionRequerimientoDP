@@ -55,14 +55,14 @@
     void GoPlan(SolicitudCard c)
     {
         Ui.AnFilter = null;
-        Nav.NavigateTo(c.Tipo == Equipo.Script ? "/scripts"
-            : $"/planificacion?unidad={Reglas.TipoKey(c.Tipo)}&semana={Fechas.Iso(Fechas.MondayOf(c.First.Fecha))}&q={Uri.EscapeDataString(c.First.Job)}");
+        Nav.NavigateTo(c.Tipo == Equipo.Script ? "scripts"
+            : $"planificacion?unidad={Reglas.TipoKey(c.Tipo)}&semana={Fechas.Iso(Fechas.MondayOf(c.First.Fecha))}&q={Uri.EscapeDataString(c.First.Job)}");
     }
 
     async Task DownloadInbox()
     {
         if (!Sel.SelectMany(c => c.Items).Any(r => _state == "all" || r.AnalistaId == null)) { Ui.Flash("No hay solicitudes para descargar con este filtro"); return; }
-        await Download($"/export/solicitudes?unidad={_unit}&estado={_state}");
+        await Download($"export/solicitudes?unidad={_unit}&estado={_state}");
         await LoadAsync();
     }
 }
