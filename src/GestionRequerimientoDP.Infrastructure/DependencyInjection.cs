@@ -22,7 +22,7 @@ public static class DependencyInjection
         var cs = config.GetConnectionString(ConnectionName);
         if (string.IsNullOrWhiteSpace(cs))
             throw new InvalidOperationException(
-                $"Falta la cadena de conexión 'ConnectionStrings:{ConnectionName}'. Configúrala con 'dotnet user-secrets' o en appsettings.Development.json (ver README).");
+                $"Falta la cadena de conexión 'ConnectionStrings:{ConnectionName}'. En el servidor: appsettings.Production.json junto a la DLL o la variable de entorno ConnectionStrings__{ConnectionName}. En desarrollo: 'dotnet user-secrets' (ver README).");
 
         services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(cs, sql => sql.EnableRetryOnFailure(3)));
         services.AddSingleton<IAppDbContextFactory, AppDbContextFactory>();
