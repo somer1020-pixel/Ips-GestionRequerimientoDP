@@ -117,6 +117,21 @@ Además:
 - Hay una plantilla genérica de Apache en `infrastructure/apache/gestionreq.conf.template`.
 - Kerberos no atraviesa bien un proxy. Para el SSO desde afuera usa el modo de dos servidores.
 
+### Problemas frecuentes en IIS
+
+Para ver el sub-código del error, revisa el log de IIS (`C:\inetpub\logs\LogFiles\W3SVC*\`, columnas `sc-status sc-substatus sc-win32-status`). El detalle de un 500.30 queda en el Visor de eventos → Aplicación.
+
+| Error | Causa | Solución |
+| --- | --- | --- |
+| 500.19 (código 13) | Atributo o sección que esta versión de IIS no reconoce (p. ej. en IIS 8.5 / Windows Server 2012 R2) | Usar el `web.config` del repositorio, que es compatible con IIS 8.5 |
+| 500.19 (código 33) | Sección bloqueada para las aplicaciones (p. ej. `<webSocket>`) | No declararla en `web.config`; la característica se activa para el servidor |
+| 500.30 "The Negotiate Authentication handler cannot be used on a server that directly supports Windows Authentication" | `Sso:Enabled = true` sin Autenticación de Windows habilitada en IIS | Instalar `Web-Windows-Auth` y habilitar Windows + Anónima en la aplicación |
+| 500.30 / 500 "Falta la cadena de conexión" | No hay `appsettings.Production.json` junto a la DLL | Crearlo (lo hace `deploy-iis.ps1`) |
+| 500.35 o fallos raros | La app comparte App Pool con otros sitios | Un App Pool propio, "Sin código administrado" |
+| No se puede crear el login `IIS APPPOOL\X` en SQL | `X` debe ser el nombre del **App Pool**, no de la aplicación | Revisarlo con `Get-WebApplication` |
+
+En la cadena de conexión no mezcles `User Id`/`Password` con `Trusted_Connection=True`: este último manda y SQL Server ignora el usuario.
+
 ## Crear la base de datos con script (SSMS)
 
 Como alternativa a las migraciones automáticas, `database/GestionRequerimientoDP.sql` crea la base `GestionRequerimientoDP` y todas sus tablas. Se abre en SSMS 22 y se ejecuta con F5, o con `sqlcmd -S <servidor> -E -i database\GestionRequerimientoDP.sql`. Es idempotente y registra la migración, así que la app no intenta recrear nada. Los datos de ejemplo los carga la app al iniciar si `Database:Seed` está activo y no hay usuarios.
