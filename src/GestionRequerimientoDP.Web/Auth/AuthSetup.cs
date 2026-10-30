@@ -60,6 +60,22 @@ public sealed class DomainClaimsTransformation(IServiceScopeFactory scopes) : IC
 
 public static class AuthSetup
 {
+    /// <summary>
+    /// Con IIS + Autenticación de Windows, la cuenta negociada en /cuenta/sso queda en la conexión y IIS la pone en
+    /// HttpContext.User de las solicitudes siguientes. En modo Cookie la sesión es solo la cookie (si no, "Salir" no cierra nada):
+    /// se descarta esa identidad antes de autenticar. /cuenta/sso la lee directamente del esquema de Windows.
+    /// </summary>
+    public static IApplicationBuilder UseSesionSoloCookie(this WebApplication app)
+    {
+        var opts = app.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions>() ?? new AuthOptions();
+        if (opts.IsWindows) return app;
+        return app.Use((ctx, next) =>
+        {
+            if (ctx.User.Identity?.IsAuthenticated == true) ctx.User = new ClaimsPrincipal(new ClaimsIdentity());
+            return next(ctx);
+        });
+    }
+
     public static void AddAppAuth(this WebApplicationBuilder builder)
     {
         var opts = builder.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions>() ?? new AuthOptions();

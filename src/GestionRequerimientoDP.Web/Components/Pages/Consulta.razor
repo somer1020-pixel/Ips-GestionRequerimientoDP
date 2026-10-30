@@ -70,7 +70,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _logged = (await AuthState).User.Identity?.IsAuthenticated == true;
+        _logged = Claims.ToUsuario((await AuthState).User) is not null;
         _blocked = AuthOpts.CurrentValue.ConsultaRequiereSesion && !_logged;
         if (!_blocked && !string.IsNullOrWhiteSpace(Job)) { _q = Job; _res = await Search.BuscarAsync(_q); }
     }

@@ -40,6 +40,7 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
 app.UseSsoErrorRedirect(); // antes de UseAuthentication: convierte el 400 de Negotiate en vuelta al ingreso
+app.UseSesionSoloCookie(); // IIS: la identidad de Windows de la conexión no es la sesión de la app
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();

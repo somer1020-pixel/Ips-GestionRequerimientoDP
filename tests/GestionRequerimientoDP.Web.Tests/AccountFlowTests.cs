@@ -4,6 +4,7 @@ using GestionRequerimientoDP.Application;
 using GestionRequerimientoDP.Application.Tests;
 using GestionRequerimientoDP.Domain;
 using GestionRequerimientoDP.Web.Auth;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -41,8 +42,25 @@ public partial class AccountFlowTests : IClassFixture<AccountFlowTests.Factory>
                 s.AddSingleton<IAppDbContextFactory>(App.Factory);
                 // Sso:Enabled activado con la app ya iniciada: Negotiate no quedó registrado.
                 s.PostConfigure<SsoOptions>(o => o.Enabled = true);
+                s.AddTransient<Microsoft.AspNetCore.Hosting.IStartupFilter, IdentidadIis>();
             });
         }
+    }
+
+    /// <summary>Simula IIS: la identidad de Windows de la conexión llega en HttpContext.User antes de la app.</summary>
+    sealed class IdentidadIis : Microsoft.AspNetCore.Hosting.IStartupFilter
+    {
+        public Action<Microsoft.AspNetCore.Builder.IApplicationBuilder> Configure(Action<Microsoft.AspNetCore.Builder.IApplicationBuilder> next) => app =>
+        {
+            app.Use((ctx, n) =>
+            {
+                if (ctx.Request.Headers.TryGetValue("X-Test-IIS-User", out var name))
+                    ctx.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+                        [new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, name.ToString())], "Windows"));
+                return n(ctx);
+            });
+            next(app);
+        };
     }
 
     [GeneratedRegex("name=\"__RequestVerificationToken\" value=\"([^\"]+)\"")] private static partial Regex TokenRx();
@@ -165,6 +183,17 @@ public partial class AccountFlowTests : IClassFixture<AccountFlowTests.Factory>
         Assert.Contains("Reiníciala", Loc(r));
         var html = await (await Client().GetAsync(Base + "/cuenta/ingresar")).Content.ReadAsStringAsync();
         Assert.DoesNotContain("Ingresar con mi cuenta corporativa", html); // no se ofrece hasta reiniciar
+    }
+
+    [Fact]
+    public async Task Identidad_de_Windows_sin_sesion_de_la_app_muestra_el_ingreso()
+    {
+        // Tras "Salir" en IIS, la conexión sigue trayendo la cuenta Windows: el ingreso debe mostrarse, no fallar ni redirigir.
+        var req = new HttpRequestMessage(HttpMethod.Get, Base + "/cuenta/ingresar?manual=1");
+        req.Headers.Add("X-Test-IIS-User", @"IPSOSGROUP\usuario");
+        var r = await Client().SendAsync(req);
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        Assert.Contains("action=\"cuenta/login\"", await r.Content.ReadAsStringAsync());
     }
 
     [Theory]

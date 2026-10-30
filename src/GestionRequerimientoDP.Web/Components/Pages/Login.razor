@@ -111,7 +111,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (HttpContext.User.Identity?.IsAuthenticated == true)
+        // Solo la sesión de la app (con IIS + SSO, el usuario podría traer además la identidad de Windows de la conexión).
+        if (Claims.ToUsuario(HttpContext.User) is not null)
         {
             Nav.NavigateTo(HttpContext.User.IsInRole(nameof(Rol.Comercial)) ? "solicitar" : "./");
             return;
