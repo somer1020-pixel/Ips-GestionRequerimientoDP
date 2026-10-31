@@ -48,6 +48,11 @@ GestionRequerimientoDP.slnx
 - **Política de contraseñas:** 8 a 100 caracteres, con mayúscula, minúscula, número y símbolo, y sin el nombre ni la parte inicial del correo. Se aplica al crear usuarios, al solicitar acceso y al restablecer.
 - **Solicitar acceso** (`/cuenta/registro`, se desactiva con `Auth:RegistroHabilitado = false`): la persona deja nombre, correo, RUT opcional, motivo y contraseña. La cuenta queda **pendiente** e inactiva, y los líderes reciben un correo. En **Usuarios → Solicitudes de acceso** el líder asigna rol y equipos y la aprueba, o la rechaza. En ambos casos se avisa por correo.
 - **Recuperar contraseña** (`/cuenta/recuperar`): envía un enlace de un solo uso que vence en 60 minutos. Solo se guarda el hash SHA-256 del token, vale solo el último enlace y hay un máximo de 3 por hora. La respuesta es la misma exista o no la cuenta. Las cuentas que entran solo con Windows se derivan a TI. En Development sin SMTP, el enlace se muestra en pantalla para poder probar.
+- **Protección contra fuerza bruta:**
+  - 5 intentos fallidos para un mismo correo o RUT, en cualquier formato, bloquean el ingreso con contraseña de esa cuenta por 15 minutos. Queda `LOGIN_BLOQUEADO_INTENTOS` en la auditoría.
+  - Además hay un límite de envíos de formularios de cuenta por IP (`Seguridad:FormulariosPorMinutoPorIp`, por defecto 30).
+  - Una cuenta inexistente tarda lo mismo en responder que una real, así que el tiempo no revela qué correos existen.
+- **Modo demostración:** los accesos sin contraseña (`Auth:DemoMode`) solo funcionan en Development. En el servidor se ignoran aunque estén activados por error.
 - **Auditoría de accesos** (**Usuarios → Auditoría de accesos**, solo líderes): ingresos, fallos, bloqueos, salidas, SSO, solicitudes, aprobaciones, recuperaciones y cambios de usuarios, con IP y detalle.
 - **Búsqueda en Active Directory** al crear un usuario (servidor Windows con `ActiveDirectory:Enabled = true`): busca por nombre, usuario o correo y completa nombre, correo y cuenta de dominio. Usa la identidad del App Pool o una cuenta de servicio (`ActiveDirectory:Usuario` / `Clave`, en variables de entorno).
 
@@ -174,6 +179,7 @@ Los datos semilla reproducen la planilla `Prog DP.xlsx` (49 entregables), 8 sema
 | `Sso:*` | Single Sign-On con Active Directory (ver sección Single Sign-On) |
 | `ActiveDirectory:*` | Búsqueda en el directorio al crear usuarios y nombre de las cuentas nuevas (solo Windows): `Enabled`, `LdapPath`, `Dominio`, `Usuario`, `Clave` |
 | `Proxy:*` | Proxy inverso y sub-ruta: `Enabled`, `KnownProxies`, `KnownNetworks`, `PathBase` |
+| `Seguridad:FormulariosPorMinutoPorIp` | Límite de envíos de ingreso, solicitud de acceso y recuperación por IP y minuto (por defecto 30). Detrás de un proxy, configura `Proxy` para que la IP sea la del usuario y no la del proxy |
 | `DataProtection:*` | `KeysPath`, `ApplicationName`, `ProtegerConDpapi` (ver Publicar en IIS) |
 | `Auth:ConsultaRequiereSesion` | Exige sesión para la consulta pública `/consulta` |
 | `Reglas:*` | `ProcCapacity`, `CodCapacity`, `ScriptWip`, `StaleDays`, `NotifyAssign`, `NotifyOverdue`, `CompactCards` |
@@ -187,35 +193,24 @@ Los datos semilla reproducen la planilla `Prog DP.xlsx` (49 entregables), 8 sema
 dotnet test GestionRequerimientoDP.slnx
 ```
 
-- **Application.Tests (75, xUnit + EF InMemory):**
-  - Ranking de scripts (empates, WIP lleno, mixtos).
-  - Balanceo (no separa jobs, no mueve en curso ni OK, converge).
-  - `ToIsoDate` y duplicados en la importación.
-  - Validaciones del OK.
-  - `campoFrom`, `effResp`, sin gestión, atrasado, próximo día hábil y `teamLeadersOf`.
-  - Servicios con filtros de seguridad por rol, solicitudes, avisos de atraso y balanceo aplicado.
-  - Eliminación de usuarios.
-  - Acceso:
-    - RUT (módulo 11) y política de contraseñas.
-    - Ingreso por correo o RUT.
-    - Solicitud → aprobación / rechazo.
-    - Cuentas AD y administradores.
-    - Tokens de recuperación (un uso, vencimiento, límite).
-    - Auditoría.
-- **Web.Tests (43, bUnit + WebApplicationFactory):**
-  - Componentes:
-    - Íconos rojo y amarillo.
-    - `ReqCard`.
-    - `OkModal`.
-    - Menú por rol.
-    - La consulta pública no muestra notas.
-  - SSO:
-    - Ticket HMAC.
-    - Mapeo de cuentas.
-    - 401 / 400.
-    - Solicitud automática.
-    - Administradores.
-  - Flujos HTTP de cuenta bajo la sub-ruta `/gestionreq`: ingreso con RUT, solicitud de acceso, recuperación de contraseña de punta a punta y `ReturnUrl`.
+- **Application.Tests (86, xUnit + EF InMemory):**
+  - Motores: ranking de scripts, balanceo, importación, OK, atrasos, `teamLeadersOf`.
+  - Servicios con filtros de seguridad por rol, solicitudes, balanceo, eliminación de usuarios.
+  - Acceso: RUT, política de contraseñas, solicitud/aprobación, cuentas AD, tokens de recuperación, auditoría.
+  - Asignación a líderes.
+  - **Integridad contra SQL Server real (7)**, solo si `GRDP_TEST_SQL` tiene una cadena de conexión de prueba. Crean y borran una base temporal:
+    - Migraciones y modelo.
+    - Rowversion.
+    - Asignaciones concurrentes.
+    - Altas y aprobaciones simultáneas.
+    - Enlace de recuperación usado en paralelo.
+    - Índices únicos y borrado en cascada.
+- **Web.Tests (50, bUnit + WebApplicationFactory):**
+  - Componentes.
+  - SSO.
+  - Flujos HTTP de cuenta bajo `/gestionreq`.
+  - Seguridad: bloqueo por intentos, formularios vencidos, límite por IP, cabeceras y modo demostración fuera de Development.
+- **Carga, seguridad, circuitos y funcional por rol:** scripts en `tools/pruebas/` (ver su README).
 
 ## Diferencias respecto del mockup
 

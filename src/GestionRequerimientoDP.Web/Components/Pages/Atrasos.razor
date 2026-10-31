@@ -160,10 +160,13 @@
     protected override async Task LoadAsync()
     {
         _p = Ui.Periodo ??= Periodo.De(PeriodoModo.Semana, Cur.AddDays(-7));
+        var c = NuevaCarga();
         var users = await Users.ListAsync();
+        var v = await Kpi.AtrasosAsync(Me, _p, Ui.AnFilter, Endpoints.ExportEndpoints.ParseUnidad(_unit));
+        if (!Vigente(c)) return; // cambió el periodo o el filtro mientras cargaba
         _names = users.ToDictionary(u => u.Id, u => u.Nombre);
         _analysts = Reglas.Responsables(users);
-        _v = await Kpi.AtrasosAsync(Me, _p, Ui.AnFilter, Endpoints.ExportEndpoints.ParseUnidad(_unit));
+        _v = v;
     }
 
     async Task SetPeriodo(Periodo p) { Ui.Periodo = p; await LoadAsync(); }

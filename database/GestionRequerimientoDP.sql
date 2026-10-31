@@ -390,3 +390,31 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261031165308_ControlConcurrenciaUsuarios'
+)
+BEGIN
+    ALTER TABLE [Usuarios] ADD [RowVersion] rowversion NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261031165308_ControlConcurrenciaUsuarios'
+)
+BEGIN
+    ALTER TABLE [PasswordResetTokens] ADD [RowVersion] rowversion NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261031165308_ControlConcurrenciaUsuarios'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261031165308_ControlConcurrenciaUsuarios', N'10.0.13');
+END;
+
+COMMIT;
+GO

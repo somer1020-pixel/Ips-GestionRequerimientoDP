@@ -1,3 +1,4 @@
+using GestionRequerimientoDP.Infrastructure.Data;
 using System.Security.Claims;
 using Bunit;
 using GestionRequerimientoDP.Application;
@@ -105,7 +106,7 @@ public abstract class AppComponentTest : BunitContext
 
     protected Requerimiento FirstReq(Func<Requerimiento, bool> f)
     {
-        using var db = App.Factory.CreateConcrete();
+        using var db = (AppDbContext)App.Factory.Create();
         return db.Requerimientos.AsNoTracking().AsEnumerable().First(f);
     }
 

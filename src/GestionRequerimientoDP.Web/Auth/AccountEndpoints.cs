@@ -17,21 +17,39 @@ public static class AccountEndpoints
 
     static string Q(string s) => Uri.EscapeDataString(s ?? "");
 
+    /// <summary>
+    /// Formulario con token antiforgery vencido o ausente (pestaña abierta mucho rato, claves rotadas, envío directo):
+    /// se vuelve al formulario con un aviso en vez de responder 500.
+    /// </summary>
+    static IResult? FormularioVencido(HttpContext http, string pagina)
+    {
+        if (http.Features.Get<IAntiforgeryValidationFeature>() is not { IsValid: false }) return null;
+        var sep = pagina.Contains('?') ? '&' : '?';
+        return Results.Redirect(In(http, $"{pagina}{sep}error={Q("El formulario venció por seguridad. Vuelve a intentarlo.")}"));
+    }
+
     public static void MapAccountEndpoints(this WebApplication app)
     {
-        var g = app.MapGroup("/cuenta").AllowAnonymous();
+        var g = app.MapGroup("/cuenta").AllowAnonymous().RequireRateLimiting(Hosting.PoliticaCuenta);
 
         g.MapPost("/login", async (HttpContext http, IAccesoService acceso, IAuditoriaService audit, IOptionsMonitor<AuthOptions> o, IOptionsMonitor<SsoOptions> sso) =>
         {
+            if (FormularioVencido(http, "/cuenta/ingresar?manual=1") is { } vencido) return vencido;
             var form = await http.Request.ReadFormAsync();
             var login = form["email"].ToString().Trim();
+            var clave = AccesoService.ClaveLogin(login);
             var ret = SsoRules.SafeReturnUrl(form["returnUrl"].ToString(), http.Request.PathBase);
             var ip = SsoRules.ClientIp(http, sso.CurrentValue);
             var demo = o.CurrentValue.DemoMode;
+            if (!demo && await acceso.DemasiadosIntentosAsync(login))
+            {
+                await audit.RegistrarAsync(clave, "LOGIN_BLOQUEADO_INTENTOS", "Local", ip);
+                return Results.Redirect(In(http, $"/cuenta/ingresar?manual=1&error={Q($"Demasiados intentos fallidos. Espera {AccesoService.VentanaIntentos.TotalMinutes:0} minutos o usa \"¿Olvidaste tu contraseña?\".")}&email={Q(login)}"));
+            }
             var r = await acceso.ValidarAsync(login, form["password"].ToString(), sinClave: demo);
             if (r.Estado != LoginEstado.Ok)
             {
-                await audit.RegistrarAsync(login, r.Estado switch
+                await audit.RegistrarAsync(clave, r.Estado switch
                 {
                     LoginEstado.Pendiente => "LOGIN_BLOQUEADO_PENDIENTE", LoginEstado.Inactivo => "LOGIN_BLOQUEADO_INACTIVO", _ => "LOGIN_FALLIDO",
                 }, "Local", ip, r.Estado.ToString());
@@ -48,6 +66,7 @@ public static class AccountEndpoints
 
         g.MapPost("/salir", async (HttpContext http, IOptionsMonitor<SsoOptions> sso, IAuditoriaService audit) =>
         {
+            if (FormularioVencido(http, "/") is { } vencido) return vencido;
             var me = Claims.ToUsuario(http.User);
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             if (me != null) await audit.RegistrarAsync(me.Nombre, "LOGOUT", "Cookie", SsoRules.ClientIp(http, sso.CurrentValue));
@@ -58,6 +77,7 @@ public static class AccountEndpoints
         g.MapPost("/solicitar-acceso", async (HttpContext http, IAccesoService acceso, IAuditoriaService audit, IOptionsMonitor<AuthOptions> o, IOptionsMonitor<SsoOptions> sso) =>
         {
             if (!o.CurrentValue.RegistroHabilitado) return Results.NotFound();
+            if (FormularioVencido(http, "/cuenta/registro") is { } vencido) return vencido;
             var f = await http.Request.ReadFormAsync();
             var input = new RegistroInput
             {
@@ -79,6 +99,7 @@ public static class AccountEndpoints
         g.MapPost("/enviar-recuperacion", async (HttpContext http, IAccesoService acceso, IAuditoriaService audit, IEmailSender mail, IWebHostEnvironment env,
             IOptionsMonitor<SsoOptions> sso, ILogger<IAccesoService> log) =>
         {
+            if (FormularioVencido(http, "/cuenta/recuperar") is { } vencido) return vencido;
             var login = (await http.Request.ReadFormAsync())["login"].ToString().Trim();
             var ip = SsoRules.ClientIp(http, sso.CurrentValue);
             var (reset, motivo) = await acceso.CrearResetAsync(login, ip);
@@ -106,6 +127,7 @@ public static class AccountEndpoints
 
         g.MapPost("/cambiar-clave", async (HttpContext http, IAccesoService acceso, IAuditoriaService audit, IOptionsMonitor<SsoOptions> sso) =>
         {
+            if (FormularioVencido(http, "/cuenta/recuperar") is { } vencido) return vencido;
             var f = await http.Request.ReadFormAsync();
             var token = f["token"].ToString();
             var ip = SsoRules.ClientIp(http, sso.CurrentValue);

@@ -44,7 +44,7 @@ internal static class DbExtensions
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
         {
-            throw new ReglaException("Otra persona modificó este requerimiento al mismo tiempo. Se recargaron los datos; vuelve a intentarlo.");
+            throw new ReglaException("Otra persona modificó estos datos al mismo tiempo. Se recargaron los datos; vuelve a intentarlo.");
         }
     }
 }

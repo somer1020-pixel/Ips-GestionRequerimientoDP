@@ -32,6 +32,8 @@ public class PasswordResetToken
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset? UsedAt { get; set; }
     public string Ip { get; set; } = "";
+    /// <summary>Control de concurrencia: un enlace usado en paralelo solo cambia la contraseña una vez.</summary>
+    public byte[]? RowVersion { get; set; }
 }
 
 /// <summary>RUT chileno: normalización "12345678-K", validación módulo 11 y formato con puntos.</summary>

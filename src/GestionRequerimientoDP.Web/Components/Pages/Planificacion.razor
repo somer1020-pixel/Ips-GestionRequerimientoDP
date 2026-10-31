@@ -271,9 +271,13 @@
     protected override async Task LoadAsync()
     {
         OnParametersSet();
-        _users = await Users.ListAsync();
-        _weeks = await Plan.SemanasAsync(Me, _unit, _week);
-        _v = await Plan.SemanaAsync(Me, _unit, _week);
+        var c = NuevaCarga();
+        var (unit, week) = (_unit, _week);
+        var users = await Users.ListAsync();
+        var weeks = await Plan.SemanasAsync(Me, unit, week);
+        var v = await Plan.SemanaAsync(Me, unit, week);
+        if (!Vigente(c)) return; // el usuario cambió de semana o unidad mientras cargaba
+        (_users, _weeks, _v) = (users, weeks, v);
     }
 
     async Task SetUnit(Equipo u)

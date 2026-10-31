@@ -80,6 +80,9 @@ public static class AuthSetup
     {
         var opts = builder.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions>() ?? new AuthOptions();
         builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.Section));
+        // Los accesos de demostración entran sin contraseña: solo se permiten en Development, aunque se activen por error en el servidor.
+        if (!builder.Environment.IsDevelopment())
+            builder.Services.PostConfigure<AuthOptions>(o => o.DemoMode = false);
 
         // Negotiate se registra al iniciar: activar Sso:Enabled con la app corriendo exige reiniciarla.
         var negotiate = opts.IsWindows || builder.Configuration.GetValue<bool>($"{SsoOptions.Section}:Enabled");

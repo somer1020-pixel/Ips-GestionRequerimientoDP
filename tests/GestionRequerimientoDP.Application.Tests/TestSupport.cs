@@ -22,10 +22,10 @@ public sealed class TestFactory(string name) : IAppDbContextFactory
     public AppDbContext CreateConcrete() => new(_o);
 }
 
-/// <summary>Servicios reales sobre una BD en memoria, con "hoy" configurable.</summary>
+/// <summary>Servicios reales sobre una BD en memoria (o la que se indique), con "hoy" configurable.</summary>
 public sealed class TestApp
 {
-    public TestFactory Factory { get; } = new("t" + Guid.NewGuid().ToString("N"));
+    public IAppDbContextFactory Factory { get; }
     public FixedTime Time { get; }
     public IClock Clock { get; }
     public ReglasOptions Reglas { get; } = new();
@@ -37,8 +37,9 @@ public sealed class TestApp
     public ScriptAssignmentService Scripts { get; }
     public PlanificacionService Plan { get; }
 
-    public TestApp(DateOnly today)
+    public TestApp(DateOnly today, IAppDbContextFactory? factory = null)
     {
+        Factory = factory ?? new TestFactory("t" + Guid.NewGuid().ToString("N"));
         Time = new FixedTime(today);
         Clock = new ChileClock(Time);
         var opts = new StaticOptions(Reglas);

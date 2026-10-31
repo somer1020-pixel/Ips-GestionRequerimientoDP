@@ -78,6 +78,8 @@ public interface IAccesoService
     /// <param name="sinClave">Accesos de demostración: no se valida la contraseña.</param>
     Task<LoginResultado> ValidarAsync(string login, string password, bool sinClave, CancellationToken ct = default);
     Task RegistrarIngresoAsync(int usuarioId, CancellationToken ct = default);
+    /// <summary>¿Se superó el máximo de intentos fallidos recientes para este correo/RUT? (bloqueo temporal contra fuerza bruta)</summary>
+    Task<bool> DemasiadosIntentosAsync(string login, CancellationToken ct = default);
     Task<Usuario> SolicitarAsync(RegistroInput input, CancellationToken ct = default);
     /// <summary>Cuenta de Active Directory sin registro: crea la solicitud pendiente (o, si es administrador configurado, un líder aprobado).</summary>
     Task<Usuario> SolicitarDesdeAdAsync(string cuentaWindows, string email, string nombre, bool esAdministrador, CancellationToken ct = default);
@@ -93,6 +95,28 @@ public interface IAccesoService
 public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IChangeNotifier changes, IPasswordService passwords) : IAccesoService
 {
     public static readonly TimeSpan ResetVigencia = TimeSpan.FromMinutes(60);
+    public const int MaxIntentosFallidos = 5;
+    public static readonly TimeSpan VentanaIntentos = TimeSpan.FromMinutes(15);
+
+    /// <summary>Clave con que se audita y se cuentan los intentos: RUT normalizado o correo en minúsculas (evita saltarse el bloqueo cambiando el formato).</summary>
+    public static string ClaveLogin(string? login)
+    {
+        var l = (login ?? "").Trim();
+        return Domain.Rut.IsCandidate(l) ? Domain.Rut.Normalize(l) : l.ToLowerInvariant();
+    }
+
+    // Hash de referencia: con una cuenta inexistente se verifica igual una contraseña, para que el tiempo de respuesta no delate qué correos existen.
+    static string? _hashReferencia;
+    string HashReferencia => _hashReferencia ??= passwords.Hash(Guid.NewGuid().ToString());
+
+    public async Task<bool> DemasiadosIntentosAsync(string login, CancellationToken ct = default)
+    {
+        var clave = ClaveLogin(login);
+        if (clave.Length == 0) return false;
+        var desde = clock.Now - VentanaIntentos;
+        await using var db = factory.Create();
+        return await db.Auditoria.CountAsync(a => a.At >= desde && a.Usuario == clave && a.Accion == "LOGIN_FALLIDO", ct) >= MaxIntentosFallidos;
+    }
     public const int ResetMaxPorHora = 3;
 
     public async Task<LoginResultado> ValidarAsync(string login, string password, bool sinClave, CancellationToken ct = default)
@@ -110,7 +134,11 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
             var e = l.ToLowerInvariant();
             u = e.Length == 0 ? null : await db.UsuariosConEquipos().FirstOrDefaultAsync(x => x.Email.ToLower() == e, ct);
         }
-        if (u is null) return new(LoginEstado.NoExiste, null);
+        if (u is null || (!sinClave && u.PasswordHash is null))
+        {
+            if (!sinClave) passwords.Verify(HashReferencia, password ?? ""); // mismo costo que una cuenta real
+            if (u is null) return new(LoginEstado.NoExiste, null);
+        }
         // La clave se valida antes que el estado: sin ella no se revela si la cuenta existe, está pendiente o desactivada.
         if (!sinClave && (u.PasswordHash is null || !passwords.Verify(u.PasswordHash, password ?? ""))) return new(LoginEstado.ClaveIncorrecta, u);
         if (u.Pendiente) return new(LoginEstado.Pendiente, u);
@@ -124,7 +152,8 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
         var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == usuarioId, ct);
         if (u is null) return;
         u.UltimoAcceso = clock.Now;
-        await db.SaveChangesAsync(ct);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { } // otro ingreso simultáneo ya lo actualizó: no es crítico
     }
 
     static bool EmailValido(string e)
@@ -303,7 +332,8 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
         if (t.UsedAt != null) return (false, "Este enlace ya fue usado. Solicita uno nuevo.");
         t.UsedAt = clock.Now;
         user.PasswordHash = passwords.Hash(password);
-        await db.SaveChangesAsync(ct);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { return (false, "Este enlace ya fue usado. Solicita uno nuevo."); } // uso simultáneo del mismo enlace
         return (true, "Tu contraseña fue actualizada. Ya puedes ingresar con ella.");
     }
 }

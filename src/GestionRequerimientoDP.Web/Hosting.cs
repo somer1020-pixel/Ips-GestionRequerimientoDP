@@ -1,6 +1,8 @@
 using System.Net;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GestionRequerimientoDP.Web;
 
@@ -43,8 +45,18 @@ public sealed class KeysOptions
     public bool ProtegerConDpapi { get; set; }
 }
 
+/// <summary>Límites contra abuso de los formularios públicos de cuenta (ingreso, solicitud de acceso, recuperación).</summary>
+public sealed class SeguridadOptions
+{
+    public const string Section = "Seguridad";
+    /// <summary>Envíos de formularios de /cuenta por IP y minuto. Por sobre eso se responde "demasiadas solicitudes".</summary>
+    public int FormulariosPorMinutoPorIp { get; set; } = 30;
+}
+
 public static class Hosting
 {
+    public const string PoliticaCuenta = "cuenta";
+
     public static WebApplicationBuilder AddAppHosting(this WebApplicationBuilder builder)
     {
         var keys = builder.Configuration.GetSection(KeysOptions.Section).Get<KeysOptions>() ?? new();
@@ -54,6 +66,22 @@ public static class Hosting
             dp.PersistKeysToFileSystem(Directory.CreateDirectory(keys.KeysPath));
             if (keys.ProtegerConDpapi && OperatingSystem.IsWindows()) dp.ProtectKeysWithDpapi(protectToLocalMachine: true);
         }
+
+        builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false); // no delatar el servidor
+
+        var seg = builder.Configuration.GetSection(SeguridadOptions.Section).Get<SeguridadOptions>() ?? new();
+        builder.Services.AddRateLimiter(o =>
+        {
+            o.AddPolicy(PoliticaCuenta, ctx => RateLimitPartition.GetFixedWindowLimiter(
+                ctx.Connection.RemoteIpAddress?.ToString() ?? "sin-ip",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = Math.Max(1, seg.FormulariosPorMinutoPorIp), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            o.OnRejected = (ctx, _) =>
+            {
+                ctx.HttpContext.Response.Redirect($"{ctx.HttpContext.Request.PathBase}/cuenta/ingresar?manual=1&error={Uri.EscapeDataString("Demasiadas solicitudes desde tu equipo. Espera un minuto y vuelve a intentarlo.")}");
+                return ValueTask.CompletedTask;
+            };
+        });
 
         var proxy = builder.Configuration.GetSection(ProxyOptions.Section).Get<ProxyOptions>() ?? new();
         builder.Services.Configure<ProxyOptions>(builder.Configuration.GetSection(ProxyOptions.Section));
@@ -89,6 +117,21 @@ public static class Hosting
         if (!string.IsNullOrWhiteSpace(proxy.PathBase)) app.UsePathBase("/" + proxy.PathBase.Trim('/'));
         // Enrutamiento explícito después de la sub-ruta (si no, WebApplication lo agrega al inicio y no la vería).
         app.UseRouting();
+        app.UseRateLimiter();
+        app.Use((ctx, next) =>
+        {
+            // Cabeceras de seguridad (bajo IIS no se repiten en web.config para no duplicarlas).
+            var h = ctx.Response.Headers;
+            h.XContentTypeOptions = "nosniff";
+            h["Referrer-Policy"] = "same-origin";
+            h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()";
+            ctx.Response.OnStarting(() =>
+            {
+                if (!h.ContainsKey("X-Frame-Options")) h.XFrameOptions = "SAMEORIGIN"; // las páginas ya lo traen por antiforgery
+                return Task.CompletedTask;
+            });
+            return next(ctx);
+        });
         return app;
     }
 }

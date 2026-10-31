@@ -19,6 +19,8 @@ public class Usuario
     public string SolicitudMotivo { get; set; } = "";
     public DateTimeOffset? CreadoAt { get; set; }
     public DateTimeOffset? UltimoAcceso { get; set; }
+    /// <summary>Control de concurrencia: dos líderes aprobando o editando a la vez no se pisan.</summary>
+    public byte[]? RowVersion { get; set; }
 
     public bool Pendiente => Aprobacion == Aprobacion.Pendiente;
     /// <summary>Analista: equipos a los que pertenece. Líder: equipos a cargo (vacío = todos).</summary>

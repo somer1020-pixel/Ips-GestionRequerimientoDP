@@ -14,6 +14,10 @@
   </ItemGroup>
 
   <PropertyGroup>
+    <!-- GC de estación de trabajo: para decenas de usuarios basta y usa mucha menos memoria que el GC de servidor
+         (el servidor comparte RAM con SQL Server y otros sitios de IIS). -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

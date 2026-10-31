@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Nombre).HasMaxLength(120).IsRequired();
             e.Property(x => x.Email).HasMaxLength(200).IsRequired();
             e.HasIndex(x => x.Email).IsUnique();
+            e.Property(x => x.RowVersion).IsRowVersion();
             e.Property(x => x.DomainAccount).HasMaxLength(200);
             e.HasIndex(x => x.DomainAccount).IsUnique().HasFilter("[DomainAccount] IS NOT NULL");
             e.Property(x => x.PasswordHash).HasMaxLength(400);
@@ -112,6 +113,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
             e.Property(x => x.Ip).HasMaxLength(60);
             e.HasIndex(x => x.TokenHash).IsUnique();
+            e.Property(x => x.RowVersion).IsRowVersion();
             e.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -120,6 +122,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.ToTable("OkLog");
             e.HasIndex(x => x.ReqId);
         });
+    }
+
+    /// <summary>
+    /// Un índice único violado (mismo correo, RUT o cuenta de dominio guardados a la vez por dos personas) llega como
+    /// aviso para el usuario en vez de un error técnico.
+    /// </summary>
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        try { return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken); }
+        catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 } sql)
+        {
+            throw new ReglaException(sql.Message.Contains("Email") ? "Ya existe una cuenta con ese correo."
+                : sql.Message.Contains("Rut") ? "Ese RUT ya está registrado."
+                : sql.Message.Contains("DomainAccount") ? "Esa cuenta de dominio ya está asociada a otro usuario."
+                : "Ya existe un registro con esos datos. Revisa y vuelve a intentarlo.");
+        }
     }
 }
 

@@ -54,6 +54,14 @@ public abstract class AppPage : ComponentBase, IDisposable
         });
     }
 
+    int _carga;
+    /// <summary>
+    /// Para cargas que dependen de un filtro (semana, unidad, periodo): si el usuario cambia el filtro de nuevo antes de
+    /// que termine, la carga anterior no debe pisar a la más reciente. Uso: <c>var c = NuevaCarga(); … if (!Vigente(c)) return;</c>
+    /// </summary>
+    protected int NuevaCarga() => ++_carga;
+    protected bool Vigente(int carga) => carga == _carga;
+
     /// <summary>Ejecuta una acción mostrando como toast los errores de reglas o permisos.</summary>
     protected async Task Run(Func<Task> action)
     {
