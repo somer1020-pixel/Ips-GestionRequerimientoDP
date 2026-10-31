@@ -5,6 +5,11 @@ obj/
 *.suo
 TestResults/
 publish/
+# Carpetas de publicación locales (dotnet publish / Visual Studio)
+Publicar/
+**/Publicar/
+# Configuración del servidor: lleva cadenas de conexión y secretos, nunca va al repositorio
+appsettings.Production.json
 appsettings.*.local.json
 *.local.json
 .idea/
