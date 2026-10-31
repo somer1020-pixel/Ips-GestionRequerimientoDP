@@ -14,3 +14,5 @@ appsettings.*.local.json
 *.local.json
 .idea/
 .DS_Store
+# Perfiles de publicación locales (rutas de cada equipo)
+**/Properties/PublishProfiles/*.pubxml
