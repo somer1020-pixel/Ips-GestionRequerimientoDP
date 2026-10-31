@@ -2,6 +2,9 @@
 @attribute [Authorize(Policy = Policies.Lider)]
 @inherits AppPage
 @inject INotificationService Notif
+@inject GestionRequerimientoDP.Infrastructure.Email.IEmailSender Mail
+@inject IAuditoriaService Audit
+@inject IUsuarioService Users
 
 <PageTitle>Notificaciones · @AppInfo.Nombre</PageTitle>
 
@@ -12,6 +15,18 @@
             <div class="sub">Registro de correos automáticos (cola de envío). Sin servidor SMTP configurado, los envíos se simulan y quedan registrados aquí.</div>
         </div>
         <button class="btn btn-outline-secondary" @onclick="RunOverdue"><Icon Name="activity" />Enviar recordatorios de atraso ahora</button>
+    </div>
+    <div class="card" style="gap:var(--space-2)">
+        <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+            <span class="card-title">Servidor de correo</span>
+            <span class="@(Mail.IsReal ? "be be-success" : "be be-warning")">@(Mail.IsReal ? "Envío real" : "Simulado")</span>
+            <span style="font-size:13px;flex:1;min-width:240px">@Mail.Descripcion</span>
+            <button class="btn btn-outline-secondary" @onclick="Probar" disabled="@_probando">@(_probando ? "Enviando…" : $"Enviar correo de prueba a {_miCorreo}")</button>
+        </div>
+        @if (_prueba is { } pr)
+        {
+            <div role="status" style="font-size:13px;font-weight:500;color:@(pr.Ok ? "var(--teal-text, #0b7a78)" : "var(--color-accent-900)")">@pr.Mensaje</div>
+        }
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--space-6);padding:6px">
         @foreach (var (title, on, desc) in Rules)
@@ -55,6 +70,31 @@
 @code {
     List<Notificacion> _mails = [];
     int? _open;
+    bool _probando;
+    string _miCorreo = "";
+    (bool Ok, string Mensaje)? _prueba;
+
+    /// <summary>Envía un correo directo (sin pasar por la cola) y muestra el error exacto del servidor si falla.</summary>
+    async Task Probar()
+    {
+        if (!Me.EsLider || _probando || _miCorreo.Length == 0) return;
+        _probando = true; _prueba = null;
+        try
+        {
+            await Mail.SendAsync([_miCorreo], [], $"[{AppInfo.Nombre}] Correo de prueba",
+                $"Correo de prueba enviado por {Me.Nombre} desde Notificaciones.\n\nServidor: {Mail.Descripcion}\n\nSi lo recibes, los avisos y la recuperación de contraseña pueden salir por este servidor.", default);
+            _prueba = Mail.IsReal ? (true, $"Enviado a {_miCorreo}. Si no llega en unos minutos, revisa la carpeta de spam o pide a TI revisar el relay (que acepte el remitente y esta IP).")
+                                  : (false, "No se envió: el correo está simulado porque no hay servidor SMTP configurado (Smtp:Host).");
+            await Audit.RegistrarAsync(_miCorreo, Mail.IsReal ? "CORREO_PRUEBA_OK" : "CORREO_PRUEBA_SIMULADO", "Admin", "", Mail.Descripcion);
+        }
+        catch (Exception ex)
+        {
+            var detalle = ex.InnerException is { } inner ? $"{ex.Message} ({inner.Message})" : ex.Message;
+            _prueba = (false, $"El servidor de correo rechazó el envío: {detalle}");
+            await Audit.RegistrarAsync(_miCorreo, "CORREO_PRUEBA_ERROR", "Admin", "", $"{ex.GetType().Name}: {detalle}");
+        }
+        finally { _probando = false; }
+    }
 
     protected override ChangeKind[] ReloadOn => [ChangeKind.Notificaciones];
 
@@ -79,7 +119,11 @@
         _ => "En cola",
     };
 
-    protected override async Task LoadAsync() => _mails = await Notif.ListAsync();
+    protected override async Task LoadAsync()
+    {
+        _mails = await Notif.ListAsync();
+        if (_miCorreo.Length == 0) _miCorreo = (await Users.GetAsync(Me.Id))?.Email ?? "";
+    }
 
     Task RunOverdue() => Run(async () =>
     {

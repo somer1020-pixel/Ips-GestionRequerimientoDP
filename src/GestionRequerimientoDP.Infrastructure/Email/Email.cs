@@ -15,6 +15,8 @@ public interface IEmailSender
 {
     /// <summary>true = envío real; false = simulado (sin SMTP configurado).</summary>
     bool IsReal { get; }
+    /// <summary>Resumen de la configuración para mostrar al líder (servidor, puerto, cifrado, remitente).</summary>
+    string Descripcion { get; }
     Task SendAsync(IReadOnlyList<string> to, IReadOnlyList<string> cc, string subject, string body, CancellationToken ct);
 }
 
@@ -29,6 +31,14 @@ public sealed class SmtpOptions
     /// "StartTlsSiDisponible" o "Ssl" (TLS desde el inicio, p. ej. puerto 465).
     /// </summary>
     public string Seguridad { get; set; } = "";
+
+    public string SeguridadLabel => Socket switch
+    {
+        SecureSocketOptions.None => "sin cifrado",
+        SecureSocketOptions.StartTls => "STARTTLS obligatorio",
+        SecureSocketOptions.SslOnConnect => "TLS desde el inicio",
+        _ => "STARTTLS si el servidor lo ofrece",
+    };
 
     public SecureSocketOptions Socket => Seguridad.Trim().ToLowerInvariant() switch
     {
@@ -48,6 +58,14 @@ public sealed class SmtpOptions
 public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSender
 {
     public bool IsReal => true;
+    public string Descripcion
+    {
+        get
+        {
+            var o = options.Value;
+            return $"{o.Host}:{o.Port} · {o.SeguridadLabel}{(string.IsNullOrEmpty(o.User) ? " · sin autenticación" : $" · usuario {o.User}")} · remitente {o.From}";
+        }
+    }
 
     public async Task SendAsync(IReadOnlyList<string> to, IReadOnlyList<string> cc, string subject, string body, CancellationToken ct)
     {
@@ -70,6 +88,7 @@ public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSende
 public sealed class LogEmailSender(ILogger<LogEmailSender> log) : IEmailSender
 {
     public bool IsReal => false;
+    public string Descripcion => "Simulado: no hay servidor SMTP configurado (Smtp:Host vacío). Los correos no salen.";
 
     public Task SendAsync(IReadOnlyList<string> to, IReadOnlyList<string> cc, string subject, string body, CancellationToken ct)
     {

@@ -122,6 +122,16 @@ Además:
 - Hay una plantilla genérica de Apache en `infrastructure/apache/gestionreq.conf.template`.
 - Kerberos no atraviesa bien un proxy. Para el SSO desde afuera usa el modo de dos servidores.
 
+### Correo: cómo saber si sale
+
+- En **Notificaciones**, la tarjeta "Servidor de correo" muestra si el envío es real o simulado, y el servidor, puerto, cifrado y remitente que usa la app. El botón **Enviar correo de prueba** envía al instante a tu correo y muestra el error exacto del servidor si falla.
+- La recuperación de contraseña responde siempre lo mismo en pantalla, para no revelar qué cuentas existen. El resultado real queda en **Usuarios → Auditoría de accesos**:
+  - `RESET_CORREO_ENVIADO`.
+  - `RESET_CORREO_ERROR`, con el mensaje del servidor.
+  - `RESET_CORREO_SIMULADO`, cuando no hay `Smtp:Host`.
+  - `RESET_RECHAZADO`, con el motivo: no existe la cuenta, ya se enviaron 3 enlaces en la última hora, la cuenta está pendiente o está desactivada.
+- Un relay interno sin TLS necesita `"Seguridad": "Ninguna"`, o el valor por defecto `StartTlsSiDisponible`. Con `StartTls` el envío falla con *"The SMTP server does not support the STARTTLS extension"*.
+
 ### Problemas frecuentes en IIS
 
 Para ver el sub-código del error, revisa el log de IIS (`C:\inetpub\logs\LogFiles\W3SVC*\`, columnas `sc-status sc-substatus sc-win32-status`). El detalle de un 500.30 queda en el Visor de eventos → Aplicación.

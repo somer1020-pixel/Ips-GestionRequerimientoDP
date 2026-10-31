@@ -116,12 +116,25 @@ public static class AccountEndpoints
                         $"Hola {reset.Usuario.Nombre.Split(' ')[0]},", "",
                         $"Recibimos una solicitud para restablecer tu contraseña de {AppInfo.Nombre}. Usa este enlace dentro de los próximos {AccesoService.ResetVigencia.TotalMinutes:0} minutos:",
                         link, "", "Si no lo pediste, ignora este correo: tu contraseña no cambia.", "", $"Mensaje automático de {AppInfo.Nombre}."), http.RequestAborted);
+                    // La pantalla siempre responde igual (no revela si la cuenta existe); el resultado real queda en la auditoría.
+                    await audit.RegistrarAsync(reset.Usuario.Email, mail.IsReal ? "RESET_CORREO_ENVIADO" : "RESET_CORREO_SIMULADO", "Recuperacion", ip, mail.IsReal ? "" : mail.Descripcion);
                 }
-                catch (Exception ex) { log.LogError(ex, "No se pudo enviar el correo de recuperación a {Email}", reset.Usuario.Email); }
+                catch (Exception ex)
+                {
+                    log.LogError(ex, "No se pudo enviar el correo de recuperación a {Email}", reset.Usuario.Email);
+                    await audit.RegistrarAsync(reset.Usuario.Email, "RESET_CORREO_ERROR", "Recuperacion", ip, $"{ex.GetType().Name}: {ex.Message} · {mail.Descripcion}");
+                }
                 // Sin SMTP en Development, el enlace se muestra en pantalla para poder probar.
                 if (env.IsDevelopment() && !mail.IsReal) extra = $"&enlace={Q(link)}";
             }
-            await audit.RegistrarAsync(login, reset != null ? "RESET_SOLICITADO" : "RESET_RECHAZADO", "Recuperacion", ip, motivo ?? "");
+            await audit.RegistrarAsync(login, reset != null ? "RESET_SOLICITADO" : "RESET_RECHAZADO", "Recuperacion", ip, motivo switch
+            {
+                "no existe" => "no existe una cuenta con ese correo o RUT",
+                "limite" => $"ya se enviaron {AccesoService.ResetMaxPorHora} enlaces en la última hora",
+                nameof(LoginEstado.Pendiente) => "cuenta pendiente de aprobación",
+                nameof(LoginEstado.Inactivo) => "cuenta desactivada",
+                _ => motivo ?? "",
+            });
             return Results.Redirect(In(http, "/cuenta/recuperar?enviado=1" + extra)); // misma respuesta exista o no la cuenta
         }).WithMetadata(new RequireAntiforgeryTokenAttribute(true));
 

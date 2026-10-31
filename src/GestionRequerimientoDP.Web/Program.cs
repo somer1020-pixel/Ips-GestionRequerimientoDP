@@ -17,6 +17,8 @@ builder.AddAppAuth();
 builder.AddAppHosting();
 
 var app = builder.Build();
+if (!app.Environment.IsDevelopment() && app.Services.GetRequiredService<GestionRequerimientoDP.Infrastructure.Email.IEmailSender>() is { IsReal: false })
+    app.Logger.LogWarning("Smtp:Host no está configurado: los correos (avisos y recuperación de contraseña) se simulan y no salen.");
 app.UseAppHosting(); // proxy inverso / sub-ruta de IIS: primero de todo
 
 // Si la base no responde al iniciar, la app no se cae: muestra la causa en el navegador
