@@ -47,7 +47,9 @@ public sealed class ImportExportService(IAppDbContextFactory factory, IClock clo
 
     static async Task<ImportResult> ParseAsync(IAppDbContext db, Equipo unidad, IReadOnlyList<object?[]>? matrix, CancellationToken ct)
     {
-        var team = (await db.UsuariosConEquipos().Where(u => u.Rol == Rol.Analista).OrderBy(u => u.Id).ToListAsync(ct)).Where(u => u.Tiene(unidad));
+        // Analistas del equipo primero (si un nombre coincide con ambos, gana el analista) y después los líderes.
+        var users = await db.UsuariosConEquipos().Where(u => u.Rol != Rol.Comercial).OrderBy(u => u.Id).ToListAsync(ct);
+        var team = users.Where(u => u.Rol == Rol.Analista && u.Tiene(unidad)).Concat(users.Where(u => u.Rol == Rol.Lider));
         var existentes = await db.Requerimientos.AsNoTracking().Where(r => r.Tipo == unidad).ToListAsync(ct);
         return ImportParser.Parse(matrix, team, existentes);
     }
@@ -67,7 +69,7 @@ public sealed class ImportExportService(IAppDbContextFactory factory, IClock clo
         }).ToList();
         db.Requerimientos.AddRange(nuevos);
         await db.SaveAsync(ct);
-        var n = notif.QueueAsignacion(db, nuevos, await db.UsuariosMapAsync(ct));
+        var n = notif.QueueAsignacion(db, nuevos, await db.UsuariosMapAsync(ct), me.Id);
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
         if (n > 0) changes.Publish(ChangeKind.Notificaciones);
@@ -118,7 +120,7 @@ public sealed class ImportExportService(IAppDbContextFactory factory, IClock clo
 
     public async Task<ExportFile> MiSemanaAsync(UsuarioActual me, DateOnly week, CancellationToken ct = default)
     {
-        if (!me.EsAnalista) throw new PermisoException();
+        if (me.EsComercial) throw new PermisoException(); // analistas y líderes: solo lo asignado a uno mismo
         var cur = Fechas.MondayOf(clock.Today);
         var end = week.AddDays(6);
         await using var db = factory.Create();

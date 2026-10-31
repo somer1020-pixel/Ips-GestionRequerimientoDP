@@ -3,7 +3,7 @@
     <option value="">Todos los analistas</option>
     @foreach (var a in Analysts)
     {
-        <option value="@a.Id">@a.Nombre</option>
+        <option value="@a.Id">@Reglas.NombreResponsable(a)</option>
     }
 </select>
 

@@ -1388,7 +1388,7 @@ class Component extends DCLogic {
   addMails(list){if(list.length)this.setState(s=>({mails:[...list,...s.mails].slice(0,300)}));}
   notifyAssign(list){
     if(!(this.props.notifyAssign??true))return 0;
-    const by={};list.filter(r=>r.analista).forEach(r=>{(by[r.analista]=by[r.analista]||[]).push(r);});
+    const by={};list.filter(r=>r.analista&&r.analista!==this.state.session).forEach(r=>{(by[r.analista]=by[r.analista]||[]).push(r);});
     const mails=Object.entries(by).map(([uid,items])=>this.buildMail('asignacion',uid,items));this.addMails(mails);return mails.length;
   }
   assign(id,an){const r=this.state.reqs.find(x=>x.id===id);if(!r||r.analista===an)return;this.upd(id,{analista:an});
@@ -1416,6 +1416,12 @@ class Component extends DCLogic {
   capOf(u){return u==='cod'?(this.props.codCapacity??10):(this.props.procCapacity??10);}
   askOk(id){const r=this.state.reqs.find(x=>x.id===id);if(!r)return;this.setState({okId:id,okNota:'',okHoras:r.horas!=null?String(r.horas):'',okRegistros:r.registros?String(r.registros):'',okMetodo:r.metodo||'',okMat:r.materialesAt||'',okErr:'',okResp:r.atrasoResp||(TODAY>r.fecha&&r.materialesAt&&r.materialesAt>=r.fecha?'comercial':''),okMotivo:r.atrasoMotivo||(TODAY>r.fecha&&r.materialesAt&&r.materialesAt>=r.fecha?'Materiales entregados tarde':''),okDetalle:r.atrasoDetalle||'',okCampo:r.atrasoCampo||campoFrom(r.tecnica)});}
   active(team){return this.state.users.filter(u=>u.rol==='analista'&&has(u,team)&&u.activo);}
+  // Responsables posibles de un requerimiento: analistas activos del equipo y cualquier líder activo (otro líder o uno mismo).
+  // Los líderes no entran en el balanceo ni en la asignación automática de scripts: se asignan a mano.
+  leads(){return this.state.users.filter(u=>u.rol==='lider'&&u.activo);}
+  assignable(team){return [...this.active(team),...this.leads().map(u=>({...u,nombre:u.nombre+' (líder)'}))];}
+  // Filas de la planificación: analistas del equipo + líderes con entregables de esa unidad en la semana.
+  planTeam(unit,week){return [...this.active(unit),...this.leads().filter(l=>this.state.reqs.some(r=>r.tipo===unit&&mondayOf(r.fecha)===week&&r.analista===l.id))];}
   rank(reqs){
     return this.active('script').map(a=>{
       const mine=reqs.filter(r=>r.tipo==='script'&&r.analista===a.id);
@@ -1468,7 +1474,7 @@ class Component extends DCLogic {
     let map=COLS,start=0;
     const h=matrix[0].map(c=>norm(c));
     if(h.includes('job')){map=h.map(c=>HDR[c]||null);start=1;}
-    const unit=this.state.planUnit,proc=this.state.users.filter(u=>u.rol==='analista'&&has(u,unit));
+    const unit=this.state.planUnit,proc=this.state.users.filter(u=>(u.rol==='analista'&&has(u,unit))||u.rol==='lider');
     const seen=new Set(this.state.reqs.filter(r=>r.tipo===unit).map(r=>[r.fecha,norm(r.job),norm(r.entregable),norm(r.descripcion),r.analista].join('|')));
     for(let i=start;i<matrix.length;i++){
       const o={};map.forEach((k,j)=>{if(k)o[k]=matrix[i][j];});
@@ -1553,7 +1559,7 @@ class Component extends DCLogic {
     const deco=r=>({...r,
       isDue:r.estado!=='ok'&&r.fecha<=TODAY,isWarn:r.estado!=='ok'&&r.fecha>TODAY&&r.fecha<=TOMORROW_BIZ,
       alertTitle:r.estado==='ok'?'':r.fecha<TODAY?'Vencido':r.fecha===TODAY?'Vence hoy':r.fecha<=TOMORROW_BIZ?'Vence el próximo día hábil':'',
-      tipoShort:TIPO[r.tipo].short,tipoClass:TIPO[r.tipo].cls,options:this.active(r.tipo),
+      tipoShort:TIPO[r.tipo].short,tipoClass:TIPO[r.tipo].cls,options:this.assignable(r.tipo),
       analistaNombre:nameOf(r.analista),ini:iniOf(r.analista?nameOf(r.analista):''),
       tipoLabel:TIPO[r.tipo].label,
       estadoLabel:EST_LABEL[r.estado],estadoClass:EST_CLASS[r.estado],
@@ -1578,7 +1584,7 @@ class Component extends DCLogic {
     const visible=lead?s.reqs:com?[]:s.reqs.filter(r=>r.analista===me.id);
     const scope=visible.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&mondayOf(r.fecha)===CUR));
     // tabs
-    const tabDefs=com?[['solnueva','Nueva solicitud'],['solmias','Mis solicitudes']]:lead?[['tablero','Tablero'],['bandeja','Solicitudes nuevas'],['plan','Planificación semanal'],['scripts','Scripts'],['resumen','Resumen'],['historico','Histórico'],['atrasos','Motivos de atraso'],['notif','Notificaciones'],['usuarios','Usuarios']]:[['tablero','Mi tablero'],['lista','Mi semana']];
+    const tabDefs=com?[['solnueva','Nueva solicitud'],['solmias','Mis solicitudes']]:lead?[['tablero','Tablero'],['bandeja','Solicitudes nuevas'],['plan','Planificación semanal'],['scripts','Scripts'],['resumen','Resumen'],['historico','Histórico'],['atrasos','Motivos de atraso'],['notif','Notificaciones'],['usuarios','Usuarios'],...(s.reqs.some(r=>r.analista===me.id&&r.estado!=='ok')?[['lista','Mis asignaciones']]:[])]:[['tablero','Mi tablero'],['lista','Mi semana']];
     const tab=tabDefs.some(t=>t[0]===s.tab)?s.tab:tabDefs[0][0];
     const ICONS={atrasos:'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',bandeja:'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',solnueva:'M12 5v14M5 12h14',solmias:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',tablero:'M3 3h18v18H3zM9 3v18M15 3v18',lista:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',plan:'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4',scripts:'m16 18 6-6-6-6M8 6l-6 6 6 6',resumen:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',historico:'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2',notif:'M3 5h18v14H3zM3 7l9 6 9-6',usuarios:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'};
     const lateN=scope.filter(late).length;
@@ -1603,7 +1609,7 @@ class Component extends DCLogic {
     const inboxSel=allSols.filter(g=>(s.inboxUnit==='all'||g[0].tipo===s.inboxUnit)&&(s.inboxState==='all'||openSol(g)))
       .sort((a,b)=>(openSol(b)?1:0)-(openSol(a)?1:0)||a.map(r=>r.fecha).sort()[0].localeCompare(b.map(r=>r.fecha).sort()[0]));
     const inboxRows=inboxSel.flat().filter(r=>s.inboxState==='all'||!r.analista);
-    const tabs=tabDefs.map(([id,label])=>{const c=id==='bandeja'?openSols.length:lateN;return {label,icon:ICONS[id],current:tab===id?'page':'false',hasCnt:['resumen','lista','bandeja'].includes(id)&&c>0,cnt:String(c),go:()=>this.setState({tab:id})};});
+    const tabs=tabDefs.map(([id,label])=>{const c=id==='bandeja'?openSols.length:lead&&id==='lista'?s.reqs.filter(r=>r.analista===me.id).filter(late).length:lateN;return {label,icon:ICONS[id],current:tab===id?'page':'false',hasCnt:['resumen','lista','bandeja'].includes(id)&&c>0,cnt:String(c),go:()=>this.setState({tab:id})};});
     const sd=s.sd||{tipo:'proc',cliente:'',proyecto:'',job:'',bu:SLS[0],tecnica:'',fecha:nextBiz(nextBiz(nextBiz(TODAY))),ents:[],descripcion:'',nota:''};
     const setSd=p=>this.setState(st=>({sd:{...(st.sd||sd),...p},sdErr:''}));
     const onSd={};['cliente','proyecto','job','bu','tecnica','fecha','descripcion','nota'].forEach(k=>onSd[k]=e=>setSd({[k]:e.target.value}));
@@ -1644,21 +1650,22 @@ class Component extends DCLogic {
     const myRows=myWeekRows
       .sort((a,b)=>(a.estado==='ok')-(b.estado==='ok')||byDate(a,b)).map(deco);
     // planning
-    const procA=this.active(s.planUnit);
+    const procA=this.planTeam(s.planUnit,s.planWeek),anA=this.active(s.planUnit);
     const weekItems=s.reqs.filter(r=>r.tipo===s.planUnit&&mondayOf(r.fecha)===s.planWeek);
     const weekScripts=s.reqs.filter(r=>r.tipo==='script'&&mondayOf(r.fecha)===s.planWeek&&procA.some(a=>a.id===r.analista));
     const weekAll=[...weekItems,...weekScripts];
-    const mean=procA.length?weekItems.length/procA.length:0;
+    const mean=anA.length?weekItems.filter(r=>!r.analista||anA.some(a=>a.id===r.analista)).length/anA.length:0;
     const capCards=procA.map(a=>{
       const m=weekAll.filter(r=>r.analista===a.id),n=m.length,nS=m.filter(r=>r.tipo==='script').length;
       let label='Equilibrado',tagClass='be be-success',bar='var(--teal)';
-      if(n>cap){label='Sobre capacidad';tagClass='be be-danger';bar='var(--danger)';}
+      if(a.rol==='lider'){label='Líder';tagClass='be be-navy';bar='var(--navy)';}
+      else if(n>cap){label='Sobre capacidad';tagClass='be be-danger';bar='var(--danger)';}
       else if(n-mean>=2){label='Sobrecargado';tagClass='be be-warning';bar='var(--warning)';}
       else if(mean-n>=2){label='Subutilizado';tagClass='be be-info';bar='var(--color-accent-300)';}
       return {nombre:a.nombre,border:s.planFilter.an===a.id?'var(--color-accent)':'var(--color-divider)',pick:()=>this.setState({anFilter:s.planFilter.an===a.id?'':a.id,planFilter:{an:s.planFilter.an===a.id?'':a.id,day:''}}),n:String(n),cap:String(cap),mix:nS?`${n-nS} ${UT.short} + ${nS} scripts`:`${n} entregables ${UT.short}`,jobs:String(new Set(m.map(r=>r.job)).size),pct:Math.min(100,n/cap*100)+'%',label,tagClass,bar,
         pend:m.filter(r=>r.estado==='pendiente').length,curso:m.filter(r=>r.estado==='en_curso').length,ok:m.filter(r=>r.estado==='ok').length};
     });
-    const loads=procA.map(a=>weekAll.filter(r=>r.analista===a.id).length);
+    const loads=anA.map(a=>weekAll.filter(r=>r.analista===a.id).length);
     const planStats={total:String(weekItems.length),jobs:String(new Set(weekItems.map(r=>r.job)).size),avg:mean.toFixed(1),spread:String(loads.length?Math.max(...loads)-Math.min(...loads):0),unassigned:String(weekItems.filter(r=>!r.analista).length)};
     const days=[0,1,2,3,4].map(i=>addDays(s.planWeek,i));
     const pf=s.planFilter;
@@ -1699,7 +1706,7 @@ class Component extends DCLogic {
     else{let w=mondayOf(hFrom);while(w<=hTo){const ww=w;buckets.push({label:`Sem. ${weekLabel(ww)}`,w:ww,list:hItems.filter(r=>mondayOf(r.fecha)===ww)});w=addDays(w,7);}}
     const maxB=Math.max(1,...buckets.map(b=>b.list.length));
     const histRows=buckets.map(b=>{const st=hst(b.list);return {label:b.label,n:String(st.n),ok:String(st.ok),ot:st.ok?st.ot+'%':'—',late:String(st.late),pct:(st.n/maxB*100)+'%',okPct:(st.n?st.ok/st.n*100:0)+'%',cursor:b.w?'pointer':'default',pick:()=>{if(b.w)this.setState({histMode:'semana',histRef:b.w});}};});
-    const histAnalysts=s.users.filter(u=>u.rol==='analista').map(u=>{const m=hAll.filter(r=>r.analista===u.id);const st=hst(m);return {u,m,st};}).filter(x=>x.m.length)
+    const histAnalysts=s.users.filter(u=>u.rol!=='comercial').map(u=>{const m=hAll.filter(r=>r.analista===u.id);const st=hst(m);return {u,m,st};}).filter(x=>x.m.length)
       .map(({u,m,st})=>({nombre:u.nombre+(s.anFilter===u.id?' ●':''),dp:String(m.filter(r=>r.tipo==='proc').length),cod:String(m.filter(r=>r.tipo==='cod').length),hrs:(()=>{const t=m.reduce((a,r)=>a+(r.horas||0),0);return t?fmtH(t):'—';})(),reg:(()=>{const t=m.reduce((a,r)=>a+(r.registros||0),0);return t?fmtN(t):'—';})(),sc:String(m.filter(r=>r.tipo==='script').length),ok:`${st.ok}/${st.n}`,ot:st.ok?st.ot+'%':'—',late:String(st.late),lateWeight:st.late?'700':'400',pick:()=>this.setState({anFilter:s.anFilter===u.id?'':u.id})}));
     const hSorted=hItems.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.job.localeCompare(b.job));
     const histList=hSorted.slice(0,100).map(r=>{const d0=deco(r);const ot=onTime(r);return {...d0,otLabel:r.estado==='ok'?`${ot?'A tiempo':'Tardío'} · ${fmtDT(r.okAt)}${d0.okSuffix}`:late(r)?'Vencido sin OK':'—',otColor:r.estado==='ok'&&ot?'var(--color-accent-700)':late(r)||r.estado==='ok'?'var(--color-accent-900)':'var(--color-neutral-700)',otWeight:(r.estado==='ok'&&!ot)||late(r)?'700':'400'};});
@@ -1753,7 +1760,7 @@ class Component extends DCLogic {
     // summary
     const leadScope=s.reqs.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&mondayOf(r.fecha)===CUR));
     const pendingList=leadScope.filter(r=>r.estado!=='ok').sort((a,b)=>byDate(a,b)||(a.estado==='pendiente'?0:1)-(b.estado==='pendiente'?0:1)).map((r,i)=>({...deco(r),rank:String(i+1)}));
-    const perAnalyst=s.users.filter(u=>u.rol==='analista'&&u.activo).map(a=>{const m=leadScope.filter(r=>r.analista===a.id);const l=m.filter(late).length;return {nombre:a.nombre,equipoLabel:eqLabel(a),pend:String(m.filter(r=>r.estado==='pendiente').length),curso:String(m.filter(r=>r.estado==='en_curso').length),ok:String(m.filter(r=>r.estado==='ok').length),late:String(l),lateWeight:l?'700':'400'};});
+    const perAnalyst=s.users.filter(u=>u.activo&&(u.rol==='analista'||(u.rol==='lider'&&leadScope.some(r=>r.analista===u.id)))).map(a=>{const m=leadScope.filter(r=>r.analista===a.id);const l=m.filter(late).length;return {nombre:a.nombre,equipoLabel:eqLabel(a),pend:String(m.filter(r=>r.estado==='pendiente').length),curso:String(m.filter(r=>r.estado==='en_curso').length),ok:String(m.filter(r=>r.estado==='ok').length),late:String(l),lateWeight:l?'700':'400'};});
     const sco=leadScope.filter(r=>r.tipo==='cod'),sp=leadScope.filter(r=>r.tipo==='proc'),ss=leadScope.filter(r=>r.tipo==='script');
     const kpis=[
       {label:'Pendientes de OK',value:String(pendingList.length),note:`${pendingList.filter(late).length} atrasados`},
@@ -1791,7 +1798,7 @@ class Component extends DCLogic {
     if(det){d={...deco(det),
       facts:[['Día',fmtD(det.fecha)],['Cliente',det.cliente],['Comercial',det.comercial||'—'],['BU',det.bu||'—'],['Técnica',det.tecnica||'—'],['Analista',nameOf(det.analista)]].map(([k,v])=>({k,v})),
       fechaLabel:det.tipo==='script'?'Fecha compromiso':'Día de entrega',
-      options:this.active(det.tipo),setFecha:e=>this.upd(det.id,{fecha:e.target.value||det.fecha}),
+      options:this.assignable(det.tipo),setFecha:e=>this.upd(det.id,{fecha:e.target.value||det.fecha}),
       setNota:e=>this.upd(det.id,{nota:e.target.value}),
       estados:ESTADOS.map(e=>({label:e.label,active:det.estado===e.id,pick:()=>this.moveTo(det.id,e.id)})),
       copyLink:()=>{const url=location.href.split('#')[0]+'#consulta?job='+encodeURIComponent(det.job);(navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>this.flash('Enlace de consulta copiado'),()=>this.flash(url));},
@@ -1815,7 +1822,7 @@ class Component extends DCLogic {
       me:{nombre:me.nombre,ini:iniOf(me.nombre),rolLabel:lead?'Líder · '+eqLabel(me):com?'Área comercial':'Analista '+(me.equipos||[]).map(t=>({proc:'DP',script:'Scripting',cod:'Codificación'})[t]).join(' + '),equipoLabel:eqLabel(me)},
       openPublic:()=>this.setState({publicView:true}),
       anFilter:s.anFilter,planAn:s.planFilter.an==='*'?'':s.planFilter.an,onAnFilter:e=>{const v=e.target.value;this.setState({anFilter:v,planFilter:{an:v,day:''}});},
-      allAnalysts:s.users.filter(u=>u.rol==='analista'&&u.activo),
+      allAnalysts:[...s.users.filter(u=>u.rol==='analista'&&u.activo),...s.users.filter(u=>u.rol==='lider'&&u.activo).map(u=>({...u,nombre:u.nombre+' (líder)'}))],
       isAtr:tab==='atrasos',atrKpis,atrStack,atrEmpty:!aLate.length,atrUnits,atrMotivos,atrComerciales,atrComEmpty:!atrComerciales.length,atrCampo,atrCampoEmpty:!atrCampo.length,atrList,
       atrListNote:aSorted.length>100?`· mostrando 100 de ${aSorted.length}`:`· ${aSorted.length}`,respList:RESP_LIST,
       atrUnitOpts:[['all','Todas'],['proc','Procesamiento'],['script','Scripting'],['cod','Codificación']].map(([id,label])=>({label,active:s.atrUnit===id,pick:()=>this.setState({atrUnit:id})})),
@@ -1895,7 +1902,7 @@ class Component extends DCLogic {
       hasNew:!!dr,draft:dr||{},on,closeNew:()=>this.setState({draft:null}),saveNew:()=>this.saveNew(),
       tipoOpts:[['proc','Procesamiento'],['cod','Codificación'],['script','Script']].map(([id,label])=>({label,active:!!dr&&dr.tipo===id,pick:()=>this.setState(st=>({draft:{...st.draft,tipo:id,analista:'',entregable:(id==='cod'?ENT_COD:id==='script'?ENT_SCRIPT:ENT_SOL)[0]}}))})),
       draftIsProc:!!dr&&dr.tipo!=='script',draftIsScript:!!dr&&dr.tipo==='script',draftFechaLabel:dr&&dr.tipo==='script'?'Fecha compromiso':'Día de entrega',
-      draftAnalysts:dr?this.active(dr.tipo):[],autoLabel:dr&&dr.tipo==='script'?`Automático · primer disponible (${rec.nombre})`:'Sin asignar',
+      draftAnalysts:dr?this.assignable(dr.tipo):[],autoLabel:dr&&dr.tipo==='script'?`Automático · primer disponible (${rec.nombre})`:'Sin asignar',
       saveLabel:dr&&dr.tipo==='script'?'Crear y asignar':'Agregar a la planificación',
       bus:BUS,entregables:dr?(dr.tipo==='cod'?ENT_COD:dr.tipo==='script'?ENT_SCRIPT:ENT_SOL):ENT_SOL,draftEntLabel:dr&&dr.tipo==='script'?'Tipo de requerimiento':'Entregable',hasErr:!!s.err,err:s.err,
     };

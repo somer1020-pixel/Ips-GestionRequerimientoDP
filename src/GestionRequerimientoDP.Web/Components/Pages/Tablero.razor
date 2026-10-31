@@ -86,7 +86,7 @@
     {
         var users = await Users.ListAsync();
         _names = users.ToDictionary(u => u.Id, u => u.Nombre);
-        _analysts = users.Where(u => u.Rol == Rol.Analista && u.Activo).ToList();
+        _analysts = Reglas.Responsables(users);
         _scope = await Reqs.TableroAsync(Me);
     }
 

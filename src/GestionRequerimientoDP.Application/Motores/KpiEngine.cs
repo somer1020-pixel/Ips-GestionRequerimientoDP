@@ -75,7 +75,7 @@ public static class KpiEngine
         var maxB = Math.Max(1, raw.Count == 0 ? 0 : raw.Max(b => b.L.Count));
         var buckets = raw.Select(b => { var st = Stats(b.L, today); return new HistBucket(b.Label, b.W, st, st.N * 100.0 / maxB, st.N > 0 ? st.Ok * 100.0 / st.N : 0); }).ToList();
 
-        var analistas = users.Where(u => u.Rol == Rol.Analista).OrderBy(u => u.Id)
+        var analistas = users.Where(u => u.Rol != Rol.Comercial).OrderBy(u => u.Rol == Rol.Lider).ThenBy(u => u.Id)
             .Select(u => (u, m: hAll.Where(r => r.AnalistaId == u.Id).ToList()))
             .Where(x => x.m.Count > 0)
             .Select(x => new HistAnalyst(x.u, x.m.Count(r => r.Tipo == Equipo.Procesamiento), x.m.Count(r => r.Tipo == Equipo.Codificacion),

@@ -33,7 +33,7 @@
                             <option value="">Sin asignar</option>
                             @foreach (var a in _team)
                             {
-                                <option value="@a.Id">@a.Nombre</option>
+                                <option value="@a.Id">@Reglas.NombreResponsable(a)</option>
                             }
                         </select>
                     </div>
@@ -143,7 +143,7 @@
         _names = users.ToDictionary(u => u.Id, u => u.Nombre);
         _r = await Reqs.GetAsync(Me, Id);
         if (_r is null) { Ui.CloseDetail(); return; }
-        _team = users.Where(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(_r.Tipo)).ToList();
+        _team = Reglas.Asignables(users, _r.Tipo);
     }
 
     static DateOnly? ParseDate(ChangeEventArgs e) => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var d) ? d : null;

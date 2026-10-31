@@ -46,7 +46,7 @@ public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock
             db.Log(r, OkAccion.Asignacion, me.Id, now, new { analista = r.AnalistaId, auto = true });
             done.Add(r);
         }
-        var n = notif.QueueAsignacion(db, done, users);
+        var n = notif.QueueAsignacion(db, done, users, me.Id);
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
         if (done.Any(r => r.SolicitudId != null)) changes.Publish(ChangeKind.Solicitudes);

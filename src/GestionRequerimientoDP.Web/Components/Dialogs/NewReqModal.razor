@@ -47,9 +47,9 @@
                 <label for="nr-an">Analista asignado</label>
                 <select id="nr-an" class="form-select" value="@(_d.AnalistaId?.ToString() ?? "")" @onchange="e => _d.AnalistaId = int.TryParse(e.Value?.ToString(), out var x) ? x : null">
                     <option value="">@(_d.Tipo == Equipo.Script ? $"Automático · primer disponible ({_recNombre})" : "Sin asignar")</option>
-                    @foreach (var a in _users.Where(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(_d.Tipo)))
+                    @foreach (var a in Reglas.Asignables(_users, _d.Tipo))
                     {
-                        <option value="@a.Id">@a.Nombre</option>
+                        <option value="@a.Id">@Reglas.NombreResponsable(a)</option>
                     }
                 </select>
             </div>

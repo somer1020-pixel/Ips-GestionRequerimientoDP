@@ -17,6 +17,26 @@ public static partial class Reglas
         _ => new("Procesamiento", "DP", "be be-neutral", "Procesamiento"),
     };
 
+    /// <summary>
+    /// ¿Puede ser responsable de un requerimiento de este tipo? Analistas activos del equipo y cualquier líder activo
+    /// (otro líder o uno mismo). Los líderes no entran en balanceo ni en la autoasignación de scripts: se asignan a mano.
+    /// </summary>
+    public static bool Asignable(Usuario u, Equipo tipo) => u.Activo && (u.Rol == Rol.Lider || (u.Rol == Rol.Analista && u.Tiene(tipo)));
+
+    /// <summary>Opciones del select de asignación: analistas del equipo y después los líderes.</summary>
+    public static List<Usuario> Asignables(IEnumerable<Usuario> users, Equipo tipo) =>
+        [.. users.Where(u => u.Rol == Rol.Analista && Asignable(u, tipo)).OrderBy(u => u.Id), .. Lideres(users)];
+
+    /// <summary>Filtro "Todos los analistas": analistas activos y después los líderes activos.</summary>
+    public static List<Usuario> Responsables(IEnumerable<Usuario> users) =>
+        [.. users.Where(u => u.Rol == Rol.Analista && u.Activo).OrderBy(u => u.Id), .. Lideres(users)];
+
+    static IEnumerable<Usuario> Lideres(IEnumerable<Usuario> users) =>
+        users.Where(u => u.Rol == Rol.Lider && u.Activo).OrderBy(u => u.Nombre, StringComparer.CurrentCulture);
+
+    /// <summary>Nombre en los selects: los líderes se marcan "(líder)".</summary>
+    public static string NombreResponsable(Usuario u) => u.Rol == Rol.Lider ? $"{u.Nombre} (líder)" : u.Nombre;
+
     public static string EstadoLabel(Estado e) => e switch { Estado.EnCurso => "En curso", Estado.Ok => "OK", _ => "Pendiente" };
     public static string EstadoColumna(Estado e) => e switch { Estado.EnCurso => "En curso", Estado.Ok => "OK · Terminado", _ => "Pendiente" };
     public static string EstadoCss(Estado e) => e switch { Estado.EnCurso => "be be-info", Estado.Ok => "be be-success", _ => "be be-neutral" };

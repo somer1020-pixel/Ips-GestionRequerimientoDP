@@ -76,7 +76,7 @@ public sealed class PlanificacionService(IAppDbContextFactory factory, IClock cl
             r.Actualizado = now;
             db.Log(r, OkAccion.Asignacion, me.Id, now, new { analista = r.AnalistaId, balanceo = true });
         }
-        var n = notif.QueueAsignacion(db, reqs, users);
+        var n = notif.QueueAsignacion(db, reqs, users, me.Id);
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
         if (reqs.Any(r => r.SolicitudId != null)) changes.Publish(ChangeKind.Solicitudes);

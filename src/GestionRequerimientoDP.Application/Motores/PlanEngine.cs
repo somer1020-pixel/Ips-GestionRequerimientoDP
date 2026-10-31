@@ -27,25 +27,28 @@ public static class PlanEngine
 
     public static PlanView Build(Equipo unidad, DateOnly week, IEnumerable<Usuario> users, IEnumerable<Requerimiento> reqs, int cap)
     {
-        var team = users.Where(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(unidad)).OrderBy(u => u.Id).ToList();
+        var analysts = users.Where(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(unidad)).OrderBy(u => u.Id).ToList();
         var all = reqs.OrderBy(r => r.Id).ToList();
         var items = all.Where(r => r.Tipo == unidad && Fechas.MondayOf(r.Fecha) == week).ToList();
+        // Los líderes aparecen como fila solo si tienen entregables de esta unidad en la semana; no cuentan para promedio ni dispersión.
+        var team = analysts.Concat(users.Where(u => u.Rol == Rol.Lider && u.Activo && items.Any(r => r.AnalistaId == u.Id))
+            .OrderBy(u => u.Nombre, StringComparer.CurrentCulture)).ToList();
         var scripts = all.Where(r => r.Tipo == Equipo.Script && Fechas.MondayOf(r.Fecha) == week && team.Any(a => a.Id == r.AnalistaId)).ToList();
         var weekAll = items.Concat(scripts).ToList();
-        var mean = team.Count > 0 ? (double)items.Count / team.Count : 0;
+        var mean = analysts.Count > 0 ? (double)items.Count(r => r.AnalistaId is null || analysts.Any(a => a.Id == r.AnalistaId)) / analysts.Count : 0;
         var sh = Reglas.Tipo(unidad).Short;
 
         var cards = team.Select(a =>
         {
             var m = weekAll.Where(r => r.AnalistaId == a.Id).ToList();
             int n = m.Count, nS = m.Count(r => r.Tipo == Equipo.Script);
-            var (label, css, bar) = CapacityStatus(n, mean, cap);
+            var (label, css, bar) = a.Rol == Rol.Lider ? ("Líder", "be be-navy", "var(--navy)") : CapacityStatus(n, mean, cap);
             return new CapCard(a, n, nS, cap, label, css, bar, Math.Min(100, n * 100.0 / cap),
                 m.Count(r => r.Estado == Estado.Pendiente), m.Count(r => r.Estado == Estado.EnCurso), m.Count(r => r.Estado == Estado.Ok),
                 nS > 0 ? $"{n - nS} {sh} + {nS} scripts" : $"{n} entregables {sh}");
         }).ToList();
 
-        var loads = team.Select(a => weekAll.Count(r => r.AnalistaId == a.Id)).ToList();
+        var loads = analysts.Select(a => weekAll.Count(r => r.AnalistaId == a.Id)).ToList();
         var stats = new PlanStats(items.Count, items.Select(r => r.Job).Distinct().Count(), mean,
             loads.Count > 0 ? loads.Max() - loads.Min() : 0, items.Count(r => r.AnalistaId == null));
 

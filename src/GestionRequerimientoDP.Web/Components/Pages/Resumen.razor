@@ -51,7 +51,7 @@
                     <table class="table">
                         <thead><tr><th>Analista</th><th>Equipos</th><th>Pend.</th><th>En curso</th><th>OK</th><th>Atrasados</th></tr></thead>
                         <tbody>
-                            @foreach (var a in _users.Where(u => u.Rol == Rol.Analista && u.Activo))
+                            @foreach (var a in Reglas.Responsables(_users).Where(u => u.Rol == Rol.Analista || v.Scope.Any(r => r.AnalistaId == u.Id)))
                             {
                                 var m = v.Scope.Where(r => r.AnalistaId == a.Id).ToList();
                                 var late = m.Count(r => Reglas.Atrasado(r, Today));

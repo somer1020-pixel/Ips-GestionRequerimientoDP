@@ -1,15 +1,16 @@
 @page "/mi-semana"
-@attribute [Authorize(Policy = Policies.Analista)]
+@attribute [Authorize(Policy = Policies.Gestion)]
+@* Analistas y líderes con requerimientos asignados ("Mis asignaciones"). *@
 @inherits AppPage
 @inject IRequerimientoService Reqs
 @inject IOkService Ok
 
-<PageTitle>Mi semana · @AppInfo.Nombre</PageTitle>
+<PageTitle>@Titulo · @AppInfo.Nombre</PageTitle>
 
 <section data-screen-label="Mi lista" class="stack">
     <div class="page-head">
         <div>
-            <h2 style="margin:0">Mi semana · @EquipoLabel</h2>
+            <h2 style="margin:0">@Titulo@(Me.EsLider ? "" : " · " + EquipoLabel)</h2>
             <div class="sub">Revisa lo asignado, marca “Iniciar” al comenzar y “Dar OK” cuando el entregable esté completamente terminado.</div>
         </div>
         <div class="page-actions">
@@ -65,6 +66,7 @@
     List<Requerimiento> _mine = [];
     DateOnly _week;
 
+    string Titulo => Me.EsLider ? "Mis asignaciones" : "Mi semana";
     string EquipoLabel => string.Join(" + ", Me.Equipos.Select(e => Reglas.Tipo(e).EquipoLabel));
     IReadOnlyList<(DateOnly, string)> WeekOpts => new[] { Cur, Next }.Select(w => (w, $"{Fechas.WeekName(w, Today)} · {Fechas.WeekLabel(w)}")).ToList();
 

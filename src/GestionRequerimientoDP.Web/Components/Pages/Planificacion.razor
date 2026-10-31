@@ -23,7 +23,7 @@
                     <option value="">Todos los analistas</option>
                     @foreach (var a in v.Team)
                     {
-                        <option value="@a.Id">@a.Nombre</option>
+                        <option value="@a.Id">@Reglas.NombreResponsable(a)</option>
                     }
                 </select>
                 <Seg T="DateOnly" Options="WeekOpts" Value="_week" ValueChanged="SetWeek" />
@@ -158,7 +158,7 @@
                                         <option value="">Sin asignar</option>
                                         @foreach (var a in TeamOf(r.Tipo))
                                         {
-                                            <option value="@a.Id">@a.Nombre</option>
+                                            <option value="@a.Id">@Reglas.NombreResponsable(a)</option>
                                         }
                                     </select>
                                 </td>
@@ -217,7 +217,7 @@
 
     IReadOnlyList<(DateOnly, string)> WeekOpts => _weeks.Select(w => (w, $"{Fechas.WeekName(w, Today)} · {Fechas.WeekLabel(w)}")).ToList();
     string Name(int? id) => _users.FirstOrDefault(u => u.Id == id)?.Nombre ?? "Sin asignar";
-    IEnumerable<Usuario> TeamOf(Equipo t) => _users.Where(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(t));
+    IEnumerable<Usuario> TeamOf(Equipo t) => Reglas.Asignables(_users, t);
     static string Pct(double p) => p.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%";
     bool HasPF => _pfAn != "" || _pfDay != null;
     string PFLabel => string.Join(" · ", new[] { _pfAn == "*" ? "Todos" : _pfAn == "0" ? "Sin asignar" : _pfAn == "" ? "" : Name(int.Parse(_pfAn)), _pfDay is { } d ? Fechas.FmtD(d) : "" }.Where(s => s.Length > 0));

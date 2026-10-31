@@ -93,8 +93,8 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
         await using var db = factory.Create();
         var users = await db.UsuariosMapAsync(ct);
         var analista = d.AnalistaId;
-        if (analista is { } a && !(users.TryGetValue(a, out var ua) && ua.Activo && ua.Rol == Rol.Analista && ua.Tiene(d.Tipo)))
-            throw new ReglaException("El analista seleccionado no pertenece al equipo o está inactivo.");
+        if (analista is { } a && !(users.TryGetValue(a, out var ua) && Reglas.Asignable(ua, d.Tipo)))
+            throw new ReglaException("El responsable seleccionado no pertenece al equipo, no es líder o está inactivo.");
         if (d.Tipo == Equipo.Script && analista is null)
         {
             var reqs = await db.Requerimientos.AsNoTracking().Where(r => r.Tipo == Equipo.Script || (r.Tipo == Equipo.Procesamiento && r.Estado != Estado.Ok)).ToListAsync(ct);
@@ -109,7 +109,7 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
         };
         db.Requerimientos.Add(r);
         await db.SaveAsync(ct);
-        var sent = analista != null && notif.QueueAsignacion(db, [r], users) > 0;
+        var sent = analista != null && notif.QueueAsignacion(db, [r], users, me.Id) > 0;
         if (analista != null) db.Log(r, OkAccion.Asignacion, me.Id, now, new { analista });
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
@@ -124,13 +124,13 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
         var r = await db.Requerimientos.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ReglaException("El requerimiento ya no existe.");
         if (r.AnalistaId == analistaId) return false;
         var users = await db.UsuariosMapAsync(ct);
-        if (analistaId is { } a && !(users.TryGetValue(a, out var u) && u.Activo && u.Rol == Rol.Analista && u.Tiene(r.Tipo)))
-            throw new ReglaException("El analista seleccionado no pertenece al equipo o está inactivo.");
+        if (analistaId is { } a && !(users.TryGetValue(a, out var u) && Reglas.Asignable(u, r.Tipo)))
+            throw new ReglaException("El responsable seleccionado no pertenece al equipo, no es líder o está inactivo.");
         var now = clock.Now;
         r.AnalistaId = analistaId;
         r.Actualizado = now;
         db.Log(r, OkAccion.Asignacion, me.Id, now, new { analista = analistaId });
-        var sent = analistaId != null && notif.QueueAsignacion(db, [r], users) > 0;
+        var sent = analistaId != null && notif.QueueAsignacion(db, [r], users, me.Id) > 0;
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
         if (r.SolicitudId != null) changes.Publish(ChangeKind.Solicitudes);

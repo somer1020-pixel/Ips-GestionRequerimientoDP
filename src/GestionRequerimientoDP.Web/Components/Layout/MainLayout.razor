@@ -104,7 +104,7 @@
     sealed record Tab(string Id, string Label, string Href, int Count);
 
     UsuarioActual? Me;
-    int _late, _solsMine, _solsTotal, _myNext, _accesos;
+    int _late, _solsMine, _solsTotal, _myNext, _accesos, _misAbiertos, _misAtrasados;
     string _mineLine = "";
 
     string RolLabel => Me!.Rol switch
@@ -125,6 +125,7 @@
             new("plan", "Planificación semanal", "/planificacion", 0), new("scripts", "Scripts", "/scripts", 0), new("resumen", "Resumen", "/resumen", _late),
             new("historico", "Histórico", "/historico", 0), new("atrasos", "Motivos de atraso", "/atrasos", 0), new("notif", "Notificaciones", "/notificaciones", 0),
             new("usuarios", "Usuarios", "/usuarios", _accesos),
+            .. (_misAbiertos > 0 ? [new Tab("lista", "Mis asignaciones", "/mi-semana", _misAtrasados)] : Array.Empty<Tab>()),
         ],
         _ => [new("tablero", "Mi tablero", "/", 0), new("lista", "Mi semana", "/mi-semana", _late)],
     };
@@ -151,7 +152,13 @@
         if (Me is null) return;
         _late = await Reqs.AtrasadosAsync(Me);
         (_solsMine, _solsTotal) = await Sols.PendientesAsync(Me);
-        if (Me.EsLider) _accesos = (await Acceso.PendientesAsync(Me)).Count;
+        if (Me.EsLider)
+        {
+            _accesos = (await Acceso.PendientesAsync(Me)).Count;
+            var mios = await Reqs.PropiosAsync(Me);
+            _misAbiertos = mios.Count(r => r.Estado != Estado.Ok);
+            _misAtrasados = mios.Count(r => Reglas.Atrasado(r, Clock.Today));
+        }
         if (Me.EsAnalista)
         {
             var today = Clock.Today;

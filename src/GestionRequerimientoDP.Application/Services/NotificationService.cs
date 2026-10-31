@@ -8,7 +8,8 @@ namespace GestionRequerimientoDP.Application.Services;
 public interface INotificationService
 {
     /// <summary>Encola correos de asignación (uno por analista) en el contexto dado. No guarda.</summary>
-    int QueueAsignacion(IAppDbContext db, IEnumerable<Requerimiento> asignados, IReadOnlyDictionary<int, Usuario> usuarios);
+    /// <param name="actorId">Quien asigna: no recibe correo por lo que se asigna a sí mismo.</param>
+    int QueueAsignacion(IAppDbContext db, IEnumerable<Requerimiento> asignados, IReadOnlyDictionary<int, Usuario> usuarios, int? actorId = null);
 
     /// <summary>Aviso de atraso sin gestión. force = ignorar el límite de un aviso por día.</summary>
     Task<int> CheckOverdueAsync(bool force, CancellationToken ct = default);
@@ -18,10 +19,10 @@ public interface INotificationService
 
 public sealed class NotificationService(IAppDbContextFactory factory, IClock clock, IOptionsMonitor<ReglasOptions> opts, IChangeNotifier changes) : INotificationService
 {
-    public int QueueAsignacion(IAppDbContext db, IEnumerable<Requerimiento> asignados, IReadOnlyDictionary<int, Usuario> usuarios)
+    public int QueueAsignacion(IAppDbContext db, IEnumerable<Requerimiento> asignados, IReadOnlyDictionary<int, Usuario> usuarios, int? actorId = null)
     {
         if (!opts.CurrentValue.NotifyAssign) return 0;
-        var mails = MailBuilder.AsignacionPorAnalista(asignados, usuarios);
+        var mails = MailBuilder.AsignacionPorAnalista(asignados.Where(r => actorId is null || r.AnalistaId != actorId), usuarios);
         foreach (var m in mails) db.Notificaciones.Add(m.ToEntity(clock.Now));
         return mails.Count;
     }

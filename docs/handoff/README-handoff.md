@@ -41,7 +41,7 @@ interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos
 
 | Capacidad | Líder de equipo | Analista DP | Analista Scripting |
 | --- | --- | --- | --- |
-| Ver requerimientos | Todos (proc + scripts) | Solo los asignados a él | Solo los asignados a él |
+| Ver requerimientos | Todos (proc + scripts), y además "Mis asignaciones" con lo asignado a él | Solo los asignados a él | Solo los asignados a él |
 | Tabs | Tablero · Planificación semanal · Scripts · Resumen · Histórico · Notificaciones · Usuarios | Mi tablero · Mi semana | Mi tablero · Mi semana |
 | Descargar planilla | Semana completa | Su semana | Su semana |
 | Crear, eliminar, asignar o cambiar fecha | ✓ | — | — |
@@ -67,6 +67,14 @@ interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos
   - **"¿Olvidaste tu contraseña?":** enlace de un solo uso que vence en 60 min. Solo se guarda su hash, máximo 3 por hora, y no pasa por el registro de Notificaciones.
   - **Auditoría de accesos** (`/usuarios/auditoria`, solo líderes) con filtros Todo / Fallos y bloqueos / Administración.
   - El formulario de usuario agrega **RUT** y, en servidores Windows con AD, **búsqueda en Active Directory**.
+- **Asignar a líderes:**
+  - Un requerimiento se puede asignar a cualquier **líder activo** (otro líder o uno mismo), además de los analistas activos del equipo del tipo.
+  - En los selects de asignación (fila de planificación, detalle, nuevo requerimiento) los líderes aparecen después de los analistas, como "Nombre (líder)". El filtro de analistas también los incluye.
+  - Los líderes **no entran** en el balanceo, en el ranking ni en la autoasignación de scripts, ni en el promedio y la dispersión de la planificación: se asignan solo a mano.
+  - En la planificación, un líder aparece como fila y tarjeta (etiqueta "Líder") solo si tiene entregables de esa unidad en la semana.
+  - La importación reconoce también nombres de líderes en la columna ANALISTA.
+  - Un líder con requerimientos abiertos asignados ve la pestaña **Mis asignaciones** (la misma vista que "Mi semana" del analista), con contador de atrasados.
+  - Si un líder se asigna a sí mismo, no se envía correo de asignación. Si asigna a otro líder, sí.
 - **Usuarios inactivos:** no pueden ingresar, no aparecen en asignaciones, balanceo ni ranking de scripts y se muestran atenuados. Al desactivar a alguien con requerimientos activos se avisa para reasignarlos.
 - Un líder no puede desactivarse ni quitarse el rol de líder a sí mismo.
 - **Eliminar usuario** (solo líder): botón en la tabla de Usuarios, con confirmación, disponible solo para usuarios **sin historial** (sin entregables terminados, sin OK registrados y sin solicitudes) y nunca para uno mismo. Sus requerimientos abiertos quedan sin asignar. Con historial se desactiva en vez de eliminar.
@@ -162,7 +170,7 @@ interface Requerimiento {
   - Encabezados reconocidos sin importar acentos ni mayúsculas: DIA/FECHA, PAIS, BU, TECNICA, CLIENTE, PROYECTO/ESTUDIO, JOB, ENTREGABLE, DESCRIPCION, COMERCIAL, ANALISTA. Sin encabezado, se asume ese orden.
   - DIA acepta fecha de Excel (Date o serial), `YYYY-MM-DD` o `d/m/yyyy`. Si el segundo número es mayor que 12, se interpreta como `m/d`.
   - La semana se calcula desde DIA.
-  - ANALISTA se compara con los analistas DP por nombre normalizado (exacto o contenido). Los no reconocidos quedan sin asignar y se listan en la vista previa.
+  - ANALISTA se compara con los analistas DP y los líderes por nombre normalizado (exacto o contenido). Los no reconocidos quedan sin asignar y se listan en la vista previa.
   - **Duplicados** (`fecha|job|entregable|descripcion|analista`, contra la base y dentro del mismo lote) se omiten; la planilla real tiene filas repetidas.
   - La vista previa muestra filas nuevas, semanas detectadas, duplicados, inválidas y analistas no reconocidos.
   - Al importar, todo entra como `pendiente` y se navega a la semana importada.
@@ -261,7 +269,7 @@ interface Requerimiento {
 
 ### 3.3d Notificaciones por correo
 - **Asignación** (`notifyAssign`, por defecto activa):
-  - Se envía al asignar o reasignar un requerimiento a un analista, sea por el select inline, por el detalle, por un nuevo requerimiento, por el balanceo aplicado, por una importación con analista reconocido o por la autoasignación de scripts.
+  - Se envía al asignar o reasignar un requerimiento a un analista o a otro líder (no al asignarse uno mismo), sea por el select inline, por el detalle, por un nuevo requerimiento, por el balanceo aplicado, por una importación con analista reconocido o por la autoasignación de scripts.
   - Las acciones masivas envían **un correo por analista** con la lista completa.
   - Para: el analista.
 - **Atraso sin gestión** (`notifyOverdue`, por defecto activa):

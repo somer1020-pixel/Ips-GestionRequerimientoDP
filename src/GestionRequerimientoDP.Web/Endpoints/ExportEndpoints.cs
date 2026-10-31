@@ -35,7 +35,7 @@ public static class ExportEndpoints
         {
             var me = Claims.ToUsuario(http.User)!;
             return FileOr(await export.MiSemanaAsync(me, Fechas.MondayOf(ParseDate(semana) ?? clock.Today)));
-        }).RequireAuthorization(Policies.Analista);
+        }).RequireAuthorization(Policies.Gestion);
 
         g.MapGet("/historico", async (HttpContext http, IExportService export, IClock clock, string? modo, string? @ref, int? analista) =>
         {
