@@ -24,6 +24,20 @@ public sealed class SmtpOptions
     public string Host { get; set; } = "";
     public int Port { get; set; } = 587;
     public bool UseStartTls { get; set; } = true;
+    /// <summary>
+    /// Cifrado de la conexión. Vacío = según UseStartTls. "Ninguna" (relay interno sin TLS), "StartTls",
+    /// "StartTlsSiDisponible" o "Ssl" (TLS desde el inicio, p. ej. puerto 465).
+    /// </summary>
+    public string Seguridad { get; set; } = "";
+
+    public SecureSocketOptions Socket => Seguridad.Trim().ToLowerInvariant() switch
+    {
+        "ninguna" or "none" => SecureSocketOptions.None,
+        "starttls" => SecureSocketOptions.StartTls,
+        "starttlssidisponible" or "auto" => SecureSocketOptions.StartTlsWhenAvailable,
+        "ssl" or "tls" => SecureSocketOptions.SslOnConnect,
+        _ => UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto,
+    };
     public string User { get; set; } = "";
     public string Password { get; set; } = "";
     public string From { get; set; } = "gestionrequerimientodp@empresa.cl";
@@ -45,7 +59,7 @@ public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSende
         msg.Subject = subject;
         msg.Body = new TextPart("plain") { Text = body };
         using var smtp = new SmtpClient();
-        await smtp.ConnectAsync(o.Host, o.Port, o.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto, ct);
+        await smtp.ConnectAsync(o.Host, o.Port, o.Socket, ct);
         if (!string.IsNullOrEmpty(o.User)) await smtp.AuthenticateAsync(o.User, o.Password, ct);
         await smtp.SendAsync(msg, ct);
         await smtp.DisconnectAsync(true, ct);

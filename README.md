@@ -177,7 +177,7 @@ Los datos semilla reproducen la planilla `Prog DP.xlsx` (49 entregables), 8 sema
 | `DataProtection:*` | `KeysPath`, `ApplicationName`, `ProtegerConDpapi` (ver Publicar en IIS) |
 | `Auth:ConsultaRequiereSesion` | Exige sesión para la consulta pública `/consulta` |
 | `Reglas:*` | `ProcCapacity`, `CodCapacity`, `ScriptWip`, `StaleDays`, `NotifyAssign`, `NotifyOverdue`, `CompactCards` |
-| `Smtp:*` | Servidor de correo. Sin `Host`, los correos se simulan y quedan registrados en **Notificaciones** |
+| `Smtp:*` | Servidor de correo (`Host`, `Port`, `From`, `User`/`Password` si el servidor pide autenticación). `Seguridad`: `Ninguna` (relay interno sin TLS), `StartTls`, `StartTlsSiDisponible` o `Ssl`. Sin `Host`, los correos se simulan y quedan registrados en **Notificaciones** |
 | `Database:MigrateOnStartup` / `Database:Seed` | Migrar y cargar datos semilla al iniciar (activos en Development) |
 | `Jobs:Enabled` | Despachador de correos y revisión diaria de atrasos (09:00, hora de Chile) |
 
