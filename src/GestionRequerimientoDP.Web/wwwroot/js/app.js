@@ -1,3 +1,8 @@
+// Texto tipeado en los buscadores (data-preservar) mientras la página aún no es interactiva: Blazor reemplaza el cuadro al
+// conectar y se perdería. Se escucha en el documento, así que también cubre el cuadro nuevo hasta que el componente lo recupera.
+const textoPrevio = {};
+document.addEventListener('input', e => { const id = e.target && e.target.dataset ? e.target.dataset.preservar : null; if (id) textoPrevio[id] = e.target.value; }, true);
+
 // Utilidades de GestionRequerimientoDP para Blazor (descargas, portapapeles, confirmaciones y drag & drop).
 window.grdp = {
   // Descarga un archivo con la sesión actual. Devuelve el código HTTP (200 = descargado, 204 = sin datos).
@@ -22,6 +27,18 @@ window.grdp = {
     try { await navigator.clipboard.writeText(text); return true; } catch (e) { return false; }
   },
   confirm(msg) { return window.confirm(msg); },
+  // Devuelve (y vuelve a poner en el cuadro, con foco) lo escrito en un buscador antes de que la página fuera interactiva.
+  recuperarTexto(id) {
+    const v = textoPrevio[id];
+    delete textoPrevio[id];
+    if (v == null) return null;
+    const el = document.querySelector(`[data-preservar="${CSS.escape(id)}"]`);
+    if (el) {
+      if (el.value !== v) el.value = v;
+      if (document.activeElement === document.body || !document.activeElement) { el.focus(); el.setSelectionRange(v.length, v.length); }
+    }
+    return v;
+  },
   origin() { return location.origin; }
 };
 

@@ -135,7 +135,7 @@
                     {
                         <button class="btn btn-outline-secondary" @onclick="ClearPF" style="font-size:13px">@PFLabel ✕</button>
                     }
-                    <input class="form-control" placeholder="Buscar cliente, proyecto, job…" value="@_q" @oninput="e => _q = e.Value?.ToString() ?? string.Empty" style="width:240px" aria-label="Buscar en la planificación" />
+                    <SearchBox Id="plan" Value="@_q" ValueChanged="v => _q = v" Placeholder="Buscar cliente, proyecto, job…" Style="width:240px" AriaLabel="Buscar en la planificación" />
                 </div>
             </div>
             <div class="scroll-x">

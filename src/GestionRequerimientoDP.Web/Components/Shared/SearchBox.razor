@@ -1,0 +1,46 @@
+@inject IJSRuntime JS
+@*
+    Cuadro de búsqueda que no pierde lo escrito:
+    - Lo que se escribe antes de que la página se vuelva interactiva (HTML prerenderizado) se recupera al conectar,
+      con el foco y el cursor al final (si no, Blazor reemplaza el cuadro y se borra todo).
+    - El servidor no reescribe el texto mientras se escribe (con latencia, un render tardío pisaba letras nuevas);
+      solo lo cambia si el valor viene de afuera (p. ej. ?q= en la URL).
+*@
+<input class="form-control" data-preservar="@Id" value="@_mostrado" @oninput="Input" placeholder="@Placeholder" style="@Style" aria-label="@AriaLabel" autocomplete="off" />
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+
+    string? _mostrado, _ultimo;
+    bool _iniciado;
+
+    protected override void OnParametersSet()
+    {
+        // Solo se escribe en el cuadro al inicio o si el valor cambió desde afuera (no por lo que el usuario tipeó).
+        if (!_iniciado || (Value ?? "") != (_ultimo ?? ""))
+        {
+            _mostrado = _ultimo = Value ?? "";
+            _iniciado = true;
+        }
+    }
+
+    Task Input(ChangeEventArgs e) => Emitir(e.Value?.ToString() ?? "");
+
+    Task Emitir(string v)
+    {
+        _ultimo = v;
+        return ValueChanged.InvokeAsync(v);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return; // solo corre ya interactivo (nunca en el HTML prerenderizado)
+        var v = await JS.InvokeAsync<string?>("grdp.recuperarTexto", Id);
+        if (v != null && v != (_ultimo ?? "")) await Emitir(v);
+    }
+}

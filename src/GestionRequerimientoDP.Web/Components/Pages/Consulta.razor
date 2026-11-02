@@ -25,7 +25,7 @@
                 <h2 style="margin:0">¿Ya está asignado mi requerimiento?</h2>
                 <div style="font-size:14px;color:var(--color-neutral-800)">Busca por número de Job, proyecto o cliente para ver quién lo tiene asignado y qué día se entrega cada parte. Vista de solo lectura.</div>
             </div>
-            <input class="form-control" value="@_q" @oninput="OnInput" placeholder="Ej. 26-033416 · Teletón · Banco Estado" style="min-height:44px;font-size:16px" aria-label="Buscar requerimiento" />
+            <SearchBox Id="consulta" Value="@_q" ValueChanged="Buscar" Placeholder="Ej. 26-033416 · Teletón · Banco Estado" Style="min-height:44px;font-size:16px" AriaLabel="Buscar requerimiento" />
             <div style="font-size:13px;color:var(--color-neutral-700)">@_res.Hint</div>
             @foreach (var j in _res.Jobs)
             {
@@ -75,9 +75,9 @@
         if (!_blocked && !string.IsNullOrWhiteSpace(Job)) { _q = Job; _res = await Search.BuscarAsync(_q); }
     }
 
-    async Task OnInput(ChangeEventArgs e)
+    async Task Buscar(string q)
     {
-        _q = e.Value?.ToString() ?? "";
+        _q = q;
         _cts?.Cancel();
         var cts = _cts = new CancellationTokenSource();
         try

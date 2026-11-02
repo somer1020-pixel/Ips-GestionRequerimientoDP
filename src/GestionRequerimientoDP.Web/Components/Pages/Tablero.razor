@@ -18,7 +18,7 @@
             <DueLegend />
         </div>
         <div class="page-actions">
-            <input class="form-control" placeholder="Buscar cliente, proyecto, job…" value="@_q" @oninput="e => _q = e.Value?.ToString() ?? string.Empty" style="width:240px" aria-label="Buscar" />
+            <SearchBox Id="tablero" Value="@_q" ValueChanged="v => _q = v" Placeholder="Buscar cliente, proyecto, job…" Style="width:240px" AriaLabel="Buscar" />
             @if (Me.EsLider)
             {
                 <AnalystFilter Analysts="_analysts" Value="Ui.AnFilter" ValueChanged="v => Ui.AnFilter = v" />
