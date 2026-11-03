@@ -1447,7 +1447,9 @@ class Component extends DCLogic {
       return {a,active:mine.filter(r=>r.estado!=='ok').length,dpToday,okCount:oks.length,lastOk:oks[oks.length-1]||''};
     }).sort((x,y)=>x.active-y.active||x.dpToday-y.dpToday||x.lastOk.localeCompare(y.lastOk));
   }
-  openNew(tipo){this.setState({err:'',draft:{tipo,cliente:'',proyecto:'',job:'',bu:SLS[0],tecnica:'',entregable:(tipo==='cod'?ENT_COD:tipo==='script'?ENT_SCRIPT:ENT_SOL)[0],descripcion:'',comercial:'',analista:'',fecha:tipo!=='script'?(this.state.planWeek>=CUR?this.state.planWeek:TODAY):addDays(TODAY,2)}});}
+  // Fecha sugerida: script = hoy + 2; DP/COD = lunes de la semana planificada si es futura, si no hoy (nunca una fecha pasada).
+  defaultFecha(tipo){const pw=this.state.planWeek;return tipo==='script'?addDays(TODAY,2):pw>TODAY?pw:TODAY;}
+  openNew(tipo){this.setState({err:'',draft:{tipo,cliente:'',proyecto:'',job:'',bu:SLS[0],tecnica:'',entregable:(tipo==='cod'?ENT_COD:tipo==='script'?ENT_SCRIPT:ENT_SOL)[0],descripcion:'',comercial:'',analista:'',fecha:this.defaultFecha(tipo)}});}
   saveNew(){
     const d=this.state.draft;
     if(!d.cliente.trim()||!d.proyecto.trim()||!d.job.trim()){this.setState({err:'Cliente, Proyecto y Job son obligatorios.'});return;}
@@ -1839,7 +1841,7 @@ class Component extends DCLogic {
     const okR=s.reqs.find(r=>r.id===s.okId);
     // new
     const dr=s.draft;
-    const on={};['cliente','proyecto','job','bu','tecnica','entregable','descripcion','comercial','analista','fecha'].forEach(k=>on[k]=e=>{const v=e.target.value;this.setState(st=>({draft:{...st.draft,[k]:v},err:''}));});
+    const on={};['cliente','proyecto','job','bu','tecnica','entregable','descripcion','comercial','analista','fecha'].forEach(k=>on[k]=e=>{const v=e.target.value;this.setState(st=>({draft:{...st.draft,[k]:v,...(k==='fecha'?{fechaTocada:true}:{})},err:''}));});
     const res=s.importOpen?this.parseMatrix(this.currentMatrix()):null;
     const importPreview=!res||(!s.importMatrix&&!s.importText.trim())?['Esperando archivo o datos…']:[
       `${res.rows.length} entregables nuevos listos para importar${res.weeks.size?' · '+[...res.weeks].sort().map(w=>`${weekName(w)} ${weekLabel(w)}`).join(', '):''}`,
@@ -1928,7 +1930,7 @@ class Component extends DCLogic {
         if(patch.materialesAt&&patch.materialesAt>at.slice(0,10)){this.setState({okErr:'La fecha de materiales no puede ser posterior a hoy.'});return;}
         this.upd(r.id,patch);this.setState({okId:null});this.flash(`OK registrado · ${r.job} · ${msg}`);},
       hasNew:!!dr,draft:dr||{},on,closeNew:()=>this.setState({draft:null}),saveNew:()=>this.saveNew(),
-      tipoOpts:[['proc','Procesamiento'],['cod','Codificación'],['script','Script']].map(([id,label])=>({label,active:!!dr&&dr.tipo===id,pick:()=>this.setState(st=>({draft:{...st.draft,tipo:id,analista:'',entregable:(id==='cod'?ENT_COD:id==='script'?ENT_SCRIPT:ENT_SOL)[0]}}))})),
+      tipoOpts:[['proc','Procesamiento'],['cod','Codificación'],['script','Script']].map(([id,label])=>({label,active:!!dr&&dr.tipo===id,pick:()=>this.setState(st=>({draft:{...st.draft,tipo:id,analista:'',entregable:(id==='cod'?ENT_COD:id==='script'?ENT_SCRIPT:ENT_SOL)[0],...(st.draft.fechaTocada?{}:{fecha:this.defaultFecha(id)})}}))})),
       draftIsProc:!!dr&&dr.tipo!=='script',draftIsScript:!!dr&&dr.tipo==='script',draftFechaLabel:dr&&dr.tipo==='script'?'Fecha compromiso':'Día de entrega',
       draftAnalysts:dr?this.assignable(dr.tipo):[],autoLabel:dr&&dr.tipo==='script'?`Automático · primer disponible (${rec.nombre})`:'Sin asignar',
       saveLabel:dr&&dr.tipo==='script'?'Crear y asignar':'Agregar a la planificación',

@@ -180,3 +180,37 @@ public class ConsultaTests : AppComponentTest
         Assert.DoesNotContain("Materiales llegan el lunes", cut.Markup); // nota de la solicitud
     }
 }
+
+public class DialogosTests : AppComponentTest
+{
+    [Fact]
+    public void Nuevo_requerimiento_no_sugiere_una_fecha_pasada_y_al_pasar_a_Script_la_recalcula()
+    {
+        LoginAs("cmendez@empresa.cl");
+        var ui = Services.GetRequiredService<UiState>();
+        var hoy = App.Clock.Today; // martes
+        ui.PlanWeek = Fechas.MondayOf(hoy); // semana actual: su lunes ya pasó
+        var cut = Render<NewReqModal>(p => p.Add(x => x.Tipo, Equipo.Procesamiento));
+        cut.WaitForAssertion(() => Assert.Equal(Fechas.Iso(hoy), cut.Find("#nr-fecha").GetAttribute("value")));
+        cut.FindAll(".seg-opt input").Last().Change(true); // Script
+        cut.WaitForAssertion(() => Assert.Equal(Fechas.Iso(hoy.AddDays(2)), cut.Find("#nr-fecha").GetAttribute("value")));
+        cut.Find("#nr-fecha").Change(Fechas.Iso(hoy.AddDays(9))); // fecha elegida a mano
+        cut.FindAll(".seg-opt input").First().Change(true); // vuelve a Procesamiento: no pisa la elegida
+        cut.WaitForAssertion(() => Assert.Equal(Fechas.Iso(hoy.AddDays(9)), cut.Find("#nr-fecha").GetAttribute("value")));
+    }
+
+    [Fact]
+    public void Dar_OK_desde_el_detalle_abre_ambos_dialogos_del_mismo_requerimiento_sin_error()
+    {
+        LoginAs("cmendez@empresa.cl");
+        var r = FirstReq(x => x.Estado != Estado.Ok);
+        var ui = Services.GetRequiredService<UiState>();
+        var cut = Render<MainLayout>(p => p.Add(x => x.Body, (RenderFragment)(b => b.AddContent(0, "contenido"))));
+        cut.InvokeAsync(() => { ui.OpenDetail(r.Id); ui.AskOk(r.Id); }); // antes: "More than one sibling ... has the same key value"
+        cut.WaitForAssertion(() =>
+        {
+            Assert.NotNull(cut.Find("[aria-label='Detalle del requerimiento']"));
+            Assert.Contains("Confirmar OK", cut.Markup);
+        });
+    }
+}

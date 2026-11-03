@@ -47,7 +47,7 @@
                     }
                 </select>
             </div>
-            <div class="field"><label for="nr-fecha">@(_d.Tipo == Equipo.Script ? "Fecha compromiso" : "Día de entrega")</label><input id="nr-fecha" class="form-control" type="date" @bind="_d.Fecha" @bind:after="GuardarBorrador" /></div>
+            <div class="field"><label for="nr-fecha">@(_d.Tipo == Equipo.Script ? "Fecha compromiso" : "Día de entrega")</label><input id="nr-fecha" class="form-control" type="date" @bind="_d.Fecha" @bind:after="FechaCambiada" /></div>
             <div class="field" style="grid-column:1 / -1"><label for="nr-desc">Descripción</label><input id="nr-desc" class="form-control" @bind="_d.Descripcion" @bind:after="GuardarBorrador" placeholder="Ej. Tablas estadísticas, SPSS, BD cliente…" /></div>
             <div class="field"><label for="nr-com">Responsable comercial</label><input id="nr-com" class="form-control" @bind="_d.Comercial" @bind:after="GuardarBorrador" placeholder="Nombre / Ejecutivo" /></div>
             <div class="field">
@@ -119,6 +119,7 @@
                                       && string.IsNullOrWhiteSpace(b.Datos.Descripcion) && string.IsNullOrWhiteSpace(b.Datos.Comercial));
             if (b is null || vacio || DateTimeOffset.Now - b.Guardado > VigenciaBorrador) { await BorrarBorrador(); return; }
             _d = b.Datos;
+            _fechaTocada = true;
             if (!Catalogos.EntregablesDe(_d.Tipo).Contains(_d.Entregable)) _d.Entregable = Catalogos.EntregablesDe(_d.Tipo)[0];
             _recuperado = b.Guardado.LocalDateTime.Date == DateTime.Today ? $"guardado a las {b.Guardado.LocalDateTime:HH:mm}" : $"guardado el {Fechas.FmtDT(b.Guardado)}";
             StateHasChanged();
@@ -131,6 +132,7 @@
         await BorrarBorrador();
         _recuperado = null;
         _d = new NuevoRequerimiento { Tipo = _d.Tipo };
+        _fechaTocada = false;
         SetDefaults();
     }
 
@@ -154,10 +156,23 @@
         await LoadRecommendation();
     }
 
-    void SetDefaults()
+    /// <summary>
+    /// Fecha sugerida: script = hoy + 2; DP/COD = lunes de la semana planificada si es futura, si no hoy.
+    /// Nunca una fecha pasada (antes un script creado un martes quedaba con el lunes y nacía atrasado).
+    /// </summary>
+    DateOnly FechaSugerida(Equipo tipo)
     {
         var pw = Ui.PlanWeek ?? Cur;
-        _d.Fecha = _d.Tipo == Equipo.Script ? Today.AddDays(2) : pw >= Cur ? pw : Today;
+        return tipo == Equipo.Script ? Today.AddDays(2) : pw > Today ? pw : Today;
+    }
+
+    bool _fechaTocada; // el líder eligió la fecha a mano: cambiar de unidad no la pisa
+
+    async Task FechaCambiada() { _fechaTocada = true; await GuardarBorrador(); }
+
+    void SetDefaults()
+    {
+        _d.Fecha = FechaSugerida(_d.Tipo);
         _d.Entregable = Catalogos.EntregablesDe(_d.Tipo)[0];
         _d.AnalistaId = null;
     }
@@ -178,6 +193,7 @@
         _d.Tipo = t;
         _d.AnalistaId = null;
         _d.Entregable = Catalogos.EntregablesDe(t)[0];
+        if (!_fechaTocada) _d.Fecha = FechaSugerida(t);
         _err = null;
         await GuardarBorrador();
     }

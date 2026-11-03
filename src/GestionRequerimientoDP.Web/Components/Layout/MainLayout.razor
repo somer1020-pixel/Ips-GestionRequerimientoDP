@@ -83,7 +83,9 @@
 
 @if (Ui.DetailId is { } detailId)
 {
-    <ReqDetailModal Id="detailId" @key="detailId" />
+    @* Claves distintas por tipo de diálogo: el detalle y el OK pueden estar abiertos para el mismo requerimiento
+       (dar OK desde el detalle) y Blazor exige claves únicas entre hermanos. *@
+    <ReqDetailModal Id="detailId" @key="@("detalle-" + detailId)" />
 }
 @if (Ui.NewTipo is { } nt)
 {
@@ -91,7 +93,7 @@
 }
 @if (Ui.OkId is { } okId)
 {
-    <OkModal Id="okId" @key="okId" />
+    <OkModal Id="okId" @key="@("ok-" + okId)" />
 }
 @if (!string.IsNullOrEmpty(Ui.Toast))
 {

@@ -199,6 +199,7 @@ interface Requerimiento {
     - Codificación: lista `ENT_COD`.
     - Script: se rotula **Tipo de requerimiento*** con Programación · Configurar nueva ola · Cargar base de datos · Cuotas · Mailing.
   - El diálogo **"Nuevo requerimiento" del líder** usa las mismas listas para las tres unidades: SL (`SLS`), Técnica (`CAMPOS`, obligatoria) y Entregable (`ENT_SOL` / `ENT_COD`), o *Tipo de requerimiento* (`ENT_SCRIPT`) en Script. Es selección única, un requerimiento por alta.
+  - **Fecha sugerida:** Script, hoy + 2 días. Procesamiento y Codificación, el lunes de la semana planificada si es futura; si no, hoy. Nunca sugiere una fecha pasada. Al cambiar la unidad se recalcula, salvo que el líder ya haya elegido la fecha a mano.
   - Descripción y Notas para Operaciones (opcionales).
   - Una línea indica a qué líder llegará la solicitud.
 - **Al enviar:**
