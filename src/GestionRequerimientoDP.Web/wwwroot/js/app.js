@@ -3,6 +3,31 @@
 const textoPrevio = {};
 document.addEventListener('input', e => { const id = e.target && e.target.dataset ? e.target.dataset.preservar : null; if (id) textoPrevio[id] = e.target.value; }, true);
 
+// Portapapeles: navigator.clipboard solo existe en sitios seguros (https o localhost); en http://servidor no está.
+// Los botones con data-copiar copian en el mismo clic (el navegador exige un gesto del usuario) con la API moderna si
+// existe o, si no, seleccionando un texto oculto (execCommand). Si ambos fallan, se muestra el texto para copiarlo a mano.
+function copiarConSeleccion(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+  const activo = document.activeElement;
+  document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove(); if (activo && activo.focus) activo.focus();
+  return ok;
+}
+let ultimaCopia = null;
+document.addEventListener('click', e => {
+  const el = e.target && e.target.closest ? e.target.closest('[data-copiar]') : null;
+  if (!el) return;
+  const text = el.getAttribute('data-copiar') || '';
+  let ok = false;
+  if (window.isSecureContext && navigator.clipboard) { navigator.clipboard.writeText(text).catch(() => { }); ok = true; }
+  else ok = copiarConSeleccion(text);
+  if (!ok) window.prompt('Copia con Ctrl+C y presiona Enter:', text);
+  ultimaCopia = ok;
+}, true);
+
 // Utilidades de GestionRequerimientoDP para Blazor (descargas, portapapeles, confirmaciones y drag & drop).
 window.grdp = {
   // Descarga un archivo con la sesión actual. Devuelve el código HTTP (200 = descargado, 204 = sin datos).
@@ -24,8 +49,11 @@ window.grdp = {
     } catch (e) { return 0; }
   },
   async copy(text) {
-    try { await navigator.clipboard.writeText(text); return true; } catch (e) { return false; }
+    if (window.isSecureContext && navigator.clipboard) { try { await navigator.clipboard.writeText(text); return true; } catch (e) { } }
+    return copiarConSeleccion(text);
   },
+  // Resultado del último botón data-copiar (la copia ya se hizo en el clic); null si no hubo.
+  copiado() { const r = ultimaCopia; ultimaCopia = null; return r; },
   confirm(msg) { return window.confirm(msg); },
   // Devuelve (y vuelve a poner en el cuadro, con foco) lo escrito en un buscador antes de que la página fuera interactiva.
   recuperarTexto(id) {

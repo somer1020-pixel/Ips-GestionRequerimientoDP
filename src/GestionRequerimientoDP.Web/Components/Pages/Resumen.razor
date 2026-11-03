@@ -14,7 +14,7 @@
                 <h2 style="margin:0">Resumen y pendientes de OK</h2>
                 <div class="sub">Procesamiento semana @Fechas.WeekLabel(Cur) + scripts. Listo para comunicar al equipo.</div>
             </div>
-            <button class="btn btn-primary" @onclick="Copy"><Icon Name="copy" />Copiar resumen</button>
+            <button class="btn btn-primary" data-copiar="@(_v?.Texto ?? "")" @onclick="Copy"><Icon Name="copy" />Copiar resumen</button>
         </div>
         <div class="kpi-grid">
             @foreach (var k in v.Kpis)
@@ -85,7 +85,7 @@
 
     async Task Copy()
     {
-        var ok = await JS.InvokeAsync<bool>("grdp.copy", _v!.Texto);
-        Ui.Flash(ok ? "Resumen copiado al portapapeles" : "No se pudo copiar — selecciona el texto manualmente");
+        var ok = await JS.InvokeAsync<bool?>("grdp.copiado") == true; // la copia ya se hizo en el clic (data-copiar)
+        Ui.Flash(ok ? "Resumen copiado al portapapeles" : "Copia el resumen desde el cuadro que se abrió");
     }
 }

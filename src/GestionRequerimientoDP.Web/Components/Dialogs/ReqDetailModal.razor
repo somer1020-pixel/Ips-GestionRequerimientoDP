@@ -102,7 +102,7 @@
                     {
                         <button class="btn btn-ghost" @onclick="Remove">Eliminar</button>
                     }
-                    <button class="btn btn-ghost" @onclick="CopyLink">Copiar enlace de consulta</button>
+                    <button class="btn btn-ghost" data-copiar="@EnlaceConsulta" @onclick="CopyLink">Copiar enlace de consulta</button>
                 </div>
                 <div style="display:flex;gap:var(--space-2)">
                     <button class="btn btn-outline-secondary" @onclick="Ui.CloseDetail">Cerrar</button>
@@ -181,9 +181,9 @@
         });
     }
 
-    async Task CopyLink()
-    {
-        var url = $"{Nav.BaseUri}consulta?job={Uri.EscapeDataString(_r!.Job)}";
-        Ui.Flash(await JS.InvokeAsync<bool>("grdp.copy", url) ? "Enlace de consulta copiado" : url);
-    }
+    string EnlaceConsulta => _r is null ? "" : $"{Nav.BaseUri}consulta?job={Uri.EscapeDataString(_r.Job)}";
+
+    // La copia la hace el navegador en el mismo clic (data-copiar); aquí solo se informa el resultado.
+    async Task CopyLink() =>
+        Ui.Flash(await JS.InvokeAsync<bool?>("grdp.copiado") == true ? "Enlace de consulta copiado" : "Copia el enlace desde el cuadro que se abrió");
 }
