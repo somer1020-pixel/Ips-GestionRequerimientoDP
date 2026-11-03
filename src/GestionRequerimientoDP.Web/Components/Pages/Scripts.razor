@@ -12,7 +12,7 @@
     <section data-screen-label="Scripts" class="stack">
         <div>
             <h2 style="margin:0">Programación de scripts</h2>
-            <div class="sub">Demanda ad-hoc: cada script nuevo se asigna de inmediato a la primera persona disponible. Límite simultáneo: @wip activos por analista.</div>
+            <div class="sub">Demanda ad-hoc: un script que ingresas se asigna al primer disponible o a quien elijas. Las solicitudes comerciales esperan en la cola para que elijas quién las toma según su perfil. Límite simultáneo: @wip activos por analista.</div>
         </div>
         <div class="blueprint" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-4);align-items:center;padding:var(--space-4) var(--space-6)">
             <div style="display:flex;flex-direction:column;gap:2px">
@@ -22,6 +22,40 @@
             </div>
             <button class="btn btn-primary" @onclick="() => Ui.OpenNew(Equipo.Script)" style="min-height:40px"><Icon Name="plus" />Ingresar script</button>
         </div>
+        @if (v.SinAsignar.Count > 0)
+        {
+            <div class="blueprint" style="padding:var(--space-4);display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+                <span style="font-size:14px">@v.SinAsignar.Count script(s) sin asignar en cola. Elige quién toma cada solicitud según su perfil, o asígnalas todas al primer disponible.</span>
+                <button class="btn btn-outline-secondary" @onclick="AutoAssign">Asignar a primer disponible</button>
+            </div>
+            <div class="stack" style="gap:var(--space-3)" data-screen-label="Cola de scripts">
+                @foreach (var b in v.Cola)
+                {
+                    var f = b.Primero;
+                    var sel = _pick.GetValueOrDefault(b.Clave, top?.Analista.Id ?? 0);
+                    <div class="card" @key="b.Clave" style="display:flex;flex-direction:row;flex-wrap:wrap;gap:var(--space-3);align-items:center">
+                        <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:2px">
+                            <span style="font-weight:600">@(b.Codigo is { } cod ? $"{cod} · " : "")@f.Proyecto</span>
+                            <span style="font-size:13px;color:var(--color-neutral-700)">@f.Cliente · Job @f.Job · @b.Items.Count entregable(s) · para @Fechas.FmtD(b.Fecha)@(string.IsNullOrEmpty(f.Comercial) ? "" : $" · {f.Comercial}")</span>
+                            <span style="font-size:13px">@string.Join(" · ", b.Items.Select(r => r.Entregable))@(string.IsNullOrEmpty(f.Descripcion) ? "" : $" — {f.Descripcion}")</span>
+                        </div>
+                        <select class="form-select" style="width:300px;min-height:36px" value="@sel" aria-label="Asignar la solicitud a"
+                                @onchange="e => _pick[b.Clave] = int.TryParse(e.Value?.ToString(), out var x) ? x : 0">
+                            @for (var i = 0; i < v.Ranking.Count; i++)
+                            {
+                                var x = v.Ranking[i];
+                                <option value="@x.Analista.Id">@x.Analista.Nombre · @x.Activos/@wip activos@(i == 0 ? " · recomendado" : "")</option>
+                            }
+                            @foreach (var l in v.Lideres)
+                            {
+                                <option value="@l.Id">@Reglas.NombreResponsable(l)</option>
+                            }
+                        </select>
+                        <button class="btn btn-primary" @onclick="() => AsignarBloque(b, sel)" disabled="@(sel == 0)">Asignar</button>
+                    </div>
+                }
+            </div>
+        }
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--space-6);padding:6px">
             @for (var i = 0; i < v.Ranking.Count; i++)
             {
@@ -59,18 +93,20 @@
                 </div>
             }
         </div>
-        @if (v.SinAsignar.Count > 0)
-        {
-            <div class="blueprint" style="padding:var(--space-4);display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
-                <span style="font-size:14px">@v.SinAsignar.Count script(s) sin asignar en cola.</span>
-                <button class="btn btn-outline-secondary" @onclick="AutoAssign">Asignar a primer disponible</button>
-            </div>
-        }
     </section>
 }
 
 @code {
     ScriptsView? _v;
+    readonly Dictionary<string, int> _pick = []; // elección por bloque; por defecto, el recomendado
+
+    Task AsignarBloque(ScriptBloque b, int analistaId) => Run(async () =>
+    {
+        var (n, correo) = await Svc.AsignarBloqueAsync(Me, b.Clave, analistaId);
+        _pick.Remove(b.Clave);
+        var nombre = _v!.Ranking.FirstOrDefault(x => x.Analista.Id == analistaId)?.Analista.Nombre ?? _v.Lideres.FirstOrDefault(l => l.Id == analistaId)?.Nombre ?? "";
+        Ui.Flash($"{n} entregable(s) de {(b.Codigo ?? $"Job {b.Primero.Job}")} asignados a {nombre}{(correo ? " · correo enviado" : "")}");
+    });
 
     protected override async Task LoadAsync() => _v = await Svc.VistaAsync(Me);
 

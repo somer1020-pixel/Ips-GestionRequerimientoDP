@@ -408,7 +408,7 @@
       <section data-screen-label="Scripts" style="display:flex;flex-direction:column;gap:var(--space-6)">
         <div>
           <h2 style="margin:0">Programación de scripts</h2>
-          <div style="font-size:13px;color:var(--color-neutral-700)">Demanda ad-hoc: cada script nuevo se asigna de inmediato a la primera persona disponible. Límite simultáneo: {{ wip }} activos por analista.</div>
+          <div style="font-size:13px;color:var(--color-neutral-700)">Demanda ad-hoc: un script que ingresas se asigna al primer disponible o a quien elijas. Las solicitudes comerciales esperan en la cola para que elijas quién las toma según su perfil. Límite simultáneo: {{ wip }} activos por analista.</div>
         </div>
         <div class="blueprint" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-4);align-items:center;padding:var(--space-4) var(--space-6)">
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
@@ -419,6 +419,28 @@
           </div>
           <button class="btn btn-primary" onClick="{{ openNewScript }}" style="min-height:40px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"></path></svg>Ingresar script</button>
         </div>
+        <sc-if value="{{ hasUnassignedScripts }}" hint-placeholder-val="{{ false }}">
+          <div class="blueprint" style="padding:var(--space-4);display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <span style="font-size:14px">{{ unassignedScripts }} script(s) sin asignar en cola. Elige quién toma cada solicitud según su perfil, o asígnalas todas al primer disponible.</span>
+            <button class="btn btn-secondary" onClick="{{ autoAssignScripts }}">Asignar a primer disponible</button>
+          </div>
+          <div class="stack" style="gap:var(--space-3)">
+            <sc-for list="{{ queueBlocks }}" as="q" hint-placeholder-count="1">
+              <div class="card" style="display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center">
+                <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:2px">
+                  <span style="font-weight:600">{{ q.titulo }}</span>
+                  <span style="font-size:13px;color:var(--color-neutral-700)">{{ q.sub }}</span>
+                  <span style="font-size:13px">{{ q.ents }}</span>
+                </div>
+                <select class="input" value="{{ q.sel }}" onChange="{{ q.pick }}" aria-label="Asignar la solicitud a" style="min-height:36px;width:300px">
+                  <sc-for list="{{ q.options }}" as="a" hint-placeholder-count="0"><option value="{{ a.id }}">{{ a.nombre }}</option></sc-for>
+                </select>
+                <button class="btn btn-primary" onClick="{{ q.assign }}">Asignar</button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--space-6);padding:6px">
           <sc-for list="{{ lanes }}" as="l" hint-placeholder-count="3">
             <div class="card blueprint" style="gap:var(--space-3);border-color:{{ l.border }}">
@@ -449,13 +471,6 @@
             </div>
           </sc-for>
         </div>
-        <sc-if value="{{ hasUnassignedScripts }}" hint-placeholder-val="{{ false }}">
-          <div class="blueprint" style="padding:var(--space-4);display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap">
-            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-            <span style="font-size:14px">{{ unassignedScripts }} script(s) sin asignar en cola.</span>
-            <button class="btn btn-secondary" onClick="{{ autoAssignScripts }}">Asignar a primer disponible</button>
-          </div>
-        </sc-if>
       </section>
     </sc-if>
 
@@ -1757,6 +1772,16 @@ class Component extends DCLogic {
         slots:Array.from({length:Math.max(wip,x.active)},(_,k)=>({bg:k<x.active?(k>=wip?'var(--color-accent-900)':'var(--color-accent)'):'var(--color-neutral-200)'}))};
     });
     const unassigned=s.reqs.filter(r=>r.tipo==='script'&&!r.analista&&r.estado!=='ok');
+    // Cola por bloque (misma solicitud o mismo Job): el líder elige quién la toma según el perfil; por defecto, el recomendado.
+    const qb={};unassigned.forEach(u=>{const k=u.solId?'S'+u.solId:'J'+norm(u.job);(qb[k]=qb[k]||{key:k,items:[]}).items.push(u);});
+    const queueBlocks=Object.values(qb).map(g=>{
+      const f=g.items[0],sel=(s.qPick||{})[g.key]||(top?top.a.id:''),fechas=g.items.map(r=>r.fecha).sort();
+      return {titulo:`${f.solId?f.solId+' · ':''}${f.proyecto}`,sub:`${f.cliente} · Job ${f.job} · ${g.items.length} entregable(s) · para ${fmtD(fechas[0])}`,ents:g.items.map(r=>r.entregable).join(' · '),
+        options:[...ranking.map((x,i)=>({id:x.a.id,nombre:`${x.a.nombre} · ${x.active}/${wip} activos${i===0?' · recomendado':''}`})),...this.leads().map(l=>({id:l.id,nombre:l.nombre+' (líder)'}))],sel,
+        pick:e=>this.setState(st=>({qPick:{...(st.qPick||{}),[g.key]:e.target.value}})),
+        assign:()=>{if(!sel)return;const ids=g.items.map(r=>r.id);this.setState(st=>({reqs:st.reqs.map(r=>ids.includes(r.id)?{...r,analista:sel,actualizado:nowStr()}:r)}));
+          const n=this.notifyAssign(g.items.map(r=>({...r,analista:sel})));this.flash(`${ids.length} entregable(s) asignados a ${this.nameOf(sel)}${n?' · correo enviado':''}`);}};
+    });
     // summary
     const leadScope=s.reqs.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&mondayOf(r.fecha)===CUR));
     const pendingList=leadScope.filter(r=>r.estado!=='ok').sort((a,b)=>byDate(a,b)||(a.estado==='pendiente'?0:1)-(b.estado==='pendiente'?0:1)).map((r,i)=>({...deco(r),rank:String(i+1)}));
@@ -1870,7 +1895,7 @@ class Component extends DCLogic {
       openImport:()=>this.setState({importOpen:true}),hasImport:s.importOpen,closeImport:()=>this.setState({importOpen:false,importMatrix:null,importFile:''}),
       importText:s.importText,onImportText:e=>this.setState({importText:e.target.value,importMatrix:null,importFile:''}),onImportFile:e=>this.onImportFile(e),
       importFileLabel:s.importFile?`Archivo: ${s.importFile} (clic para cambiar)`:'Seleccionar planilla .xlsx o .csv',importPreview,doImport:()=>this.doImport(),
-      wip:String(wip),rec,lanes,hasUnassignedScripts:!!unassigned.length,unassignedScripts:String(unassigned.length),
+      wip:String(wip),rec,lanes,hasUnassignedScripts:!!unassigned.length,unassignedScripts:String(unassigned.length),queueBlocks,
       autoAssignScripts:()=>{let reqs=s.reqs;/* una solicitud (o un Job sin solicitud) va completa al mismo analista; el ranking se recalcula por bloque */const bloques={};unassigned.forEach(u=>{const k=u.solId?'S'+u.solId:'J'+norm(u.job);(bloques[k]=bloques[k]||[]).push(u.id);});Object.values(bloques).forEach(ids=>{const t=this.rank(reqs)[0];if(t)reqs=reqs.map(r=>ids.includes(r.id)?{...r,analista:t.a.id}:r);});this.setState({reqs});const n=this.notifyAssign(reqs.filter(r=>r.analista&&unassigned.some(u=>u.id===r.id)));this.flash(`Scripts asignados · ${n} correo(s) enviados`);},
       kpis,pendingList,perAnalyst,summaryText:lead?this.buildSummary():'',
       copySummary:()=>{const t=this.buildSummary();const done=()=>this.flash('Resumen copiado al portapapeles');(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(done,()=>this.flash('No se pudo copiar — selecciona el texto manualmente'));},

@@ -235,6 +235,9 @@ interface Requerimiento {
   - `Libre`: 0 activos
   - `Disponible`: menos que el WIP
   - `Al límite`: WIP o más
+- **Cola de scripts sin asignar, por solicitud:** cada solicitud (o Job, si no viene de una) aparece como un bloque con proyecto, cliente, Job, entregables y fecha, un selector **"Asignar la solicitud a"** y el botón **Asignar**. Como no todos los analistas tienen el perfil para cada tipo de script, el líder elige quién la toma.
+  - El selector lista a los analistas de scripting en orden de ranking, con su carga ("2/3 activos"), marca al recomendado y lo deja preseleccionado. Al final incluye a los líderes.
+  - Asignar pone todos los entregables del bloque en esa persona y envía un solo correo.
 - Si hay scripts en cola sin asignar, el botón "Asignar a primer disponible" los reparte por **bloque**: los entregables de una misma solicitud comercial (o, si no vienen de una, del mismo Job) van todos al mismo analista, igual que en el balanceo, que no separa jobs. El ranking se recalcula después de cada bloque y se envía un correo por analista.
 
 ### 3.3 OK de término

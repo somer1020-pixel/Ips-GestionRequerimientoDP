@@ -136,6 +136,39 @@ public class ServiceTests
     }
 
     [Fact]
+    public async Task Lider_elige_quien_toma_una_solicitud_de_scripts_completa()
+    {
+        var app = await App();
+        var mp = await app.UserAsync("mayala@empresa.cl");
+        var lider = await app.UserAsync("vnunez@empresa.cl");
+        await app.Scripts.AutoAssignAsync(lider); // cola vacía
+        var s = await app.Sols.EnviarAsync(mp, new SolicitudInput
+        {
+            Tipo = Equipo.Script, Cliente = "Banco de Chile", Proyecto = "Sucursales", Job = "26-0000-000-03", SL = "CEX", Tecnica = "Online",
+            Fecha = Martes.AddDays(7), Entregables = ["Programación", "Cuotas", "Configurar nueva ola"],
+        });
+        var v = await app.Scripts.VistaAsync(lider);
+        var bloque = Assert.Single(v.Cola);
+        Assert.Equal(s.Codigo, bloque.Codigo);
+        Assert.Equal(3, bloque.Items.Count);
+        var elegido = v.Ranking[^1].Analista.Id; // el último del ranking: no el recomendado, sino quien tiene el perfil
+        Assert.NotEqual(v.Ranking[0].Analista.Id, elegido);
+
+        var dpSolo = await app.UserAsync("asalinas@empresa.cl");   // analista solo de DP: no toma scripts
+        await Assert.ThrowsAsync<ReglaException>(() => app.Scripts.AsignarBloqueAsync(lider, bloque.Clave, dpSolo.Id));
+        await Assert.ThrowsAsync<ReglaException>(() => app.Scripts.AsignarBloqueAsync(lider, bloque.Clave, mp.Id)); // comercial
+        await Assert.ThrowsAsync<PermisoException>(() => app.Scripts.AsignarBloqueAsync(dpSolo, bloque.Clave, elegido));
+
+        var (n, correo) = await app.Scripts.AsignarBloqueAsync(lider, bloque.Clave, elegido);
+        Assert.Equal(3, n);
+        Assert.True(correo);
+        await using (var db = app.Factory.Create())
+            Assert.All(await db.Requerimientos.Where(r => r.SolicitudId == s.Id).ToListAsync(), r => Assert.Equal(elegido, r.AnalistaId));
+        Assert.Empty((await app.Scripts.VistaAsync(lider)).Cola);
+        await Assert.ThrowsAsync<ReglaException>(() => app.Scripts.AsignarBloqueAsync(lider, bloque.Clave, elegido)); // ya asignada
+    }
+
+    [Fact]
     public async Task Atraso_sin_gestion_un_aviso_por_dia()
     {
         var app = await App();
