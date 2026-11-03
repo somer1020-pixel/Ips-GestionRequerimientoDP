@@ -248,6 +248,30 @@ public class SsoFlowTests : IClassFixture<SsoFlowTests.Factory>
         }
     }
 
+    sealed class DirectorioQueFalla : IDirectorioService
+    {
+        public bool Disponible => true;
+        public Task<List<DirectorioUsuario>> BuscarAsync(string termino, int max = 10, CancellationToken ct = default) => throw new InvalidOperationException("LDAP no responde");
+        public Task<DirectorioUsuario?> BuscarCuentaAsync(string cuenta, CancellationToken ct = default) => throw new InvalidOperationException("LDAP no responde");
+        public string CuentaDominio(string sam) => sam;
+    }
+
+    [Fact]
+    public async Task Error_inesperado_en_el_SSO_vuelve_al_ingreso_y_deja_la_causa_en_la_auditoria()
+    {
+        var f = _f.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IDirectorioService, DirectorioQueFalla>()));
+        var req = new HttpRequestMessage(HttpMethod.Get, "/cuenta/sso?returnUrl=%2F");
+        req.Headers.Add("X-Test-Windows", @"IPSOSGROUP\cuenta.nueva");
+        var r = await f.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false }).SendAsync(req);
+        Assert.Equal(HttpStatusCode.Redirect, r.StatusCode); // no la página de error
+        var loc = Uri.UnescapeDataString(r.Headers.Location!.OriginalString);
+        Assert.StartsWith("/cuenta/ingresar?manual=1&error=", loc);
+        Assert.Contains("No pudimos completar el ingreso", loc);
+        await using var db = _f.App.Factory.Create();
+        var a = await db.Auditoria.Where(x => x.Accion == "SSO_ERROR").ToListAsync();
+        Assert.Contains(a, x => x.Detalle.Contains("LDAP no responde"));
+    }
+
     [Fact]
     public async Task Administrador_configurado_entra_como_lider_sin_aprobacion()
     {

@@ -43,6 +43,27 @@ public static class SsoEndpoints
     public static void MapSsoEndpoints(this WebApplication app)
     {
         var g = app.MapGroup("/cuenta/sso").AllowAnonymous();
+        // Un error inesperado (base de datos, directorio, datos de una versión más nueva…) no deja al usuario en la página
+        // de error: vuelve al ingreso con correo y contraseña, y la causa queda en el log y en la auditoría de accesos.
+        g.AddEndpointFilter(async (ctx, next) =>
+        {
+            try { return await next(ctx); }
+            catch (Exception ex) when (ex is not OperationCanceledException && !ctx.HttpContext.Response.HasStarted)
+            {
+                var http = ctx.HttpContext;
+                http.RequestServices.GetRequiredService<ILogger<SsoTicketService>>().LogError(ex, "SSO: error inesperado en {Path}", http.Request.Path);
+                var o = http.RequestServices.GetRequiredService<IOptionsMonitor<SsoOptions>>().CurrentValue;
+                try
+                {
+                    var detalle = ex.InnerException is { } i ? $"{ex.GetType().Name}: {ex.Message} ({i.Message})" : $"{ex.GetType().Name}: {ex.Message}";
+                    await http.RequestServices.GetRequiredService<IAuditoriaService>().RegistrarAsync(http.User.Identity?.Name ?? "", "SSO_ERROR", "SSO", SsoRules.ClientIp(http, o), detalle);
+                }
+                catch (Exception) { /* si la base es la causa, queda solo en el log */ }
+                var traza = System.Diagnostics.Activity.Current?.TraceId.ToString() ?? http.TraceIdentifier;
+                return Results.Redirect(LoginUrl(http, o, "error",
+                    $"No pudimos completar el ingreso con tu cuenta corporativa. Ingresa con tu correo y contraseña. (Código {traza[..Math.Min(8, traza.Length)]}; el detalle quedó en la auditoría de accesos.)", true));
+            }
+        });
 
         g.MapGet("/", async (HttpContext http, string? returnUrl, IOptionsMonitor<SsoOptions> opts, IUsuarioService users, IAccesoService acceso,
             IAuditoriaService audit, IDirectorioService directorio, SsoTicketService tickets, SsoRuntime runtime, ILogger<SsoTicketService> log) =>
