@@ -48,7 +48,7 @@
             <label>Rol</label>
             <Seg T="Rol" Options="RolOpts" Value="Input.Rol" ValueChanged="r => { Input.Rol = r; _err = null; }" Stretch="true" Style="display:flex" />
         </div>
-        @if (Input.Rol != Rol.Comercial)
+        @if (!Reglas.EsSolicitante(Input.Rol))
         {
             <div class="field">
                 <label>@(Input.Rol == Rol.Lider ? "Equipos a cargo (recibe sus solicitudes; ninguno = todos)" : "Equipos (uno o más)")</label>
@@ -86,7 +86,7 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<string> OnSaved { get; set; }
 
-    static readonly IReadOnlyList<(Rol, string)> RolOpts = [(Rol.Lider, "Líder de equipo"), (Rol.Analista, "Analista"), (Rol.Comercial, "Comercial")];
+    static readonly IReadOnlyList<(Rol, string)> RolOpts = [(Rol.Lider, "Líder de equipo"), (Rol.Analista, "Analista"), (Rol.Comercial, "Comercial"), (Rol.PM, "PM de Operaciones")];
     static readonly (Equipo, string)[] EqOpts = [(Equipo.Procesamiento, "Procesamiento (DP)"), (Equipo.Codificacion, "Codificación"), (Equipo.Script, "Scripting")];
     string? _err, _q;
     bool _busy, _buscando;

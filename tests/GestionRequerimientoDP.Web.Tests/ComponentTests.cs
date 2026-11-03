@@ -154,6 +154,7 @@ public class MenuTests : AppComponentTest
     [InlineData("cmendez@empresa.cl", 9, "Usuarios")]
     [InlineData("asalinas@empresa.cl", 2, "Mi semana")]
     [InlineData("mayala@empresa.cl", 2, "Nueva solicitud")]
+    [InlineData("porellana@empresa.cl", 2, "Mis solicitudes")]
     public void Items_segun_rol(string email, int items, string incluye)
     {
         LoginAs(email);

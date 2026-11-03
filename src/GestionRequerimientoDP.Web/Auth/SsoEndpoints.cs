@@ -143,7 +143,7 @@ public static class SsoEndpoints
         await acceso.RegistrarIngresoAsync(u.Id);
     }
 
-    static string Home(HttpContext http, Usuario u, string ret) => AccountEndpoints.In(http, ret != "/" ? ret : u.Rol == Rol.Comercial ? "/solicitar" : "/");
+    static string Home(HttpContext http, Usuario u, string ret) => AccountEndpoints.In(http, ret != "/" ? ret : Reglas.EsSolicitante(u.Rol) ? "/solicitar" : "/");
 
     static string PublicBase(HttpContext http, SsoOptions o) =>
         string.IsNullOrWhiteSpace(o.PublicHost) ? $"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}" : o.PublicHost.TrimEnd('/');

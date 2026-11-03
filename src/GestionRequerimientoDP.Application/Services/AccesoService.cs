@@ -250,7 +250,7 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
     {
         Guard.Lider(me);
         if (string.IsNullOrWhiteSpace(datos.Nombre) || string.IsNullOrWhiteSpace(datos.Email)) throw new ReglaException("Nombre y correo son obligatorios.");
-        var equipos = datos.Rol == Rol.Comercial ? [] : datos.Equipos.Distinct().ToList();
+        var equipos = Reglas.EsSolicitante(datos.Rol) ? [] : datos.Equipos.Distinct().ToList();
         if (datos.Rol == Rol.Analista && equipos.Count == 0) throw new ReglaException("Selecciona al menos un equipo.");
         await using var db = factory.Create();
         var u = await db.Usuarios.Include(x => x.Equipos).FirstOrDefaultAsync(x => x.Id == datos.Id, ct) ?? throw new ReglaException("La solicitud ya no existe.");

@@ -20,6 +20,9 @@ public static class MailBuilder
     static string Line(Requerimiento r, bool conEstado) =>
         $"• {Fechas.FmtD(r.Fecha)} · {r.Job} · {r.Proyecto} — {r.Entregable}: {(string.IsNullOrEmpty(r.Descripcion) ? "—" : r.Descripcion)} ({Reglas.Tipo(r.Tipo).Label}{(conEstado ? ", " + Reglas.EstadoLabel(r.Estado) : "")})";
 
+    /// <summary>"Nombre" o "Nombre (PM de Operaciones)": el líder ve de qué área viene la solicitud.</summary>
+    public static string NombreSolicitante(Usuario u) => u.Rol == Rol.PM ? $"{u.Nombre} (PM de Operaciones)" : u.Nombre;
+
     static string First(string nombre) => nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nombre;
 
     public static MailDraft Asignacion(Usuario analista, IReadOnlyList<Requerimiento> items)
@@ -58,7 +61,7 @@ public static class MailBuilder
         var lines = new List<string>
         {
             $"Hola {string.Join(", ", lideres.Select(l => First(l.Nombre)))},", "",
-            $"{solicitante?.Nombre ?? "Un área comercial"} ingresó una nueva solicitud para {unidad}:",
+            $"{(solicitante is null ? "Un área comercial" : NombreSolicitante(solicitante))} ingresó una nueva solicitud para {unidad}:",
             $"• Cliente: {f.Cliente} · Job {f.Job}", $"• Proyecto: {f.Proyecto}", $"• Requerida para: {Fechas.FmtD(f.Fecha)}", $"• Entregables ({items.Count}):",
         };
         lines.AddRange(items.Select(r => $"   - {r.Entregable}{(string.IsNullOrEmpty(r.Descripcion) ? "" : ": " + r.Descripcion)}"));

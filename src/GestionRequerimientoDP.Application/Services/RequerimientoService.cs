@@ -77,7 +77,7 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
     /// <summary>Atrasados del alcance "semana actual" (contador rojo del menú).</summary>
     public async Task<int> AtrasadosAsync(UsuarioActual me, CancellationToken ct = default)
     {
-        if (me.EsComercial) return 0;
+        if (me.EsSolicitante) return 0;
         var today = clock.Today;
         return (await TableroAsync(me, ct)).Count(r => Reglas.Atrasado(r, today));
     }

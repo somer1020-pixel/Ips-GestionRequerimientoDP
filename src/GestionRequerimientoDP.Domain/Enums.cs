@@ -1,6 +1,7 @@
 namespace GestionRequerimientoDP.Domain;
 
-public enum Rol { Lider, Analista, Comercial }
+/// <summary>Comercial y PM (PM de Operaciones) solicitan trabajo a Operaciones: no tienen carga propia.</summary>
+public enum Rol { Lider, Analista, Comercial, PM }
 
 /// <summary>Equipo / unidad de Operaciones. Para un requerimiento es su tipo (proc / script / cod en el mockup).</summary>
 public enum Equipo { Procesamiento, Script, Codificacion }

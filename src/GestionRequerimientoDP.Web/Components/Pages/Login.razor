@@ -114,7 +114,7 @@
         // Solo la sesión de la app (con IIS + SSO, el usuario podría traer además la identidad de Windows de la conexión).
         if (Claims.ToUsuario(HttpContext.User) is not null)
         {
-            Nav.NavigateTo(HttpContext.User.IsInRole(nameof(Rol.Comercial)) ? "solicitar" : "./");
+            Nav.NavigateTo(HttpContext.User.IsInRole(nameof(Rol.Comercial)) || HttpContext.User.IsInRole(nameof(Rol.PM)) ? "solicitar" : "./");
             return;
         }
         if (!Demo) return;
@@ -127,6 +127,7 @@
             ("Analistas de codificación", act.Where(u => u.Rol == Rol.Analista && u.Equipos.Count == 1 && u.Tiene(Equipo.Codificacion)).ToList()),
             ("Analistas en más de un equipo", act.Where(u => u.Rol == Rol.Analista && u.Equipos.Count > 1).ToList()),
             ("Áreas comerciales", act.Where(u => u.Rol == Rol.Comercial).ToList()),
+            ("PM de Operaciones", act.Where(u => u.Rol == Rol.PM).ToList()),
         ];
     }
 }

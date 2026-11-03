@@ -31,7 +31,7 @@ Aplicación web para administrar la carga laboral de Operaciones en tres unidade
 ## 1. Usuarios, roles y permisos
 
 ```ts
-type Rol = 'lider' | 'analista' | 'comercial';
+type Rol = 'lider' | 'analista' | 'comercial' | 'pm';  // pm = PM de Operaciones (solicita como un área comercial)
 type Equipo = 'proc' | 'script' | 'cod';
 interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos: Equipo[]; activo: boolean }
 ```
@@ -185,6 +185,11 @@ interface Requerimiento {
 - **Rol `comercial`:**
   - Tabs: **Nueva solicitud** y **Mis solicitudes**. No ve tablero, planificación ni la carga de nadie.
   - Usuarios semilla: Maria Paz Ayala, Wiliam Muñoz y Lorena Montalvo Rosado.
+- **Rol `pm` (PM de Operaciones):** project managers de Operaciones que piden trabajo a Procesamiento (DP), Codificación y Scripting.
+  - Mismas capacidades y pantallas que `comercial`: Nueva solicitud y Mis solicitudes (solo las propias). No ve la carga de los equipos.
+  - Sus solicitudes siguen el mismo flujo (bandeja del líder, aviso al líder del equipo, asignación, consulta). En el correo y en la bandeja figura como "Nombre (PM de Operaciones)".
+  - Sin equipos. En Usuarios: etiqueta "PM de Operaciones", tarjeta de rol propia y la columna Carga muestra sus solicitudes.
+  - Usuario semilla: Paula Orellana.
 - **Formulario de nueva solicitud:**
   - Unidad (Procesamiento / Codificación / Script), Cliente*, Job*, Proyecto* y Fecha requerida* (≥ hoy).
   - **SL*** (todas las unidades, incluido Script; se guarda en el campo `bu`): CEX · BHT · MSU · AUM · UU · Observer · CHP.
@@ -358,7 +363,7 @@ interface Requerimiento {
 | **Scripts** | líder | Recomendación de la siguiente asignación con "Ingresar script", un carril por analista en orden de ranking y cola de scripts sin asignar. |
 | **Resumen** | líder | KPIs, pendientes priorizados (por fecha, atrasados primero), carga por analista con atrasados, texto listo para enviar y botón para copiarlo. |
 | **Solicitudes nuevas** | líder | Ver §3.0. |
-| **Nueva solicitud / Mis solicitudes** | comercial | Ver §3.0. |
+| **Nueva solicitud / Mis solicitudes** | comercial, pm | Ver §3.0. |
 | **Motivos de atraso** | líder | Ver §3.3e. |
 | **Histórico** | líder | Ver §3.3c. |
 | **Notificaciones** | líder | Ver §3.3d. |
@@ -467,7 +472,7 @@ Los nombres en el mockup → C#:
 | Tablero | `/`, `Pages/Tablero.razor` + `KanbanColumn.razor` + `ReqCard.razor` | Lider, Analista |
 | Mi semana | `/mi-semana` | Analista |
 | Solicitudes nuevas | `/solicitudes` | Lider |
-| Nueva solicitud / Mis solicitudes | `/solicitar`, `/mis-solicitudes` | Comercial |
+| Nueva solicitud / Mis solicitudes | `/solicitar`, `/mis-solicitudes` | Comercial, PM |
 | Planificación semanal | `/planificacion?unidad=&semana=` + `CapacityCard`, `AgendaGrid`, `BalanceProposal` | Lider |
 | Scripts | `/scripts` + `ScriptLane.razor` | Lider |
 | Resumen | `/resumen` | Lider |
@@ -479,7 +484,7 @@ Los nombres en el mockup → C#:
 
 - **Autorización:**
   - Políticas `Lider`, `Analista` y `Comercial`.
-  - En los servicios, filtrar siempre por usuario: el analista solo ve `AnalistaId == me` y el comercial solo `SolicitanteId == me`. **No confiar en la UI.**
+  - En los servicios, filtrar siempre por usuario: el analista solo ve `AnalistaId == me` y el comercial y el PM solo `SolicitanteId == me`. **No confiar en la UI.**
   - Con Windows Auth, mapear `User.Identity.Name` a `Usuario.DomainAccount` con un `IClaimsTransformation` que agregue el claim de rol.
 - **Tiempo real:**
   - `CargaHub` (SignalR) emite `ReqChanged(reqId)`, `SolicitudCreada(id)` y `NotificacionNueva`.

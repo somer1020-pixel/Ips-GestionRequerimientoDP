@@ -51,12 +51,12 @@ public sealed class SolicitudService(IAppDbContextFactory factory, IClock clock,
     {
         var items = s.Requerimientos.OrderBy(r => r.Fecha).ThenBy(r => r.Id).ToList();
         var (st, css) = Estado(items, s.DescargadaAt != null);
-        return new(s, items, users.TryGetValue(s.SolicitanteId, out var u) ? u.Nombre : "—", st, css, items.Count(r => r.AnalistaId == null));
+        return new(s, items, users.TryGetValue(s.SolicitanteId, out var u) ? MailBuilder.NombreSolicitante(u) : "—", st, css, items.Count(r => r.AnalistaId == null));
     }
 
     public async Task<Solicitud> EnviarAsync(UsuarioActual me, SolicitudInput d, CancellationToken ct = default)
     {
-        if (!me.EsComercial) throw new PermisoException("Solo las áreas comerciales ingresan solicitudes.");
+        if (!me.EsSolicitante) throw new PermisoException("Solo las áreas comerciales y los PM de Operaciones ingresan solicitudes.");
         var today = clock.Today;
         if (string.IsNullOrWhiteSpace(d.Cliente) || string.IsNullOrWhiteSpace(d.Proyecto) || string.IsNullOrWhiteSpace(d.Job))
             throw new ReglaException("Cliente, Job y Proyecto son obligatorios.");
@@ -108,7 +108,7 @@ public sealed class SolicitudService(IAppDbContextFactory factory, IClock clock,
 
     public async Task<List<SolicitudCard>> MiasAsync(UsuarioActual me, CancellationToken ct = default)
     {
-        if (!me.EsComercial) throw new PermisoException();
+        if (!me.EsSolicitante) throw new PermisoException();
         await using var db = factory.Create();
         return (await Cards(db.Solicitudes.Where(s => s.SolicitanteId == me.Id), db, ct)).OrderByDescending(c => c.Solicitud.CreadaAt).ToList();
     }

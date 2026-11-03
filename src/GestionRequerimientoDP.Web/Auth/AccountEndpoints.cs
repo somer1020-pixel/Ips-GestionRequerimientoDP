@@ -61,7 +61,7 @@ public static class AccountEndpoints
                 new AuthenticationProperties { IsPersistent = true });
             await acceso.RegistrarIngresoAsync(u.Id);
             await audit.RegistrarAsync(login, "LOGIN_OK", demo ? "Demo" : "Local", ip, $"{u.Email} · {u.Rol}");
-            return Results.Redirect(In(http, ret != "/" ? ret : u.Rol == Rol.Comercial ? "/solicitar" : "/"));
+            return Results.Redirect(In(http, ret != "/" ? ret : Reglas.EsSolicitante(u.Rol) ? "/solicitar" : "/"));
         }).WithMetadata(new RequireAntiforgeryTokenAttribute(true));
 
         g.MapPost("/salir", async (HttpContext http, IOptionsMonitor<SsoOptions> sso, IAuditoriaService audit) =>

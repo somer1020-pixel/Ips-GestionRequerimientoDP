@@ -135,7 +135,7 @@ public static class AuthSetup
         builder.Services.AddAuthorizationBuilder()
             .AddPolicy(Policies.Lider, p => p.RequireRole(nameof(Rol.Lider)))
             .AddPolicy(Policies.Analista, p => p.RequireRole(nameof(Rol.Analista)))
-            .AddPolicy(Policies.Comercial, p => p.RequireRole(nameof(Rol.Comercial)))
+            .AddPolicy(Policies.Comercial, p => p.RequireRole(nameof(Rol.Comercial), nameof(Rol.PM))) // solicitantes: comercial y PM
             .AddPolicy(Policies.Gestion, p => p.RequireRole(nameof(Rol.Lider), nameof(Rol.Analista)));
         builder.Services.AddCascadingAuthenticationState();
     }

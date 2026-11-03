@@ -169,6 +169,38 @@ public class ServiceTests
     }
 
     [Fact]
+    public async Task PM_de_Operaciones_solicita_a_las_tres_unidades_y_solo_ve_lo_suyo()
+    {
+        var app = await App();
+        var pm = await app.UserAsync("porellana@empresa.cl");
+        Assert.Equal(Rol.PM, pm.Rol);
+        Assert.True(pm.EsSolicitante);
+        Assert.Empty(pm.Equipos);
+        foreach (var (tipo, ent) in new[] { (Equipo.Procesamiento, Catalogos.EntregablesDe(Equipo.Procesamiento)[0]), (Equipo.Codificacion, Catalogos.EntregablesDe(Equipo.Codificacion)[0]), (Equipo.Script, Catalogos.EntregablesDe(Equipo.Script)[0]) })
+            await app.Sols.EnviarAsync(pm, new SolicitudInput { Tipo = tipo, Cliente = "Cliente PM", Proyecto = "Proyecto PM", Job = $"J-PM-{tipo}", SL = "CEX", Tecnica = "CATI", Fecha = Martes.AddDays(5), Entregables = [ent] });
+
+        var mias = await app.Sols.MiasAsync(pm);
+        Assert.Equal(3, mias.Count);
+        Assert.All(mias, c => Assert.Equal("Paula Orellana (PM de Operaciones)", c.SolicitanteNombre));
+        Assert.DoesNotContain(await app.Sols.MiasAsync(await app.UserAsync("mayala@empresa.cl")), c => c.Items.Any(r => r.Job.StartsWith("J-PM-"))); // el comercial no ve las del PM
+        await using (var db = app.Factory.Create())
+        {
+            var mail = await db.Notificaciones.Where(n => n.Kind == NotificacionKind.Solicitud && n.Subject.Contains("Proyecto PM")).ToListAsync();
+            Assert.Equal(3, mail.Count);
+            Assert.All(mail, m => Assert.Contains("Paula Orellana (PM de Operaciones) ingresó una nueva solicitud", m.Body));
+            Assert.All(mail, m => Assert.Equal("porellana@empresa.cl", m.Cc));
+        }
+        // como el comercial: no ve la carga, no crea ni asigna requerimientos
+        Assert.Empty(await app.Reqs.TableroAsync(pm));
+        Assert.Equal(0, await app.Reqs.AtrasadosAsync(pm));
+        await Assert.ThrowsAsync<PermisoException>(() => app.Reqs.CrearAsync(pm, new Services.NuevoRequerimiento { Cliente = "C", Proyecto = "P", Job = "J", Tecnica = "CATI", Fecha = Martes }));
+        await Assert.ThrowsAsync<PermisoException>(() => app.Sols.TodasAsync(pm));
+        // un analista no puede ingresar solicitudes
+        var analista = await app.UserAsync("asalinas@empresa.cl");
+        await Assert.ThrowsAsync<PermisoException>(() => app.Sols.EnviarAsync(analista, new SolicitudInput { Cliente = "C", Proyecto = "P", Job = "J", Tecnica = "CATI", Fecha = Martes.AddDays(2), Entregables = ["Tablero"] }));
+    }
+
+    [Fact]
     public async Task Atraso_sin_gestion_un_aviso_por_dia()
     {
         var app = await App();

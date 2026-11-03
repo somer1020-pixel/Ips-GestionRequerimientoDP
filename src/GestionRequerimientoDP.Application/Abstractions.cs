@@ -71,6 +71,8 @@ public sealed record UsuarioActual(int Id, string Nombre, Rol Rol, IReadOnlyList
     public bool EsLider => Rol == Rol.Lider;
     public bool EsAnalista => Rol == Rol.Analista;
     public bool EsComercial => Rol == Rol.Comercial;
+    /// <summary>Comercial o PM de Operaciones: solo ingresa y sigue sus solicitudes.</summary>
+    public bool EsSolicitante => Reglas.EsSolicitante(Rol);
     public static UsuarioActual From(Usuario u) => new(u.Id, u.Nombre, u.Rol, u.EquiposOrdenados.ToList());
 }
 

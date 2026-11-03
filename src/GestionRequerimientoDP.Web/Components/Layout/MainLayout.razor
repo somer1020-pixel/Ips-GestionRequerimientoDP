@@ -17,7 +17,7 @@
 <div style="min-height:100vh;display:flex;flex-direction:column;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)">
     <header class="topbar" data-screen-label="Header">
         <div class="inner">
-            <a class="brand" href="@(Me.EsComercial ? "solicitar" : "./")"><span class="brand-mark">@AppInfo.Marca</span><span>@AppInfo.Nombre <small class="hide-sm">· @AppInfo.Subtitulo</small></span></a>
+            <a class="brand" href="@(Me.EsSolicitante ? "solicitar" : "./")"><span class="brand-mark">@AppInfo.Marca</span><span>@AppInfo.Nombre <small class="hide-sm">· @AppInfo.Subtitulo</small></span></a>
             <div style="flex:1"></div>
             @if (Me.EsLider)
             {
@@ -111,14 +111,15 @@
     {
         Rol.Lider => "Líder · " + EquipoLabel,
         Rol.Comercial => "Área comercial",
+        Rol.PM => "PM de Operaciones",
         _ => "Analista " + string.Join(" + ", Me.Equipos.Select(e => e switch { Equipo.Script => "Scripting", Equipo.Codificacion => "Codificación", _ => "DP" })),
     };
-    string EquipoLabel => Me!.EsComercial ? "—" : Me.EsLider && Me.Equipos.Count == 0 ? "Todos" : string.Join(" + ", Me.Equipos.Select(e => Reglas.Tipo(e).EquipoLabel));
-    string NavGroup => Me!.EsLider ? "Gestión de carga" : Me.EsComercial ? "Solicitudes a Operaciones" : "Mi trabajo";
+    string EquipoLabel => Me!.EsSolicitante ? "—" : Me.EsLider && Me.Equipos.Count == 0 ? "Todos" : string.Join(" + ", Me.Equipos.Select(e => Reglas.Tipo(e).EquipoLabel));
+    string NavGroup => Me!.EsLider ? "Gestión de carga" : Me.EsSolicitante ? "Solicitudes a Operaciones" : "Mi trabajo";
 
     List<Tab> Tabs => Me!.Rol switch
     {
-        Rol.Comercial => [new("solnueva", "Nueva solicitud", "/solicitar", 0), new("solmias", "Mis solicitudes", "/mis-solicitudes", 0)],
+        Rol.Comercial or Rol.PM => [new("solnueva", "Nueva solicitud", "/solicitar", 0), new("solmias", "Mis solicitudes", "/mis-solicitudes", 0)],
         Rol.Lider =>
         [
             new("tablero", "Tablero", "/", 0), new("bandeja", "Solicitudes nuevas", "/solicitudes", _solsTotal),

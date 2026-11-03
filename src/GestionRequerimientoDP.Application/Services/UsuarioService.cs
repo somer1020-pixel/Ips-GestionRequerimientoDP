@@ -108,7 +108,7 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         var lower = email.ToLowerInvariant();
         if (await db.Usuarios.AnyAsync(x => x.Id != u.Id && x.Email.ToLower() == lower, ct)) throw new ReglaException("Ya existe un usuario con ese correo.");
         if (u.Id == me.Id && u.Rol != Rol.Lider) throw new ReglaException("No puedes quitarte el rol de líder.");
-        var equipos = u.Rol == Rol.Comercial ? [] : u.Equipos.Distinct().ToList();
+        var equipos = Reglas.EsSolicitante(u.Rol) ? [] : u.Equipos.Distinct().ToList();
         if (u.Rol == Rol.Analista && equipos.Count == 0) throw new ReglaException("Selecciona al menos un equipo.");
         string? rut = null;
         if (!string.IsNullOrWhiteSpace(u.Rut))

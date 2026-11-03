@@ -175,6 +175,7 @@ En Development (`Auth:DemoMode = true`), la pantalla de ingreso muestra botones 
 | Analista Codificación | Marcela Olivares, Pablo Vergara, Daniela Rojas |
 | Mixtos | José Miguel Carreño (DP + Cod), Cristian Gómez y Luis Ruiz (DP + Script) |
 | Comercial | Maria Paz Ayala, Wiliam Muñoz, Lorena Montalvo Rosado |
+| PM de Operaciones | Paula Orellana (solicita a DP, Codificación y Scripting como un área comercial) |
 
 Los datos semilla reproducen la planilla `Prog DP.xlsx` (49 entregables), 8 semanas de historia, scripts, codificación y 4 solicitudes comerciales. Las fechas se desplazan por semanas completas para que la semana de la planilla coincida con la semana actual al momento de cargar.
 

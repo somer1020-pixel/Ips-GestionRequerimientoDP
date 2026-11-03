@@ -41,11 +41,14 @@ public static partial class Reglas
     public static string EstadoColumna(Estado e) => e switch { Estado.EnCurso => "En curso", Estado.Ok => "OK · Terminado", _ => "Pendiente" };
     public static string EstadoCss(Estado e) => e switch { Estado.EnCurso => "be be-info", Estado.Ok => "be be-success", _ => "be be-neutral" };
 
-    public static string RolLabel(Rol r) => r switch { Rol.Lider => "Líder de equipo", Rol.Comercial => "Comercial", _ => "Analista" };
+    public static string RolLabel(Rol r) => r switch { Rol.Lider => "Líder de equipo", Rol.Comercial => "Comercial", Rol.PM => "PM de Operaciones", _ => "Analista" };
+
+    /// <summary>Perfiles que ingresan solicitudes a Operaciones (Nueva solicitud / Mis solicitudes): áreas comerciales y PM de Operaciones.</summary>
+    public static bool EsSolicitante(Rol r) => r is Rol.Comercial or Rol.PM;
 
     public static string EquipoLabel(Usuario u)
     {
-        if (u.Rol == Rol.Comercial) return "—";
+        if (EsSolicitante(u.Rol)) return "—";
         if (u.Rol == Rol.Lider && u.Equipos.Count == 0) return "Todos";
         var s = string.Join(" + ", u.EquiposOrdenados.Select(e => Tipo(e).EquipoLabel));
         return s.Length > 0 ? s : "—";

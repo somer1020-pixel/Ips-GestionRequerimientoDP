@@ -31,6 +31,7 @@ public static class DbSeeder
         ("fs", "Fernanda Silva", "fsilva@empresa.cl", Rol.Analista, "script"),
         ("mo", "Marcela Olivares", "molivares@empresa.cl", Rol.Analista, "cod"), ("pv", "Pablo Vergara", "pvergara@empresa.cl", Rol.Analista, "cod"),
         ("dr", "Daniela Rojas", "drojas@empresa.cl", Rol.Analista, "cod"),
+        ("po", "Paula Orellana", "porellana@empresa.cl", Rol.PM, ""), // PM de Operaciones (al final para no cambiar los Id anteriores)
     ];
 
     static readonly Dictionary<string, string> B = new()
