@@ -3,18 +3,25 @@
 @inject IScriptAssignmentService Scripts
 @inject IUsuarioService Users
 
-<div class="dialog-backdrop" @onclick="Ui.CloseNew">
+<div class="dialog-backdrop">  @* sin cierre por clic afuera: al volver de otra aplicación se perdía lo escrito *@
     <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="Nuevo requerimiento" @onclick:stopPropagation="true"
          style="width:min(620px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
         <div class="dialog-title">Nuevo requerimiento</div>
+        @if (_recuperado is { } rec)
+        {
+            <div role="status" style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap;font-size:13px;background:var(--teal-50);border-radius:6px;padding:var(--space-2) var(--space-3)">
+                <span style="flex:1;min-width:220px">Recuperamos lo que estabas ingresando (@rec).</span>
+                <button class="btn btn-ghost" style="font-size:13px;padding:2px 8px" @onclick="Descartar">Descartar y empezar de nuevo</button>
+            </div>
+        }
         <Seg T="Equipo" Options="TipoOpts" Value="_d.Tipo" ValueChanged="SetTipo" Stretch="true" Style="display:flex" />
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
-            <div class="field"><label for="nr-cli">Cliente *</label><input id="nr-cli" class="form-control" @bind="_d.Cliente" placeholder="Ej. Banco Estado" /></div>
-            <div class="field"><label for="nr-job">Job *</label><input id="nr-job" class="form-control" @bind="_d.Job" placeholder="26-000000-01-01" /></div>
-            <div class="field" style="grid-column:1 / -1"><label for="nr-pro">Proyecto / estudio *</label><input id="nr-pro" class="form-control" @bind="_d.Proyecto" placeholder="Nombre del estudio" /></div>
+            <div class="field"><label for="nr-cli">Cliente *</label><input id="nr-cli" class="form-control" @bind="_d.Cliente" @bind:after="GuardarBorrador" placeholder="Ej. Banco Estado" /></div>
+            <div class="field"><label for="nr-job">Job *</label><input id="nr-job" class="form-control" @bind="_d.Job" @bind:after="GuardarBorrador" placeholder="26-000000-01-01" /></div>
+            <div class="field" style="grid-column:1 / -1"><label for="nr-pro">Proyecto / estudio *</label><input id="nr-pro" class="form-control" @bind="_d.Proyecto" @bind:after="GuardarBorrador" placeholder="Nombre del estudio" /></div>
             <div class="field">
                 <label for="nr-sl">SL</label>
-                <select id="nr-sl" class="form-select" @bind="_d.SL">
+                <select id="nr-sl" class="form-select" @bind="_d.SL" @bind:after="GuardarBorrador">
                     @foreach (var b in Catalogos.SLS)
                     {
                         <option value="@b">@b</option>
@@ -23,7 +30,7 @@
             </div>
             <div class="field">
                 <label for="nr-tec">Técnica *</label>
-                <select id="nr-tec" class="form-select" @bind="_d.Tecnica">
+                <select id="nr-tec" class="form-select" @bind="_d.Tecnica" @bind:after="GuardarBorrador">
                     <option value="">Selecciona la técnica…</option>
                     @foreach (var c in Catalogos.CAMPOS)
                     {
@@ -33,19 +40,19 @@
             </div>
             <div class="field">
                 <label for="nr-ent">@(_d.Tipo == Equipo.Script ? "Tipo de requerimiento" : "Entregable")</label>
-                <select id="nr-ent" class="form-select" @bind="_d.Entregable">
+                <select id="nr-ent" class="form-select" @bind="_d.Entregable" @bind:after="GuardarBorrador">
                     @foreach (var e in Catalogos.EntregablesDe(_d.Tipo))
                     {
                         <option value="@e">@e</option>
                     }
                 </select>
             </div>
-            <div class="field"><label for="nr-fecha">@(_d.Tipo == Equipo.Script ? "Fecha compromiso" : "Día de entrega")</label><input id="nr-fecha" class="form-control" type="date" @bind="_d.Fecha" /></div>
-            <div class="field" style="grid-column:1 / -1"><label for="nr-desc">Descripción</label><input id="nr-desc" class="form-control" @bind="_d.Descripcion" placeholder="Ej. Tablas estadísticas, SPSS, BD cliente…" /></div>
-            <div class="field"><label for="nr-com">Responsable comercial</label><input id="nr-com" class="form-control" @bind="_d.Comercial" placeholder="Nombre / Ejecutivo" /></div>
+            <div class="field"><label for="nr-fecha">@(_d.Tipo == Equipo.Script ? "Fecha compromiso" : "Día de entrega")</label><input id="nr-fecha" class="form-control" type="date" @bind="_d.Fecha" @bind:after="GuardarBorrador" /></div>
+            <div class="field" style="grid-column:1 / -1"><label for="nr-desc">Descripción</label><input id="nr-desc" class="form-control" @bind="_d.Descripcion" @bind:after="GuardarBorrador" placeholder="Ej. Tablas estadísticas, SPSS, BD cliente…" /></div>
+            <div class="field"><label for="nr-com">Responsable comercial</label><input id="nr-com" class="form-control" @bind="_d.Comercial" @bind:after="GuardarBorrador" placeholder="Nombre / Ejecutivo" /></div>
             <div class="field">
                 <label for="nr-an">Analista asignado</label>
-                <select id="nr-an" class="form-select" value="@(_d.AnalistaId?.ToString() ?? "")" @onchange="e => _d.AnalistaId = int.TryParse(e.Value?.ToString(), out var x) ? x : null">
+                <select id="nr-an" class="form-select" value="@(_d.AnalistaId?.ToString() ?? "")" @onchange="async e => { _d.AnalistaId = int.TryParse(e.Value?.ToString(), out var x) ? x : null; await GuardarBorrador(); }">
                     <option value="">@(_d.Tipo == Equipo.Script ? $"Automático · primer disponible ({_recNombre})" : "Sin asignar")</option>
                     @foreach (var a in Reglas.Asignables(_users, _d.Tipo))
                     {
@@ -63,7 +70,7 @@
             <div style="font-size:13px;color:var(--color-accent-900);font-weight:500" role="alert">@_err</div>
         }
         <div class="dialog-actions">
-            <button class="btn btn-outline-secondary" @onclick="Ui.CloseNew">Cancelar</button>
+            <button class="btn btn-outline-secondary" @onclick="Cancelar">Cancelar</button>
             <button class="btn btn-primary" @onclick="Save" disabled="@_busy">@(_d.Tipo == Equipo.Script ? "Crear y asignar" : "Agregar a la planificación")</button>
         </div>
     </div>
@@ -78,6 +85,60 @@
     string _recNombre = "Sin analistas activos", _recReason = "Activa usuarios de scripting en Usuarios.";
     string? _err;
     bool _busy, _init;
+    string? _recuperado;
+    string ClaveBorrador => $"grdp.borrador.nuevoreq.{Me.Id}";
+    static readonly TimeSpan VigenciaBorrador = TimeSpan.FromDays(7);
+    sealed record Borrador(NuevoRequerimiento Datos, DateTimeOffset Guardado);
+
+    /// <summary>
+    /// Lo escrito se guarda en el navegador en cada cambio: si el formulario se cierra, la conexión se corta
+    /// (pestaña en segundo plano mucho rato) o la página se recarga, al abrirlo de nuevo se recupera.
+    /// </summary>
+    async Task GuardarBorrador()
+    {
+        _err = null;
+        try { await JS.InvokeVoidAsync("grdp.borrador.guardar", ClaveBorrador, System.Text.Json.JsonSerializer.Serialize(new Borrador(_d, DateTimeOffset.Now))); }
+        catch (JSDisconnectedException) { }
+    }
+
+    async Task BorrarBorrador()
+    {
+        try { await JS.InvokeVoidAsync("grdp.borrador.borrar", ClaveBorrador); } catch (JSDisconnectedException) { }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        string? json = null;
+        try { json = await JS.InvokeAsync<string?>("grdp.borrador.leer", ClaveBorrador); } catch (JSDisconnectedException) { }
+        if (string.IsNullOrEmpty(json)) return;
+        try
+        {
+            var b = System.Text.Json.JsonSerializer.Deserialize<Borrador>(json);
+            var vacio = b is null || (string.IsNullOrWhiteSpace(b.Datos.Cliente) && string.IsNullOrWhiteSpace(b.Datos.Job) && string.IsNullOrWhiteSpace(b.Datos.Proyecto)
+                                      && string.IsNullOrWhiteSpace(b.Datos.Descripcion) && string.IsNullOrWhiteSpace(b.Datos.Comercial));
+            if (b is null || vacio || DateTimeOffset.Now - b.Guardado > VigenciaBorrador) { await BorrarBorrador(); return; }
+            _d = b.Datos;
+            if (!Catalogos.EntregablesDe(_d.Tipo).Contains(_d.Entregable)) _d.Entregable = Catalogos.EntregablesDe(_d.Tipo)[0];
+            _recuperado = b.Guardado.LocalDateTime.Date == DateTime.Today ? $"guardado a las {b.Guardado.LocalDateTime:HH:mm}" : $"guardado el {Fechas.FmtDT(b.Guardado)}";
+            StateHasChanged();
+        }
+        catch (System.Text.Json.JsonException) { await BorrarBorrador(); }
+    }
+
+    async Task Descartar()
+    {
+        await BorrarBorrador();
+        _recuperado = null;
+        _d = new NuevoRequerimiento { Tipo = _d.Tipo };
+        SetDefaults();
+    }
+
+    async Task Cancelar()
+    {
+        await BorrarBorrador(); // cancelar a propósito descarta lo escrito
+        Ui.CloseNew();
+    }
 
     protected override ChangeKind[] ReloadOn => [ChangeKind.Usuarios];
 
@@ -112,12 +173,13 @@
         }
     }
 
-    void SetTipo(Equipo t)
+    async Task SetTipo(Equipo t)
     {
         _d.Tipo = t;
         _d.AnalistaId = null;
         _d.Entregable = Catalogos.EntregablesDe(t)[0];
         _err = null;
+        await GuardarBorrador();
     }
 
     async Task Save()
@@ -127,6 +189,7 @@
         try
         {
             var (r, sent) = await Reqs.CrearAsync(Me, _d);
+            await BorrarBorrador();
             var nombre = r.AnalistaId is { } a ? _users.FirstOrDefault(u => u.Id == a)?.Nombre ?? "" : "Sin asignar";
             Ui.CloseNew();
             Ui.Flash((r.Tipo == Equipo.Script ? $"Script {r.Job} asignado a {nombre}" : $"{r.Job} agregado a la planificación") + (sent ? " · correo enviado" : ""));

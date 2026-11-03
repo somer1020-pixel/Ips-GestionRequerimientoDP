@@ -6,7 +6,7 @@
 @if (_r is { } r)
 {
     var late = Today > r.Fecha;
-    <div class="dialog-backdrop" @onclick="Ui.CloseOk" style="z-index:60">
+    <div class="dialog-backdrop" style="z-index:60">
         <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="Confirmar OK de término" @onclick:stopPropagation="true" style="background:var(--color-bg)">
             <div class="dialog-title">Confirmar OK de término</div>
             <div class="dialog-body"><strong>@_analista</strong> confirma que <strong>@r.Job · @r.Proyecto — @r.Descripcion</strong> está completamente terminado. Esto libera su disponibilidad.</div>

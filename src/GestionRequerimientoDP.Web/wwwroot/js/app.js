@@ -52,6 +52,12 @@ window.grdp = {
     if (window.isSecureContext && navigator.clipboard) { try { await navigator.clipboard.writeText(text); return true; } catch (e) { } }
     return copiarConSeleccion(text);
   },
+  // Borradores de formularios en este navegador (sobreviven a cortes de conexión y recargas).
+  borrador: {
+    guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) { } },
+    leer(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    borrar(k) { try { localStorage.removeItem(k); } catch (e) { } },
+  },
   // Resultado del último botón data-copiar (la copia ya se hizo en el clic); null si no hubo.
   copiado() { const r = ultimaCopia; ultimaCopia = null; return r; },
   confirm(msg) { return window.confirm(msg); },

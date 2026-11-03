@@ -1000,7 +1000,7 @@
 
   <!-- CONFIRMAR OK -->
   <sc-if value="{{ hasOk }}" hint-placeholder-val="{{ false }}">
-    <div class="dialog-backdrop" onClick="{{ cancelOk }}" style="z-index:60">
+    <div class="dialog-backdrop" style="z-index:60">
       <div class="dialog blueprint" onClick="{{ stop }}" style="background:var(--color-bg)">
         <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
         <div class="dialog-title">Confirmar OK de término</div>
@@ -1049,7 +1049,7 @@
 
   <!-- NUEVO REQUERIMIENTO -->
   <sc-if value="{{ hasNew }}" hint-placeholder-val="{{ false }}">
-    <div class="dialog-backdrop" onClick="{{ closeNew }}" style="z-index:50">
+    <div class="dialog-backdrop" style="z-index:50">
       <div class="dialog blueprint" onClick="{{ stop }}" style="width:min(620px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
         <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
         <div class="dialog-title">Nuevo requerimiento</div>
@@ -1089,7 +1089,7 @@
 
   <!-- IMPORTAR -->
   <sc-if value="{{ hasImport }}" hint-placeholder-val="{{ false }}">
-    <div class="dialog-backdrop" onClick="{{ closeImport }}" style="z-index:50">
+    <div class="dialog-backdrop" style="z-index:50">
       <div class="dialog blueprint" onClick="{{ stop }}" style="width:min(680px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
         <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
         <div class="dialog-title">Importar planilla · {{ planUnitLabel }}</div>
@@ -1114,7 +1114,7 @@
 
   <!-- USUARIO -->
   <sc-if value="{{ hasUserDraft }}" hint-placeholder-val="{{ false }}">
-    <div class="dialog-backdrop" onClick="{{ closeUser }}" style="z-index:50">
+    <div class="dialog-backdrop" style="z-index:50">
       <div class="dialog blueprint" onClick="{{ stop }}" style="background:var(--color-bg)">
         <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
         <div class="dialog-title">{{ userDraftTitle }}</div>

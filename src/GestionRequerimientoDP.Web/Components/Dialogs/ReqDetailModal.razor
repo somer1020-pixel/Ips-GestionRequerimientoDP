@@ -7,8 +7,8 @@
 {
     var lead = Me.EsLider;
     var canEdit = lead || r.AnalistaId == Me.Id;
-    <div class="dialog-backdrop" @onclick="Ui.CloseDetail">
-        <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="Detalle del requerimiento" @onclick:stopPropagation="true"
+    <div class="dialog-backdrop" @onmousedown="() => _downFuera = true" @onclick="CerrarSiFuera">
+        <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="Detalle del requerimiento" @onclick:stopPropagation="true" @onmousedown="() => _downFuera = false" @onmousedown:stopPropagation="true"
              style="width:min(620px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)">
                 <div>
@@ -180,6 +180,9 @@
             Ui.Flash($"{job} eliminado");
         });
     }
+
+    bool _downFuera;
+    void CerrarSiFuera() { if (_downFuera) Ui.CloseDetail(); _downFuera = false; }
 
     string EnlaceConsulta => _r is null ? "" : $"{Nav.BaseUri}consulta?job={Uri.EscapeDataString(_r.Job)}";
 

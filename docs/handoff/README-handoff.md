@@ -76,6 +76,11 @@ interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos
   - La importación reconoce también nombres de líderes en la columna ANALISTA.
   - Un líder con requerimientos abiertos asignados ve la pestaña **Mis asignaciones** (la misma vista que "Mi semana" del analista), con contador de atrasados.
   - Si un líder se asigna a sí mismo, no se envía correo de asignación. Si asigna a otro líder, sí.
+- **Diálogos con formulario y borradores:**
+  - "Nuevo requerimiento", "Dar OK", "Importar planilla" y el formulario de usuario **no se cierran con un clic fuera del recuadro**; solo con Cancelar o al guardar. Al volver de otra aplicación es común hacer clic en cualquier parte, y se perdía lo escrito.
+  - El detalle de un requerimiento, que guarda cada cambio al instante, sí se cierra con un clic afuera, pero solo si el clic empieza afuera. Seleccionar texto en las notas y soltar el mouse fuera del recuadro no lo cierra.
+  - *Implementación:* "Nuevo requerimiento" guarda un borrador en el navegador en cada cambio. Si el diálogo se cierra o la página se recarga, al abrirlo de nuevo se recupera, con el aviso "Recuperamos lo que estabas ingresando" y la opción "Descartar y empezar de nuevo". Cancelar o guardar lo borra.
+  - *Implementación:* el servidor mantiene la sesión interactiva 20 minutos sin conexión (por defecto son 3), para que al volver de otra pestaña o aplicación siga todo como estaba.
 - **Usuarios inactivos:** no pueden ingresar, no aparecen en asignaciones, balanceo ni ranking de scripts y se muestran atenuados. Al desactivar a alguien con requerimientos activos se avisa para reasignarlos.
 - Un líder no puede desactivarse ni quitarse el rol de líder a sí mismo.
 - **Eliminar usuario** (solo líder): botón en la tabla de Usuarios, con confirmación, disponible solo para usuarios **sin historial** (sin entregables terminados, sin OK registrados y sin solicitudes) y nunca para uno mismo. Sus requerimientos abiertos quedan sin asignar. Con historial se desactiva en vez de eliminar.

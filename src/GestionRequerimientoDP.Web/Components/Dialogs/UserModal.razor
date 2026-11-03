@@ -4,7 +4,7 @@
 @inject IAuditoriaService Audit
 @inject IDirectorioService Directorio
 
-<div class="dialog-backdrop" @onclick="OnClose">
+<div class="dialog-backdrop">
     <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="@Title" @onclick:stopPropagation="true" style="background:var(--color-bg)">
         <div class="dialog-title">@Title</div>
         @if (Aprobar)

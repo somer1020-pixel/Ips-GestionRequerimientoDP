@@ -8,7 +8,19 @@ using GestionRequerimientoDP.Web.Ui;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents(o =>
+    {
+        // Al volver de otra aplicación o pestaña, la sesión interactiva (con formularios abiertos) se recupera
+        // si pasaron menos de 20 minutos (por defecto 3).
+        o.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(20);
+    })
+    .AddHubOptions(o =>
+    {
+        // Los navegadores frenan los temporizadores de pestañas en segundo plano: más margen antes de dar la conexión por perdida.
+        o.ClientTimeoutInterval = TimeSpan.FromMinutes(2);
+        o.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    });
 builder.Services.Configure<ReglasOptions>(builder.Configuration.GetSection(ReglasOptions.Section));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

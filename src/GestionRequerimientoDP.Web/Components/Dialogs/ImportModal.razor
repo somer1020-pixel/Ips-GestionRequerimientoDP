@@ -2,7 +2,7 @@
 @inject IImportService Import
 @inject IExcelGateway Excel
 
-<div class="dialog-backdrop" @onclick="OnClose">
+<div class="dialog-backdrop">
     <div class="dialog blueprint" role="dialog" aria-modal="true" aria-label="Importar planilla" @onclick:stopPropagation="true"
          style="width:min(680px,100%);background:var(--color-bg);max-height:calc(100vh - 32px);overflow:auto">
         <div class="dialog-title">Importar planilla · @(Unit == Equipo.Procesamiento ? "Procesamiento de datos" : Reglas.Tipo(Unit).Label)</div>
