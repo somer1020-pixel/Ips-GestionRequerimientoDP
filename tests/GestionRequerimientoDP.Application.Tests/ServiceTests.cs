@@ -108,6 +108,34 @@ public class ServiceTests
     }
 
     [Fact]
+    public async Task Asignar_a_primer_disponible_no_separa_una_solicitud_de_varios_entregables()
+    {
+        var app = await App();
+        var mp = await app.UserAsync("mayala@empresa.cl");
+        var lider = await app.UserAsync("vnunez@empresa.cl");
+        await app.Scripts.AutoAssignAsync(lider); // vaciar la cola previa de la semilla
+        SolicitudInput Sol(string job, params string[] ents) => new()
+        {
+            Tipo = Equipo.Script, Cliente = "Banco de Chile", Proyecto = "Sucursales", Job = job, SL = "CEX", Tecnica = "Online", Fecha = Martes.AddDays(7),
+            Descripcion = "Configurar nueva ola", Entregables = [.. ents],
+        };
+        var s1 = await app.Sols.EnviarAsync(mp, Sol("26-0000-000-01", "Programación", "Configurar nueva ola", "Cuotas"));
+        var s2 = await app.Sols.EnviarAsync(mp, Sol("26-0000-000-02", "Programación", "Cuotas"));
+
+        var (asignados, correos) = await app.Scripts.AutoAssignAsync(lider);
+
+        Assert.Equal(5, asignados);
+        await using var db = app.Factory.Create();
+        var a1 = await db.Requerimientos.Where(r => r.SolicitudId == s1.Id).Select(r => r.AnalistaId).Distinct().ToListAsync();
+        var a2 = await db.Requerimientos.Where(r => r.SolicitudId == s2.Id).Select(r => r.AnalistaId).Distinct().ToListAsync();
+        Assert.Single(a1); // los 3 entregables de la solicitud quedan con el mismo analista
+        Assert.Single(a2);
+        Assert.NotNull(a1[0]);
+        Assert.NotEqual(a1[0], a2[0]); // el ranking se recalcula por bloque: la siguiente solicitud va al siguiente disponible
+        Assert.Equal(2, correos); // un correo por analista con todos sus entregables
+    }
+
+    [Fact]
     public async Task Atraso_sin_gestion_un_aviso_por_dia()
     {
         var app = await App();

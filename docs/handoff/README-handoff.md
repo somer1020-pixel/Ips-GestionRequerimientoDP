@@ -235,7 +235,7 @@ interface Requerimiento {
   - `Libre`: 0 activos
   - `Disponible`: menos que el WIP
   - `Al límite`: WIP o más
-- Si hay scripts en cola sin asignar, el botón "Asignar a primer disponible" los reparte recalculando el ranking tras cada uno.
+- Si hay scripts en cola sin asignar, el botón "Asignar a primer disponible" los reparte por **bloque**: los entregables de una misma solicitud comercial (o, si no vienen de una, del mismo Job) van todos al mismo analista, igual que en el balanceo, que no separa jobs. El ranking se recalcula después de cada bloque y se envía un correo por analista.
 
 ### 3.3 OK de término
 - **El diálogo de OK pide datos según el tipo:**

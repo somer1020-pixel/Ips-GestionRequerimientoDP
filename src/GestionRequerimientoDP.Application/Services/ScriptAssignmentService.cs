@@ -28,6 +28,9 @@ public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock
         return new(ScriptRanking.Rank(users, reqs, clock.Today), scripts, scripts.Where(r => r.AnalistaId == null && r.Estado != Estado.Ok).OrderBy(r => r.Fecha).ToList());
     }
 
+    /// <summary>Entregables que se asignan juntos: los de una misma solicitud comercial o, si no vienen de una, los del mismo Job.</summary>
+    public static string BloqueDe(Requerimiento r) => r.SolicitudId is { } s ? $"S{s}" : $"J{Reglas.Norm(r.Job)}";
+
     public async Task<(int Asignados, int Correos)> AutoAssignAsync(UsuarioActual me, CancellationToken ct = default)
     {
         Guard.Lider(me);
@@ -37,14 +40,19 @@ public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock
         var cola = reqs.Where(r => r.Tipo == Equipo.Script && r.AnalistaId == null && r.Estado != Estado.Ok).OrderBy(r => r.Id).ToList();
         var now = clock.Now;
         var done = new List<Requerimiento>();
-        foreach (var r in cola)
+        // Una solicitud (o un Job sin solicitud) con varios entregables va completa al mismo analista: no se separa,
+        // igual que en el balanceo. El ranking se recalcula después de cada bloque.
+        foreach (var bloque in cola.GroupBy(BloqueDe).OrderBy(g => g.Min(r => r.Id)))
         {
             var top = ScriptRanking.Rank(users.Values.OrderBy(u => u.Id), reqs, clock.Today).FirstOrDefault();
             if (top is null) break;
-            r.AnalistaId = top.Analista.Id;
-            r.Actualizado = now;
-            db.Log(r, OkAccion.Asignacion, me.Id, now, new { analista = r.AnalistaId, auto = true });
-            done.Add(r);
+            foreach (var r in bloque)
+            {
+                r.AnalistaId = top.Analista.Id;
+                r.Actualizado = now;
+                db.Log(r, OkAccion.Asignacion, me.Id, now, new { analista = r.AnalistaId, auto = true });
+                done.Add(r);
+            }
         }
         var n = notif.QueueAsignacion(db, done, users, me.Id);
         await db.SaveAsync(ct);
