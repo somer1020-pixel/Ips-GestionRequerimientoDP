@@ -4,7 +4,7 @@ namespace GestionRequerimientoDP.Domain;
 public static class Catalogos
 {
     /// <summary>Service lines (campo SL, antes BU).</summary>
-    public static readonly IReadOnlyList<string> SLS = ["CEX", "BHT", "MSU", "AUM", "UU", "Observer", "CHP"];
+    public static readonly IReadOnlyList<string> SLS = ["CEX", "BHT", "MSU", "AUM", "UU", "Observer", "CHP", "PA"];
 
     /// <summary>Técnicas / áreas de campo.</summary>
     public static readonly IReadOnlyList<string> CAMPOS = ["CATI", "F2F", "MS", "IDP", "IVR", "IIS", "Online", "WhatsApp", "EFM"];

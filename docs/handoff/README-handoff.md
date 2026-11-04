@@ -192,7 +192,7 @@ interface Requerimiento {
   - Usuario semilla: Paula Orellana.
 - **Formulario de nueva solicitud:**
   - Unidad (Procesamiento / Codificación / Script), Cliente*, Job*, Proyecto* y Fecha requerida* (≥ hoy).
-  - **SL*** (todas las unidades, incluido Script; se guarda en el campo `bu`): CEX · BHT · MSU · AUM · UU · Observer · CHP.
+  - **SL*** (todas las unidades, incluido Script; se guarda en el campo `bu`): CEX · BHT · MSU · AUM · UU · Observer · CHP · PA.
   - **Técnica*** (combobox, todas las unidades): CATI · F2F · MS · IDP · IVR · IIS · Online · WhatsApp · EFM. Es la misma lista que las áreas de campo (`CAMPOS`), así que `campoFrom()` la reconoce directamente.
   - **Entregables solicitados*** (chips de selección múltiple, una fila por elección):
     - Procesamiento: Proceso de datos · Base de datos cliente Excel · Base de datos SPSS · Tablero · Otros.
