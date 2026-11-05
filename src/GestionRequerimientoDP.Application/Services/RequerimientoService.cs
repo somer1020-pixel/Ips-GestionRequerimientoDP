@@ -109,7 +109,7 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
         };
         db.Requerimientos.Add(r);
         await db.SaveAsync(ct);
-        var sent = analista != null && notif.QueueAsignacion(db, [r], users, me.Id) > 0;
+        var sent = analista != null && await notif.QueueAsignacionAsync(db, [r], users, me.Id, ct) > 0;
         if (analista != null) db.Log(r, OkAccion.Asignacion, me.Id, now, new { analista });
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
@@ -130,7 +130,7 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
         r.AnalistaId = analistaId;
         r.Actualizado = now;
         db.Log(r, OkAccion.Asignacion, me.Id, now, new { analista = analistaId });
-        var sent = analistaId != null && notif.QueueAsignacion(db, [r], users, me.Id) > 0;
+        var sent = analistaId != null && await notif.QueueAsignacionAsync(db, [r], users, me.Id, ct) > 0;
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
         if (r.SolicitudId != null) changes.Publish(ChangeKind.Solicitudes);

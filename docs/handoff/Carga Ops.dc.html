@@ -1406,7 +1406,23 @@ class Component extends DCLogic {
   notifyAssign(list){
     if(!(this.props.notifyAssign??true))return 0;
     const by={};list.filter(r=>r.analista&&r.analista!==this.state.session).forEach(r=>{(by[r.analista]=by[r.analista]||[]).push(r);});
-    const mails=Object.entries(by).map(([uid,items])=>this.buildMail('asignacion',uid,items));this.addMails(mails);return mails.length;
+    const mails=Object.entries(by).map(([uid,items])=>this.buildMail('asignacion',uid,items));
+    // Aviso al solicitante (comercial o PM): quién gestionará su solicitud, un correo por Job y solicitante.
+    const ids=new Set(list.map(r=>r.id)),bySol={};
+    list.filter(r=>r.analista&&r.solBy).forEach(r=>{const k=r.solBy+'|'+r.job;(bySol[k]=bySol[k]||[]).push(r);});
+    Object.values(bySol).forEach(items=>{
+      const u=this.state.users.find(x=>x.id===items[0].solBy);if(!u)return;
+      const sols=[...new Set(items.map(r=>r.solId))],f=items[0];
+      const pend=this.state.reqs.filter(r=>sols.includes(r.solId)&&!r.analista&&!ids.has(r.id));
+      const resp=[...new Set(items.map(r=>this.nameOf(r.analista)))];
+      mails.push({id:'M'+Date.now()+Math.random().toString(36).slice(2,6),at:nowStr(),kind:'asignada',to:[u.email],cc:[],
+        subject:`[Carga Ops] Tu solicitud ${sols.join(', ')} · Job ${f.job} ya tiene ${resp.length===1?'responsable: '+resp[0]:'responsables'}`,
+        body:[`Hola ${u.nombre.split(' ')[0]},`,'',`Tu solicitud ${sols.join(', ')} (${f.proyecto} · ${f.cliente} · Job ${f.job}) ya tiene quién la gestione:`,
+          ...items.map(r=>`• ${r.entregable}${r.descripcion?': '+r.descripcion:''} — ${this.nameOf(r.analista)} · entrega ${fmtD(r.fecha)}`),
+          ...(pend.length?['','Aún por asignar:',...pend.map(r=>`• ${r.entregable} · ${fmtD(r.fecha)}`)]:[]),
+          '','Sigue el estado en Carga Ops → Mis solicitudes.','','Mensaje automático de Carga Ops.'].join('\n'),reqIds:items.map(r=>r.id)});
+    });
+    this.addMails(mails);return mails.length;
   }
   assign(id,an){const r=this.state.reqs.find(x=>x.id===id);if(!r||r.analista===an)return;this.upd(id,{analista:an});
     const n=an?this.notifyAssign([{...r,analista:an}]):0;this.flash(an?`Asignado a ${this.nameOf(an)}${n?' · correo enviado':''}`:'Asignación quitada');}
@@ -1757,9 +1773,9 @@ class Component extends DCLogic {
       matLabel2:r.materialesAt?fmtD(r.materialesAt)+(mt?' · tarde':''):'Sin registrar',matColor:mt?'var(--warning)':'var(--ink-muted)',matWeight:mt?'600':'400',
       respLabel:respLabelOf(r),respColor:RESPX[effResp(r)].color,motivoLabel:(r.atrasoMotivo||'—')+(r.atrasoDetalle?' — '+r.atrasoDetalle:'')};});
     // notificaciones
-    const mailRows=s.mails.map(m=>({...m,when:fmtDT(m.at),kindLabel:({asignacion:'Asignación',atraso:'Atraso sin gestión',solicitud:'Nueva solicitud'})[m.kind],kindClass:({asignacion:'be be-neutral',atraso:'be be-danger',solicitud:'be be-warning'})[m.kind],toLabel:m.to.join(', '),ccLabel:m.cc.length?m.cc.join(', '):'—',isOpen:s.mailOpen===m.id,rowDisplay:s.mailOpen===m.id?'table-row':'none',toggle:()=>this.setState({mailOpen:s.mailOpen===m.id?null:m.id})}));
+    const mailRows=s.mails.map(m=>({...m,when:fmtDT(m.at),kindLabel:({asignacion:'Asignación',atraso:'Atraso sin gestión',solicitud:'Nueva solicitud',asignada:'Solicitud asignada'})[m.kind],kindClass:({asignacion:'be be-neutral',atraso:'be be-danger',solicitud:'be be-warning',asignada:'be be-success'})[m.kind],toLabel:m.to.join(', '),ccLabel:m.cc.length?m.cc.join(', '):'—',isOpen:s.mailOpen===m.id,rowDisplay:s.mailOpen===m.id?'table-row':'none',toggle:()=>this.setState({mailOpen:s.mailOpen===m.id?null:m.id})}));
     const nA=P.notifyAssign??true,nO=P.notifyOverdue??true,stale=P.staleDays??2;
-    const notifRules=[{title:'Asignación',state:nA?'Activa':'Desactivada',tagClass:nA?'tag tag-accent':'tag tag-neutral',desc:'Al asignar o reasignar (manual, balanceo, importación, nuevo script) se envía un correo al analista con el detalle. Las acciones masivas envían un solo correo por analista.'},
+    const notifRules=[{title:'Asignación',state:nA?'Activa':'Desactivada',tagClass:nA?'tag tag-accent':'tag tag-neutral',desc:'Al asignar o reasignar (manual, balanceo, importación, nuevo script) se envía un correo al analista con el detalle. Las acciones masivas envían un solo correo por analista. Si los entregables vienen de una solicitud, el solicitante (comercial o PM) recibe un aviso de quién la gestionará, consolidado por Job.'},
       {title:'Atraso sin gestión',state:nO?'Activa':'Desactivada',tagClass:nO?'tag tag-accent':'tag tag-neutral',desc:`Revisión diaria: si un requerimiento pasó su día de entrega sin OK y sigue pendiente o lleva ${stale}+ días sin actualización, se avisa al analista con copia al líder (máximo un aviso por día).`},
       {title:'Nueva solicitud comercial',state:'Activa',tagClass:'tag tag-accent',desc:'Cuando un área comercial o un PM de Operaciones envía una solicitud, se avisa al líder del equipo correspondiente (según "Equipos a cargo"; si no hay, a todos los líderes) con copia al solicitante. No se asigna analista.'}];
     const dow=pISO(TODAY).getDay();const nextThu=addDays(TODAY,(4-dow+7)%7);

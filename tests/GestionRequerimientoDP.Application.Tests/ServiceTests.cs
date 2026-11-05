@@ -132,7 +132,7 @@ public class ServiceTests
         Assert.Single(a2);
         Assert.NotNull(a1[0]);
         Assert.NotEqual(a1[0], a2[0]); // el ranking se recalcula por bloque: la siguiente solicitud va al siguiente disponible
-        Assert.Equal(2, correos); // un correo por analista con todos sus entregables
+        Assert.Equal(4, correos); // un correo por analista con todos sus entregables + un aviso al solicitante por Job
     }
 
     [Fact]
@@ -198,6 +198,103 @@ public class ServiceTests
         // un analista no puede ingresar solicitudes
         var analista = await app.UserAsync("asalinas@empresa.cl");
         await Assert.ThrowsAsync<PermisoException>(() => app.Sols.EnviarAsync(analista, new SolicitudInput { Cliente = "C", Proyecto = "P", Job = "J", Tecnica = "CATI", Fecha = Martes.AddDays(2), Entregables = ["Tablero"] }));
+    }
+
+    static SolicitudInput SolScript(string job, params string[] ents) => new()
+    {
+        Tipo = Equipo.Script, Cliente = "Banco de Chile", Proyecto = "Sucursales", Job = job, SL = "CEX", Tecnica = "Online",
+        Fecha = Martes.AddDays(7), Descripcion = "Configurar nueva ola", Entregables = [.. ents],
+    };
+
+    static async Task<List<Notificacion>> AvisosSolicitante(TestApp app, string email)
+    {
+        await using var db = app.Factory.Create();
+        return await db.Notificaciones.Where(n => n.Kind == NotificacionKind.SolicitudAsignada && n.To == email).OrderBy(n => n.Id).ToListAsync();
+    }
+
+    [Fact]
+    public async Task Al_asignar_una_solicitud_se_avisa_al_solicitante_quien_la_gestionara_un_correo_por_job()
+    {
+        var app = await App();
+        var mp = await app.UserAsync("mayala@empresa.cl");
+        var lider = await app.UserAsync("vnunez@empresa.cl");
+        await app.Scripts.AutoAssignAsync(lider);
+        var s = await app.Sols.EnviarAsync(mp, SolScript("26-AVISO-01", "Programación", "Cuotas", "Configurar nueva ola"));
+        var v = await app.Scripts.VistaAsync(lider);
+        var elegido = v.Ranking[1].Analista;
+
+        await app.Scripts.AsignarBloqueAsync(lider, Assert.Single(v.Cola).Clave, elegido.Id);
+
+        var aviso = Assert.Single(await AvisosSolicitante(app, "mayala@empresa.cl"));
+        Assert.Equal($"[{AppInfo.Nombre}] Tu solicitud {s.Codigo} · Job 26-AVISO-01 ya tiene responsable: {elegido.Nombre}", aviso.Subject);
+        foreach (var e in new[] { "Programación", "Cuotas", "Configurar nueva ola" }) Assert.Contains($"• {e}: Configurar nueva ola — {elegido.Nombre} · entrega", aviso.Body);
+        Assert.DoesNotContain("Aún por asignar", aviso.Body);
+        Assert.Contains("Mis solicitudes", aviso.Body);
+    }
+
+    [Fact]
+    public async Task Asignacion_parcial_avisa_lo_asignado_y_lo_que_falta_y_cada_asignacion_posterior_avisa_de_nuevo()
+    {
+        var app = await App();
+        var pm = await app.UserAsync("porellana@empresa.cl");
+        var lider = await app.UserAsync("cmendez@empresa.cl");
+        var s = await app.Sols.EnviarAsync(pm, new SolicitudInput
+        {
+            Tipo = Equipo.Procesamiento, Cliente = "Cliente PM", Proyecto = "Tracking", Job = "26-AVISO-02", SL = "BHT", Tecnica = "CATI",
+            Fecha = Martes.AddDays(5), Entregables = [Catalogos.EntregablesDe(Equipo.Procesamiento)[0], Catalogos.EntregablesDe(Equipo.Procesamiento)[1]],
+        });
+        await using var db0 = app.Factory.Create();
+        var reqs = await db0.Requerimientos.Where(r => r.SolicitudId == s.Id).OrderBy(r => r.Id).ToListAsync();
+        var a1 = await app.UserAsync("asalinas@empresa.cl");
+        var a2 = await app.UserAsync("aperez@empresa.cl");
+
+        await app.Reqs.AsignarAsync(lider, reqs[0].Id, a1.Id);
+        var primero = Assert.Single(await AvisosSolicitante(app, "porellana@empresa.cl"));
+        Assert.Contains($"— {a1.Nombre}", primero.Body);
+        Assert.Contains("Aún por asignar:", primero.Body);
+        Assert.Contains($"• {reqs[1].Entregable}", primero.Body[primero.Body.IndexOf("Aún por asignar")..]);
+
+        await app.Reqs.AsignarAsync(lider, reqs[1].Id, a2.Id);
+        var avisos = await AvisosSolicitante(app, "porellana@empresa.cl");
+        Assert.Equal(2, avisos.Count);
+        Assert.Contains($"— {a2.Nombre}", avisos[1].Body);
+        Assert.DoesNotContain("Aún por asignar", avisos[1].Body);
+
+        await app.Reqs.AsignarAsync(lider, reqs[1].Id, null); // quitar la asignación no avisa
+        Assert.Equal(2, (await AvisosSolicitante(app, "porellana@empresa.cl")).Count);
+    }
+
+    [Fact]
+    public async Task Dos_solicitudes_del_mismo_job_asignadas_juntas_van_en_un_solo_aviso()
+    {
+        var app = await App();
+        var mp = await app.UserAsync("mayala@empresa.cl");
+        var lider = await app.UserAsync("vnunez@empresa.cl");
+        await app.Scripts.AutoAssignAsync(lider);
+        var s1 = await app.Sols.EnviarAsync(mp, SolScript("26-AVISO-03", "Programación"));
+        var s2 = await app.Sols.EnviarAsync(mp, SolScript("26-AVISO-03", "Cuotas"));
+        var s3 = await app.Sols.EnviarAsync(mp, SolScript("26-AVISO-04", "Programación"));
+
+        await app.Scripts.AutoAssignAsync(lider); // un solo lote: dos Jobs del mismo solicitante
+
+        var avisos = await AvisosSolicitante(app, "mayala@empresa.cl");
+        Assert.Equal(2, avisos.Count); // uno por Job
+        var job3 = Assert.Single(avisos, a => a.Subject.Contains("26-AVISO-03"));
+        Assert.Contains($"{s1.Codigo}, {s2.Codigo}", job3.Subject);
+        Assert.Contains("ya tiene responsables", job3.Subject); // cada solicitud fue a un analista distinto
+        Assert.Contains(avisos, a => a.Subject.Contains(s3.Codigo));
+    }
+
+    [Fact]
+    public async Task Sin_avisos_de_asignacion_tampoco_se_avisa_al_solicitante()
+    {
+        var app = await App();
+        app.Reglas.NotifyAssign = false;
+        var mp = await app.UserAsync("mayala@empresa.cl");
+        var lider = await app.UserAsync("vnunez@empresa.cl");
+        await app.Sols.EnviarAsync(mp, SolScript("26-AVISO-05", "Programación"));
+        await app.Scripts.AutoAssignAsync(lider);
+        Assert.Empty(await AvisosSolicitante(app, "mayala@empresa.cl"));
     }
 
     [Fact]

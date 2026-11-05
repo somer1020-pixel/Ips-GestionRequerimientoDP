@@ -12,7 +12,7 @@ public enum MetodoCodificacion { IA, Manual }
 
 public enum AtrasoResponsable { Operaciones, Comercial, Campo }
 
-public enum NotificacionKind { Asignacion, Atraso, Solicitud, Acceso }
+public enum NotificacionKind { Asignacion, Atraso, Solicitud, Acceso, SolicitudAsignada }
 
 public enum NotificacionStatus { Pendiente, Enviado, Error, Omitido }
 

@@ -287,6 +287,12 @@ interface Requerimiento {
   - Se envía al asignar o reasignar un requerimiento a un analista o a otro líder (no al asignarse uno mismo), sea por el select inline, por el detalle, por un nuevo requerimiento, por el balanceo aplicado, por una importación con analista reconocido o por la autoasignación de scripts.
   - Las acciones masivas envían **un correo por analista** con la lista completa.
   - Para: el analista.
+- **Solicitud asignada** (aviso al solicitante; usa el mismo interruptor `notifyAssign`):
+  - Cuando se asignan o reasignan entregables que vienen de una solicitud, por cualquier vía (select, detalle, cola de Scripts, "Asignar a primer disponible", balanceo), se avisa al **solicitante** (comercial o PM) quién gestionará su requerimiento.
+  - **Un correo por Job y solicitante** en cada acción, aunque los entregables queden con personas distintas.
+  - Asunto: `[Carga Ops] Tu solicitud S-#### · Job <job> ya tiene responsable: <nombre>`, o "ya tiene responsables" si son varios.
+  - Cuerpo: un renglón por entregable asignado con descripción, responsable y día de entrega. Si quedan entregables de la solicitud sin asignar, se listan como "Aún por asignar". Cierra con "Sigue el estado en Mis solicitudes".
+  - Tipo `asignada` en Notificaciones ("Solicitud asignada"). Si el solicitante está inactivo, el correo se omite.
 - **Atraso sin gestión** (`notifyOverdue`, por defecto activa):
   - Condición: `estado !== 'ok'`, `fecha < hoy` y **sin gestión**. Sin gestión significa `estado === 'pendiente'` o `actualizado` con `staleDays` días o más de antigüedad (por defecto 2).
   - Para: el analista, con CC a los líderes activos. Si el requerimiento no tiene analista, va solo a los líderes.

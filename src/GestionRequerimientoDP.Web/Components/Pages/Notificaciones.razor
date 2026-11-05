@@ -103,14 +103,14 @@
         get
         {
             var o = Opts.CurrentValue;
-            yield return ("Asignación", o.NotifyAssign, "Al asignar o reasignar (manual, balanceo, importación, nuevo script) se envía un correo al analista con el detalle. Las acciones masivas envían un solo correo por analista.");
+            yield return ("Asignación", o.NotifyAssign, "Al asignar o reasignar (manual, balanceo, importación, nuevo script) se envía un correo al analista con el detalle. Las acciones masivas envían un solo correo por analista. Si los entregables vienen de una solicitud, el solicitante (comercial o PM) recibe un aviso de quién la gestionará, consolidado por Job.");
             yield return ("Atraso sin gestión", o.NotifyOverdue, $"Revisión diaria (09:00, hora de Chile): si un requerimiento pasó su día de entrega sin OK y sigue pendiente o lleva {o.StaleDays}+ días sin actualización, se avisa al analista con copia al líder (máximo un aviso por día).");
             yield return ("Nueva solicitud comercial", true, "Cuando un área comercial envía una solicitud, se avisa al líder del equipo correspondiente (según \"Equipos a cargo\"; si no hay, a todos los líderes) con copia al solicitante. No se asigna analista.");
         }
     }
 
-    static string KindLabel(NotificacionKind k) => k switch { NotificacionKind.Atraso => "Atraso sin gestión", NotificacionKind.Solicitud => "Nueva solicitud", NotificacionKind.Acceso => "Acceso", _ => "Asignación" };
-    static string KindCss(NotificacionKind k) => k switch { NotificacionKind.Atraso => "be be-danger", NotificacionKind.Solicitud => "be be-warning", NotificacionKind.Acceso => "be be-info", _ => "be be-neutral" };
+    static string KindLabel(NotificacionKind k) => k switch { NotificacionKind.Atraso => "Atraso sin gestión", NotificacionKind.Solicitud => "Nueva solicitud", NotificacionKind.Acceso => "Acceso", NotificacionKind.SolicitudAsignada => "Solicitud asignada", _ => "Asignación" };
+    static string KindCss(NotificacionKind k) => k switch { NotificacionKind.Atraso => "be be-danger", NotificacionKind.Solicitud => "be be-warning", NotificacionKind.Acceso => "be be-info", NotificacionKind.SolicitudAsignada => "be be-success", _ => "be be-neutral" };
     static string StatusLabel(Notificacion m) => m.Status switch
     {
         NotificacionStatus.Enviado => m.Error.Length > 0 ? "Enviado (simulado)" : "Enviado",

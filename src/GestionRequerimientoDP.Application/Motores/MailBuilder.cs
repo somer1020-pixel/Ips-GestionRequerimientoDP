@@ -94,6 +94,33 @@ public static class MailBuilder
         string.Join('\n', $"Hola {First(u.Nombre)},", "", $"Tu solicitud de acceso a {AppInfo.Nombre} no fue aprobada. Si crees que es un error, comunícate con el líder de Operaciones.",
             "", $"Mensaje automático de {AppInfo.Nombre}."), []);
 
+    /// <summary>
+    /// Aviso al solicitante (comercial o PM) de quién gestionará su solicitud: un correo por Job, con el responsable y el día
+    /// de entrega de cada entregable asignado y lo que aún falta por asignar.
+    /// </summary>
+    public static MailDraft SolicitudAsignada(Usuario solicitante, IReadOnlyList<string> codigos, IReadOnlyList<Requerimiento> asignados,
+        IReadOnlyDictionary<int, Usuario> usuarios, IReadOnlyList<Requerimiento> pendientes)
+    {
+        var f = asignados[0];
+        string Nombre(int? id) => id is { } i && usuarios.TryGetValue(i, out var u) ? u.Nombre : "Sin asignar";
+        var responsables = asignados.Select(r => Nombre(r.AnalistaId)).Distinct().ToList();
+        var cod = string.Join(", ", codigos);
+        var lines = new List<string>
+        {
+            $"Hola {First(solicitante.Nombre)},", "",
+            $"Tu solicitud {cod} ({f.Proyecto} · {f.Cliente} · Job {f.Job}) ya tiene quién la gestione:",
+        };
+        lines.AddRange(asignados.Select(r => $"• {r.Entregable}{(string.IsNullOrEmpty(r.Descripcion) ? "" : ": " + r.Descripcion)} — {Nombre(r.AnalistaId)} · entrega {Fechas.FmtD(r.Fecha)}"));
+        if (pendientes.Count > 0)
+        {
+            lines.AddRange(["", "Aún por asignar:"]);
+            lines.AddRange(pendientes.Select(r => $"• {r.Entregable} · {Fechas.FmtD(r.Fecha)}"));
+        }
+        lines.AddRange(["", $"Sigue el estado en {AppInfo.Nombre} → Mis solicitudes.", "", $"Mensaje automático de {AppInfo.Nombre}."]);
+        var subject = $"{P} Tu solicitud {cod} · Job {f.Job} ya tiene {(responsables.Count == 1 ? "responsable: " + responsables[0] : "responsables")}";
+        return new(NotificacionKind.SolicitudAsignada, [solicitante.Email], [], subject, string.Join('\n', lines), asignados.Select(r => r.Id).ToList());
+    }
+
     /// <summary>Un correo por analista con todos sus requerimientos (acciones masivas).</summary>
     public static List<MailDraft> AsignacionPorAnalista(IEnumerable<Requerimiento> asignados, IReadOnlyDictionary<int, Usuario> usuarios) =>
         asignados.Where(r => r.AnalistaId != null)

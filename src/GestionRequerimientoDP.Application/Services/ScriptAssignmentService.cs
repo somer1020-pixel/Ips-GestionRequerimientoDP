@@ -68,7 +68,7 @@ public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock
             r.Actualizado = now;
             db.Log(r, OkAccion.Asignacion, me.Id, now, new { analista = analistaId, bloque });
         }
-        var sent = notif.QueueAsignacion(db, items, users, me.Id) > 0;
+        var sent = await notif.QueueAsignacionAsync(db, items, users, me.Id, ct) > 0;
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
         if (items.Any(r => r.SolicitudId != null)) changes.Publish(ChangeKind.Solicitudes);
@@ -99,7 +99,7 @@ public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock
                 done.Add(r);
             }
         }
-        var n = notif.QueueAsignacion(db, done, users, me.Id);
+        var n = await notif.QueueAsignacionAsync(db, done, users, me.Id, ct);
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
         if (done.Any(r => r.SolicitudId != null)) changes.Publish(ChangeKind.Solicitudes);

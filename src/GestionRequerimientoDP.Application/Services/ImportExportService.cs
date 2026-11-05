@@ -69,7 +69,7 @@ public sealed class ImportExportService(IAppDbContextFactory factory, IClock clo
         }).ToList();
         db.Requerimientos.AddRange(nuevos);
         await db.SaveAsync(ct);
-        var n = notif.QueueAsignacion(db, nuevos, await db.UsuariosMapAsync(ct), me.Id);
+        var n = await notif.QueueAsignacionAsync(db, nuevos, await db.UsuariosMapAsync(ct), me.Id, ct);
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
         if (n > 0) changes.Publish(ChangeKind.Notificaciones);
