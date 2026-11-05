@@ -46,7 +46,7 @@
         </div>
         <div class="field">
             <label>Rol</label>
-            <Seg T="Rol" Options="RolOpts" Value="Input.Rol" ValueChanged="r => { Input.Rol = r; _err = null; }" Stretch="true" Style="display:flex" />
+            <Seg T="Rol" Options="RolOpts" Value="Input.Rol" ValueChanged="r => { Input.Rol = r; _err = null; }" Class="seg-wrap" />
         </div>
         @if (!Reglas.EsSolicitante(Input.Rol) && Input.Rol != Rol.Admin)
         {
