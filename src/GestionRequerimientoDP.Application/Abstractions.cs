@@ -68,7 +68,9 @@ public sealed class ReglasOptions
 /// <summary>Usuario autenticado, resuelto desde los claims.</summary>
 public sealed record UsuarioActual(int Id, string Nombre, Rol Rol, IReadOnlyList<Equipo> Equipos)
 {
-    public bool EsLider => Rol == Rol.Lider;
+    /// <summary>Gestiona la carga: líder de equipo o administrador (el administrador puede todo lo que puede un líder).</summary>
+    public bool EsLider => Reglas.EsGestor(Rol);
+    public bool EsAdmin => Rol == Rol.Admin;
     public bool EsAnalista => Rol == Rol.Analista;
     public bool EsComercial => Rol == Rol.Comercial;
     /// <summary>Comercial o PM de Operaciones: solo ingresa y sigue sus solicitudes.</summary>

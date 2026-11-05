@@ -44,7 +44,7 @@ public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock
         var cola = sinAsignar.GroupBy(BloqueDe)
             .Select(g => new ScriptBloque(g.Key, g.First().SolicitudId is { } sid ? codigos.GetValueOrDefault(sid) : null, g.OrderBy(r => r.Id).ToList()))
             .OrderBy(b => b.Fecha).ThenBy(b => b.Primero.Id).ToList();
-        var lideres = users.Where(u => u.Rol == Rol.Lider && u.Activo).OrderBy(u => u.Nombre, StringComparer.CurrentCulture).ToList();
+        var lideres = users.Where(u => Reglas.EsGestor(u.Rol) && u.Activo).OrderBy(u => u.Rol == Rol.Admin).ThenBy(u => u.Nombre, StringComparer.CurrentCulture).ToList();
         return new(ScriptRanking.Rank(users, reqs, clock.Today), scripts, sinAsignar, cola, lideres);
     }
 

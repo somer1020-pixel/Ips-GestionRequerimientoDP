@@ -11,6 +11,18 @@ internal static class Guard
         if (!me.EsLider) throw new PermisoException("Solo el líder de equipo puede realizar esta acción.");
     }
 
+    /// <summary>
+    /// ¿Administra usuarios (crear, editar, roles, accesos, auditoría)? Solo el administrador. Transición: mientras no
+    /// exista ningún administrador activo, los líderes siguen haciéndolo (así alguien puede asignar el primer administrador).
+    /// </summary>
+    public static async Task<bool> AdministraUsuariosAsync(IAppDbContext db, UsuarioActual me, CancellationToken ct) =>
+        me.EsAdmin || (me.Rol == Rol.Lider && !await db.Usuarios.AnyAsync(u => u.Rol == Rol.Admin && u.Activo, ct));
+
+    public static async Task AdministraUsuarios(IAppDbContext db, UsuarioActual me, CancellationToken ct)
+    {
+        if (!await AdministraUsuariosAsync(db, me, ct)) throw new PermisoException("Solo el administrador gestiona usuarios y accesos.");
+    }
+
     /// <summary>El líder edita todo; el analista solo lo asignado a él.</summary>
     public static bool CanEdit(UsuarioActual me, Requerimiento r) => me.EsLider || (me.EsAnalista && r.AnalistaId == me.Id);
 
@@ -30,7 +42,7 @@ internal static class DbExtensions
     /// <summary>Filtro de seguridad: el analista solo ve lo asignado a él y el comercial no ve la carga.</summary>
     public static IQueryable<Requerimiento> Visibles(this IAppDbContext db, UsuarioActual me) => me.Rol switch
     {
-        Rol.Lider => db.Requerimientos,
+        Rol.Lider or Rol.Admin => db.Requerimientos,
         Rol.Analista => db.Requerimientos.Where(r => r.AnalistaId == me.Id),
         _ => db.Requerimientos.Where(_ => false),
     };

@@ -135,7 +135,7 @@ public class AccesoServiceTests
     }
 
     [Fact]
-    public async Task Cuenta_AD_nueva_queda_pendiente_y_administrador_entra_como_lider()
+    public async Task Cuenta_AD_nueva_queda_pendiente_y_administrador_entra_como_administrador()
     {
         var (app, svc, _) = await Setup();
         var p = await svc.SolicitarDesdeAdAsync(@"DOM\nuevo", "nuevo@empresa.cl", "Nuevo Usuario", false);
@@ -145,7 +145,7 @@ public class AccesoServiceTests
             Assert.Single(await db.Notificaciones.Where(n => n.Kind == NotificacionKind.Acceso).ToListAsync());
 
         var admin = await svc.SolicitarDesdeAdAsync(@"DOM\admin", "admin@empresa.cl", "Admin", true);
-        Assert.Equal(Rol.Lider, admin.Rol);
+        Assert.Equal(Rol.Admin, admin.Rol);
         Assert.True(admin.Activo);
         Assert.False(admin.Pendiente);
 

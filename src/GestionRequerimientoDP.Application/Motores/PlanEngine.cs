@@ -31,7 +31,7 @@ public static class PlanEngine
         var all = reqs.OrderBy(r => r.Id).ToList();
         var items = all.Where(r => r.Tipo == unidad && Fechas.MondayOf(r.Fecha) == week).ToList();
         // Los líderes aparecen como fila solo si tienen entregables de esta unidad en la semana; no cuentan para promedio ni dispersión.
-        var team = analysts.Concat(users.Where(u => u.Rol == Rol.Lider && u.Activo && items.Any(r => r.AnalistaId == u.Id))
+        var team = analysts.Concat(users.Where(u => Reglas.EsGestor(u.Rol) && u.Activo && items.Any(r => r.AnalistaId == u.Id))
             .OrderBy(u => u.Nombre, StringComparer.CurrentCulture)).ToList();
         var scripts = all.Where(r => r.Tipo == Equipo.Script && Fechas.MondayOf(r.Fecha) == week && team.Any(a => a.Id == r.AnalistaId)).ToList();
         var weekAll = items.Concat(scripts).ToList();
@@ -42,7 +42,7 @@ public static class PlanEngine
         {
             var m = weekAll.Where(r => r.AnalistaId == a.Id).ToList();
             int n = m.Count, nS = m.Count(r => r.Tipo == Equipo.Script);
-            var (label, css, bar) = a.Rol == Rol.Lider ? ("Líder", "be be-navy", "var(--navy)") : CapacityStatus(n, mean, cap);
+            var (label, css, bar) = Reglas.EsGestor(a.Rol) ? (a.Rol == Rol.Admin ? "Administrador" : "Líder", "be be-navy", "var(--navy)") : CapacityStatus(n, mean, cap);
             return new CapCard(a, n, nS, cap, label, css, bar, Math.Min(100, n * 100.0 / cap),
                 m.Count(r => r.Estado == Estado.Pendiente), m.Count(r => r.Estado == Estado.EnCurso), m.Count(r => r.Estado == Estado.Ok),
                 nS > 0 ? $"{n - nS} {sh} + {nS} scripts" : $"{n} entregables {sh}");

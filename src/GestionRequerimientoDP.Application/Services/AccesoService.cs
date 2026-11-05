@@ -57,6 +57,7 @@ public sealed class AuditoriaService(IAppDbContextFactory factory, IClock clock)
     {
         Guard.Lider(me);
         await using var db = factory.Create();
+        await Guard.AdministraUsuarios(db, me, ct);
         var q = db.Auditoria.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(filtro))
         {
@@ -219,7 +220,7 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
         if (esAdministrador && (nuevo || u.Pendiente))
         {
             // Administradores por configuración: entran como líder (a cargo de todos los equipos) sin esperar aprobación.
-            u.Rol = Rol.Lider;
+            u.Rol = Rol.Admin;
             u.Equipos.Clear();
             u.Aprobacion = Aprobacion.Aprobado;
             u.Activo = true;
@@ -232,7 +233,9 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
 
     async Task AvisarLideres(IAppDbContext db, Usuario u, CancellationToken ct)
     {
-        var lideres = await db.Usuarios.AsNoTracking().Where(x => x.Rol == Rol.Lider && x.Activo).OrderBy(x => x.Id).ToListAsync(ct);
+        // Las solicitudes de acceso van a los administradores; si aún no hay ninguno, a los líderes (que en ese caso administran usuarios).
+        var lideres = await db.Usuarios.AsNoTracking().Where(x => x.Rol == Rol.Admin && x.Activo).OrderBy(x => x.Id).ToListAsync(ct);
+        if (lideres.Count == 0) lideres = await db.Usuarios.AsNoTracking().Where(x => x.Rol == Rol.Lider && x.Activo).OrderBy(x => x.Id).ToListAsync(ct);
         if (lideres.Count == 0) return;
         db.Notificaciones.Add(MailBuilder.SolicitudAcceso(lideres, u).ToEntity(clock.Now));
         await db.SaveChangesAsync(ct);
@@ -243,6 +246,7 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
     {
         Guard.Lider(me);
         await using var db = factory.Create();
+        await Guard.AdministraUsuarios(db, me, ct);
         return await db.UsuariosConEquipos().Where(u => u.Aprobacion == Aprobacion.Pendiente).OrderBy(u => u.CreadoAt).ThenBy(u => u.Id).ToListAsync(ct);
     }
 
@@ -250,9 +254,10 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
     {
         Guard.Lider(me);
         if (string.IsNullOrWhiteSpace(datos.Nombre) || string.IsNullOrWhiteSpace(datos.Email)) throw new ReglaException("Nombre y correo son obligatorios.");
-        var equipos = Reglas.EsSolicitante(datos.Rol) ? [] : datos.Equipos.Distinct().ToList();
+        var equipos = Reglas.EsSolicitante(datos.Rol) || datos.Rol == Rol.Admin ? [] : datos.Equipos.Distinct().ToList();
         if (datos.Rol == Rol.Analista && equipos.Count == 0) throw new ReglaException("Selecciona al menos un equipo.");
         await using var db = factory.Create();
+        await Guard.AdministraUsuarios(db, me, ct);
         var u = await db.Usuarios.Include(x => x.Equipos).FirstOrDefaultAsync(x => x.Id == datos.Id, ct) ?? throw new ReglaException("La solicitud ya no existe.");
         if (!u.Pendiente) throw new ReglaException("Esta solicitud ya fue aprobada.");
         var lower = datos.Email.Trim().ToLowerInvariant();
@@ -276,6 +281,7 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
     {
         Guard.Lider(me);
         await using var db = factory.Create();
+        await Guard.AdministraUsuarios(db, me, ct);
         var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ReglaException("La solicitud ya no existe.");
         if (!u.Pendiente) throw new ReglaException("Solo se pueden rechazar solicitudes pendientes.");
         db.Notificaciones.Add(MailBuilder.AccesoRechazado(u).ToEntity(clock.Now));

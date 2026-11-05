@@ -133,10 +133,10 @@ public static class AuthSetup
         else
             builder.Services.AddSingleton<IDirectorioService, SinDirectorio>();
         builder.Services.AddAuthorizationBuilder()
-            .AddPolicy(Policies.Lider, p => p.RequireRole(nameof(Rol.Lider)))
+            .AddPolicy(Policies.Lider, p => p.RequireRole(nameof(Rol.Lider), nameof(Rol.Admin))) // gestores: líder y administrador
             .AddPolicy(Policies.Analista, p => p.RequireRole(nameof(Rol.Analista)))
             .AddPolicy(Policies.Comercial, p => p.RequireRole(nameof(Rol.Comercial), nameof(Rol.PM))) // solicitantes: comercial y PM
-            .AddPolicy(Policies.Gestion, p => p.RequireRole(nameof(Rol.Lider), nameof(Rol.Analista)));
+            .AddPolicy(Policies.Gestion, p => p.RequireRole(nameof(Rol.Lider), nameof(Rol.Admin), nameof(Rol.Analista)));
         builder.Services.AddCascadingAuthenticationState();
     }
 

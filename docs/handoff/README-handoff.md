@@ -31,7 +31,7 @@ Aplicación web para administrar la carga laboral de Operaciones en tres unidade
 ## 1. Usuarios, roles y permisos
 
 ```ts
-type Rol = 'lider' | 'analista' | 'comercial' | 'pm';  // pm = PM de Operaciones (solicita como un área comercial)
+type Rol = 'lider' | 'analista' | 'comercial' | 'pm' | 'admin';  // pm = PM de Operaciones (solicita como un área comercial); admin = administrador
 type Equipo = 'proc' | 'script' | 'cod';
 interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos: Equipo[]; activo: boolean }
 ```
@@ -62,11 +62,11 @@ interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos
 - **Acceso y cuentas (implementación, sin pantalla en el mockup):**
   - El ingreso acepta **correo o RUT**. Con clave incorrecta el mensaje no revela si la cuenta existe.
   - **Política de contraseñas:** 8+ caracteres, con mayúscula, minúscula, número y símbolo, y sin nombre ni correo.
-  - **"Solicitar acceso"** en el ingreso: la cuenta queda pendiente e inactiva y se avisa a los líderes.
+  - **"Solicitar acceso"** en el ingreso: la cuenta queda pendiente e inactiva y se avisa al administrador (o a los líderes si aún no hay uno).
   - En Usuarios, la sección **Solicitudes de acceso** (con contador en la pestaña) permite aprobarlas con rol y equipos o rechazarlas, avisando por correo. Tipo de correo nuevo: `Acceso`.
   - **"¿Olvidaste tu contraseña?":** enlace de un solo uso que vence en 60 min. Solo se guarda su hash, máximo 3 por hora, y no pasa por el registro de Notificaciones.
   - **Fuerza bruta:** 5 intentos fallidos para un mismo correo o RUT bloquean el ingreso con contraseña por 15 min. Hay además un límite de envíos por IP.
-  - **Auditoría de accesos** (`/usuarios/auditoria`, solo líderes) con filtros Todo / Fallos y bloqueos / Administración.
+  - **Auditoría de accesos** (`/usuarios/auditoria`, solo quien administra usuarios) con filtros Todo / Fallos y bloqueos / Administración.
   - El formulario de usuario agrega **RUT** y, en servidores Windows con AD, **búsqueda en Active Directory**.
 - **Asignar a líderes:**
   - Un requerimiento se puede asignar a cualquier **líder activo** (otro líder o uno mismo), además de los analistas activos del equipo del tipo.
@@ -190,6 +190,13 @@ interface Requerimiento {
   - Sus solicitudes siguen el mismo flujo (bandeja del líder, aviso al líder del equipo, asignación, consulta). En el correo y en la bandeja figura como "Nombre (PM de Operaciones)".
   - Sin equipos. En Usuarios: etiqueta "PM de Operaciones", tarjeta de rol propia y la columna Carga muestra sus solicitudes.
   - Usuario semilla: Paula Orellana.
+- **Rol `admin` (Administrador):** ve y hace todo lo que hace un líder (es un *gestor*: `isGestor = lider || admin`) y además es el **único que administra usuarios**.
+  - Tabs y permisos de líder: Tablero, Solicitudes nuevas, Planificación, Scripts, Resumen, Histórico, Motivos de atraso, Notificaciones, Usuarios y "Mis asignaciones" si tiene asignados. Puede crear, asignar, balancear, importar y dar OK como un líder.
+  - Sin equipos (equivale a "Todos"). Etiqueta "Administrador" en la cabecera, en Usuarios y en la planificación. Se puede asignar como responsable: aparece al final de la lista como "Nombre (administrador)".
+  - **Usuarios y accesos:** solo el administrador ve la pestaña Usuarios (y su contador de solicitudes de acceso), crea, edita, activa, desactiva o elimina usuarios, aprueba o rechaza accesos y ve la Auditoría. **Transición:** mientras no exista un administrador activo, los líderes conservan esa capacidad para poder asignar el primero.
+  - No se puede dejar el sistema sin administrador activo: no se puede desactivar ni cambiar de rol al último. Nadie puede cambiar su propio rol.
+  - **Correos:** no recibe los avisos de solicitudes, asignaciones o gestión de requerimientos de terceros. Solo recibe: la **asignación** cuando le asignan un requerimiento, el **aviso diario de atrasos** (en copia, todos los atrasados, igual que los líderes) y las **solicitudes de acceso**. Si no hay ningún líder activo, las nuevas solicitudes van al administrador para que no queden sin destinatario.
+  - Las cuentas configuradas como administradores del SSO (`Sso:Administradores`) entran con rol Administrador.
 - **Formulario de nueva solicitud:**
   - Unidad (Procesamiento / Codificación / Script), Cliente*, Job*, Proyecto* y Fecha requerida* (≥ hoy).
   - **SL*** (todas las unidades, incluido Script; se guarda en el campo `bu`): CEX · BHT · MSU · AUM · UU · Observer · CHP · PA.
@@ -295,7 +302,7 @@ interface Requerimiento {
   - Tipo `asignada` en Notificaciones ("Solicitud asignada"). Si el solicitante está inactivo, el correo se omite.
 - **Atraso sin gestión** (`notifyOverdue`, por defecto activa):
   - Condición: `estado !== 'ok'`, `fecha < hoy` y **sin gestión**. Sin gestión significa `estado === 'pendiente'` o `actualizado` con `staleDays` días o más de antigüedad (por defecto 2).
-  - Para: el analista, con CC a los líderes activos. Si el requerimiento no tiene analista, va solo a los líderes.
+  - Para: el analista, con CC a los líderes y administradores activos. Si el requerimiento no tiene analista, va solo a ellos.
   - Un aviso por requerimiento por día (`alertAt = hoy`), agrupado por analista.
   - En producción, un cron diario (por ejemplo 09:00) en lugar de la revisión al cargar. El botón "Enviar recordatorios de atraso ahora" fuerza el envío.
 - **Registro de gestión:** cualquier cambio (estado, nota, fecha, analista) actualiza `actualizado`.
@@ -486,11 +493,11 @@ Los nombres en el mockup → C#:
 | Histórico | `/historico` | Lider |
 | Motivos de atraso | `/atrasos` (barras con divs y CSS, sin librería de gráficos) | Lider |
 | Notificaciones | `/notificaciones` | Lider |
-| Usuarios | `/usuarios` | Lider |
+| Usuarios | `/usuarios` | Admin (Lider solo si no hay administrador activo) |
 | Diálogos | `ReqDetailModal`, `OkModal`, `NewReqModal`, `ImportModal`, `UserModal`: modales Bootstrap controlados por estado C#, sin `bootstrap.js` | — |
 
 - **Autorización:**
-  - Políticas `Lider`, `Analista` y `Comercial`.
+  - Políticas `Lider` (líder o administrador), `Analista`, `Comercial` (comercial o PM) y `Gestion`. La administración de usuarios se valida en los servicios (`Guard.AdministraUsuarios`).
   - En los servicios, filtrar siempre por usuario: el analista solo ve `AnalistaId == me` y el comercial y el PM solo `SolicitanteId == me`. **No confiar en la UI.**
   - Con Windows Auth, mapear `User.Identity.Name` a `Usuario.DomainAccount` con un `IClaimsTransformation` que agregue el claim de rol.
 - **Tiempo real:**

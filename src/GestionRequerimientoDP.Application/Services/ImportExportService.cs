@@ -49,7 +49,7 @@ public sealed class ImportExportService(IAppDbContextFactory factory, IClock clo
     {
         // Analistas del equipo primero (si un nombre coincide con ambos, gana el analista) y después los líderes.
         var users = await db.UsuariosConEquipos().Where(u => u.Rol != Rol.Comercial && u.Rol != Rol.PM).OrderBy(u => u.Id).ToListAsync(ct);
-        var team = users.Where(u => u.Rol == Rol.Analista && u.Tiene(unidad)).Concat(users.Where(u => u.Rol == Rol.Lider));
+        var team = users.Where(u => u.Rol == Rol.Analista && u.Tiene(unidad)).Concat(users.Where(u => Reglas.EsGestor(u.Rol)));
         var existentes = await db.Requerimientos.AsNoTracking().Where(r => r.Tipo == unidad).ToListAsync(ct);
         return ImportParser.Parse(matrix, team, existentes);
     }

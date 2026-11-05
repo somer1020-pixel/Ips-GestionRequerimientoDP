@@ -2,9 +2,15 @@
 @attribute [Authorize(Policy = Policies.Lider)]
 @inherits AppPage
 @inject IAuditoriaService Audit
+@inject IUsuarioService Users
 
 <PageTitle>Auditoría de accesos · @AppInfo.Nombre</PageTitle>
 
+@if (Loaded && !_puede)
+{
+    <section class="stack"><div class="empty">Solo el administrador revisa la auditoría de accesos.</div></section>
+    return;
+}
 <section data-screen-label="Auditoría" class="stack">
     <div class="page-head">
         <div>
@@ -48,6 +54,7 @@
     List<AuditoriaAcceso> _items = [];
     string? _filtro;
     string _grupo = "todo";
+    bool _puede;
 
     static readonly IReadOnlyList<(string, string)> Grupos = [("todo", "Todo"), ("fallos", "Fallos y bloqueos"), ("admin", "Administración")];
 
@@ -65,5 +72,9 @@
     static string Css(string accion) =>
         EsFallo(accion) ? "be be-danger" : accion.StartsWith("LOGIN_OK") ? "be be-success" : accion.Contains("SOLICITADO") ? "be be-warning" : "be be-neutral";
 
-    protected override async Task LoadAsync() => _items = await Audit.ListAsync(Me, _filtro, Take);
+    protected override async Task LoadAsync()
+    {
+        _puede = await Users.PuedeAdministrarAsync(Me);
+        if (_puede) _items = await Audit.ListAsync(Me, _filtro, Take);
+    }
 }

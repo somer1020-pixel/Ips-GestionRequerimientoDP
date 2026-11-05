@@ -21,7 +21,10 @@ public static partial class Reglas
     /// ¿Puede ser responsable de un requerimiento de este tipo? Analistas activos del equipo y cualquier líder activo
     /// (otro líder o uno mismo). Los líderes no entran en balanceo ni en la autoasignación de scripts: se asignan a mano.
     /// </summary>
-    public static bool Asignable(Usuario u, Equipo tipo) => u.Activo && (u.Rol == Rol.Lider || (u.Rol == Rol.Analista && u.Tiene(tipo)));
+    public static bool Asignable(Usuario u, Equipo tipo) => u.Activo && (EsGestor(u.Rol) || (u.Rol == Rol.Analista && u.Tiene(tipo)));
+
+    /// <summary>Gestiona la carga (tablero, planificación, asignación…): líder de equipo o administrador.</summary>
+    public static bool EsGestor(Rol r) => r is Rol.Lider or Rol.Admin;
 
     /// <summary>Opciones del select de asignación: analistas del equipo y después los líderes.</summary>
     public static List<Usuario> Asignables(IEnumerable<Usuario> users, Equipo tipo) =>
@@ -32,16 +35,21 @@ public static partial class Reglas
         [.. users.Where(u => u.Rol == Rol.Analista && u.Activo).OrderBy(u => u.Id), .. Lideres(users)];
 
     static IEnumerable<Usuario> Lideres(IEnumerable<Usuario> users) =>
-        users.Where(u => u.Rol == Rol.Lider && u.Activo).OrderBy(u => u.Nombre, StringComparer.CurrentCulture);
+        users.Where(u => EsGestor(u.Rol) && u.Activo).OrderBy(u => u.Rol == Rol.Admin).ThenBy(u => u.Nombre, StringComparer.CurrentCulture);
 
-    /// <summary>Nombre en los selects: los líderes se marcan "(líder)".</summary>
-    public static string NombreResponsable(Usuario u) => u.Rol == Rol.Lider ? $"{u.Nombre} (líder)" : u.Nombre;
+    /// <summary>Nombre en los selects: los líderes se marcan "(líder)" y los administradores "(administrador)".</summary>
+    public static string NombreResponsable(Usuario u) => u.Rol switch
+    {
+        Rol.Lider => $"{u.Nombre} (líder)",
+        Rol.Admin => $"{u.Nombre} (administrador)",
+        _ => u.Nombre,
+    };
 
     public static string EstadoLabel(Estado e) => e switch { Estado.EnCurso => "En curso", Estado.Ok => "OK", _ => "Pendiente" };
     public static string EstadoColumna(Estado e) => e switch { Estado.EnCurso => "En curso", Estado.Ok => "OK · Terminado", _ => "Pendiente" };
     public static string EstadoCss(Estado e) => e switch { Estado.EnCurso => "be be-info", Estado.Ok => "be be-success", _ => "be be-neutral" };
 
-    public static string RolLabel(Rol r) => r switch { Rol.Lider => "Líder de equipo", Rol.Comercial => "Comercial", Rol.PM => "PM de Operaciones", _ => "Analista" };
+    public static string RolLabel(Rol r) => r switch { Rol.Lider => "Líder de equipo", Rol.Comercial => "Comercial", Rol.PM => "PM de Operaciones", Rol.Admin => "Administrador", _ => "Analista" };
 
     /// <summary>Perfiles que ingresan solicitudes a Operaciones (Nueva solicitud / Mis solicitudes): áreas comerciales y PM de Operaciones.</summary>
     public static bool EsSolicitante(Rol r) => r is Rol.Comercial or Rol.PM;
@@ -49,7 +57,7 @@ public static partial class Reglas
     public static string EquipoLabel(Usuario u)
     {
         if (EsSolicitante(u.Rol)) return "—";
-        if (u.Rol == Rol.Lider && u.Equipos.Count == 0) return "Todos";
+        if (EsGestor(u.Rol) && u.Equipos.Count == 0) return "Todos";
         var s = string.Join(" + ", u.EquiposOrdenados.Select(e => Tipo(e).EquipoLabel));
         return s.Length > 0 ? s : "—";
     }
@@ -171,10 +179,15 @@ public static partial class Reglas
         return r.Estado == Estado.EnCurso ? ("En proceso", "be be-info") : ("Asignado · programado", "be be-info");
     }
 
-    /// <summary>Líderes que reciben avisos del equipo t (o todos los líderes si nadie tiene ese equipo a cargo).</summary>
+    /// <summary>
+    /// Líderes que reciben avisos del equipo t (o todos los líderes si nadie tiene ese equipo a cargo). El administrador no
+    /// recibe los avisos de solicitudes de terceros, salvo que no haya ningún líder activo.
+    /// </summary>
     public static List<Usuario> TeamLeadersOf(IEnumerable<Usuario> users, Equipo t)
     {
-        var l = users.Where(u => u.Rol == Rol.Lider && u.Activo).ToList();
+        var todos = users.ToList();
+        var l = todos.Where(u => u.Rol == Rol.Lider && u.Activo).ToList();
+        if (l.Count == 0) return todos.Where(u => u.Rol == Rol.Admin && u.Activo).ToList();
         var m = l.Where(u => u.Equipos.Count == 0 || u.Tiene(t)).ToList();
         return m.Count > 0 ? m : l;
     }

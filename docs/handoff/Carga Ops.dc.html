@@ -1181,7 +1181,10 @@ const nowStr=()=>{const d=new Date();return `${iso(d)} ${pad(d.getHours())}:${pa
 const has=(u,t)=>!!u&&(u.equipos||[]).includes(t);
 // Perfiles que solicitan a Operaciones (no tienen carga propia): áreas comerciales y PM de Operaciones.
 const isSol=u=>!!u&&(u.rol==='comercial'||u.rol==='pm');
-const eqLabel=u=>isSol(u)?'—':u.rol==='lider'&&!(u.equipos||[]).length?'Todos':(u.equipos||[]).map(t=>({proc:'Procesamiento',script:'Scripting',cod:'Codificación'})[t]).join(' + ')||'—';
+// Gestor = líder de equipo o administrador (el administrador ve y hace todo lo de un líder).
+const isGestor=u=>!!u&&(u.rol==='lider'||u.rol==='admin');
+const respLabel=u=>u.nombre+(u.rol==='admin'?' (administrador)':' (líder)');
+const eqLabel=u=>isSol(u)?'—':isGestor(u)&&!(u.equipos||[]).length?'Todos':(u.equipos||[]).map(t=>({proc:'Procesamiento',script:'Scripting',cod:'Codificación'})[t]).join(' + ')||'—';
 const XLSX_URL='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 const loadXLSX=()=>window.XLSX?Promise.resolve(window.XLSX):new Promise((ok,ko)=>{const sc=document.createElement('script');sc.src=XLSX_URL;sc.onload=()=>ok(window.XLSX);sc.onerror=ko;document.head.appendChild(sc);});
 const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
@@ -1294,7 +1297,7 @@ const SEED_COD=[
 ['23','ITAU','Post test Itau ola 7','26-016395-01','Codificación de ocupación','Ocupación y rubro','Maria Paz Ayala','jm'],
 ['23','MALL PLAZA','Post test Mall Plaza Hito 3 (Chile)','26-032312-10','Libro de códigos','Actualización libro de códigos','Maria Paz Ayala','mo'],
 ['21','NESTLE','Milo Ceres Alienation Test CL','26-067771-01-01','Codificación preguntas abiertas','Abiertas de concepto','Paulina Montecinos','']];
-function teamLeadersOf(users,t){const l=users.filter(u=>u.rol==='lider'&&u.activo);const m=l.filter(u=>!(u.equipos||[]).length||u.equipos.includes(t));return m.length?m:l;}
+function teamLeadersOf(users,t){let l=users.filter(u=>u.rol==='lider'&&u.activo);if(!l.length)l=users.filter(u=>u.rol==='admin'&&u.activo);const m=l.filter(u=>!(u.equipos||[]).length||u.equipos.includes(t));return m.length?m:l;}
 function solMailObj(users,items,at){
   const f=items[0],L=teamLeadersOf(users,f.tipo),by=users.find(u=>u.id===f.solBy);
   return {id:'M'+Date.now()+Math.random().toString(36).slice(2,6),at:at||nowStr(),kind:'solicitud',to:L.map(u=>u.email),cc:by?[by.email]:[],
@@ -1386,10 +1389,13 @@ class Component extends DCLogic {
     },0);
   }
   me(){return this.state.users.find(u=>u.id===this.state.session);}
-  isLead(){const m=this.me();return !!m&&m.rol==='lider';}
+  isLead(){return isGestor(this.me());}
+  isAdmin(){const m=this.me();return !!m&&m.rol==='admin';}
+  // Solo el administrador administra usuarios; mientras no exista uno activo, lo hacen los líderes.
+  canAdminUsers(){const m=this.me();return !!m&&(m.rol==='admin'||(m.rol==='lider'&&!this.state.users.some(u=>u.rol==='admin'&&u.activo)));}
   nameOf(id){const u=this.state.users.find(x=>x.id===id);return u?u.nombre:'Sin asignar';}
   upd(id,patch){const t=nowStr();this.setState(s=>({reqs:s.reqs.map(r=>r.id===id?{...r,...patch,actualizado:t}:r)}));}
-  leaders(){return this.state.users.filter(u=>u.rol==='lider'&&u.activo);}
+  leaders(){return this.state.users.filter(u=>isGestor(u)&&u.activo);} // copia del aviso diario de atrasados: líderes y administrador
   sinGestion(r){const st=this.props.staleDays??2;return r.estado==='pendiente'||((r.actualizado||r.creado||'').slice(0,10)<=addDays(TODAY,-st));}
   buildMail(kind,uid,items){
     const u=this.state.users.find(x=>x.id===uid),L=this.leaders().map(x=>x.email);
@@ -1437,7 +1443,7 @@ class Component extends DCLogic {
   }
   flash(t){this.setState({toast:t});clearTimeout(this._t);this._t=setTimeout(()=>this.setState({toast:''}),2800);}
   enter(u){this.setState({session:u.id,loginErr:'',loginEmail:'',tab:'tablero',q:'',team:'all',detailId:null});}
-  canEdit(r){const m=this.me();return !!m&&(m.rol==='lider'||r.analista===m.id);}
+  canEdit(r){const m=this.me();return !!m&&(isGestor(m)||r.analista===m.id);}
   moveTo(id,estado){
     this.setState({dragOver:null,dragId:null});
     const r=this.state.reqs.find(x=>x.id===id);if(!r||!this.canEdit(r))return;
@@ -1451,8 +1457,8 @@ class Component extends DCLogic {
   active(team){return this.state.users.filter(u=>u.rol==='analista'&&has(u,team)&&u.activo);}
   // Responsables posibles de un requerimiento: analistas activos del equipo y cualquier líder activo (otro líder o uno mismo).
   // Los líderes no entran en el balanceo ni en la asignación automática de scripts: se asignan a mano.
-  leads(){return this.state.users.filter(u=>u.rol==='lider'&&u.activo);}
-  assignable(team){return [...this.active(team),...this.leads().map(u=>({...u,nombre:u.nombre+' (líder)'}))];}
+  leads(){return this.state.users.filter(u=>isGestor(u)&&u.activo).sort((a,b)=>(a.rol==='admin')-(b.rol==='admin'));}
+  assignable(team){return [...this.active(team),...this.leads().map(u=>({...u,nombre:respLabel(u)}))];}
   // Filas de la planificación: analistas del equipo + líderes con entregables de esa unidad en la semana.
   planTeam(unit,week){return [...this.active(unit),...this.leads().filter(l=>this.state.reqs.some(r=>r.tipo===unit&&mondayOf(r.fecha)===week&&r.analista===l.id))];}
   rank(reqs){
@@ -1509,7 +1515,7 @@ class Component extends DCLogic {
     let map=COLS,start=0;
     const h=matrix[0].map(c=>norm(c));
     if(h.includes('job')){map=h.map(c=>HDR[c]||null);start=1;}
-    const unit=this.state.planUnit,proc=this.state.users.filter(u=>(u.rol==='analista'&&has(u,unit))||u.rol==='lider');
+    const unit=this.state.planUnit,proc=this.state.users.filter(u=>(u.rol==='analista'&&has(u,unit))||isGestor(u));
     const seen=new Set(this.state.reqs.filter(r=>r.tipo===unit).map(r=>[r.fecha,norm(r.job),norm(r.entregable),norm(r.descripcion),r.analista].join('|')));
     for(let i=start;i<matrix.length;i++){
       const o={};map.forEach((k,j)=>{if(k)o[k]=matrix[i][j];});
@@ -1577,14 +1583,14 @@ class Component extends DCLogic {
         publicBackLabel:me0?'Volver a la app':'Ingresar a Carga Ops',closePublic:()=>{this.setState({publicView:false});if((location.hash||'').startsWith('#consulta'))history.replaceState(null,'',location.pathname+location.search);},
         hasDetail:false,hasOk:false,hasNew:false,hasImport:false,hasUserDraft:false};
     }
-    const me=me0,lead=!!me&&me.rol==='lider';
+    const me=me0,lead=isGestor(me);
     const base={isPublic:false,isLoggedOut:!me,isLoggedIn:!!me,stop:e=>e.stopPropagation(),hasToast:!!s.toast,toast:s.toast,isLead:lead,isAnalyst:!!me&&me.rol==='analista'};
     if(!me){
       const act=s.users.filter(u=>u.activo);
       const login=()=>{const u=act.find(u=>norm(u.email)===norm(s.loginEmail));if(u)this.enter(u);else this.setState({loginErr:'Correo no registrado o usuario inactivo.'});};
       return {...base,loginEmail:s.loginEmail,onLoginEmail:e=>this.setState({loginEmail:e.target.value,loginErr:''}),onLoginKey:e=>{if(e.key==='Enter')login();},
         login,hasLoginErr:!!s.loginErr,loginErr:s.loginErr,
-        demoGroups:[['Líderes de equipo',u=>u.rol==='lider'],['Analistas de procesamiento (DP)',u=>u.rol==='analista'&&u.equipos.length===1&&has(u,'proc')],['Analistas de scripting',u=>u.rol==='analista'&&u.equipos.length===1&&has(u,'script')],['Analistas de codificación',u=>u.rol==='analista'&&u.equipos.length===1&&has(u,'cod')],['Analistas en más de un equipo',u=>u.rol==='analista'&&u.equipos.length>1],['Áreas comerciales',u=>u.rol==='comercial'],['PM de Operaciones',u=>u.rol==='pm']]
+        demoGroups:[['Administradores',u=>u.rol==='admin'],['Líderes de equipo',u=>u.rol==='lider'],['Analistas de procesamiento (DP)',u=>u.rol==='analista'&&u.equipos.length===1&&has(u,'proc')],['Analistas de scripting',u=>u.rol==='analista'&&u.equipos.length===1&&has(u,'script')],['Analistas de codificación',u=>u.rol==='analista'&&u.equipos.length===1&&has(u,'cod')],['Analistas en más de un equipo',u=>u.rol==='analista'&&u.equipos.length>1],['Áreas comerciales',u=>u.rol==='comercial'],['PM de Operaciones',u=>u.rol==='pm']]
           .map(([label,f])=>({label,users:act.filter(f).map(u=>({nombre:u.nombre,enter:()=>this.enter(u)}))})),
         openPublic:()=>this.setState({publicView:true}),
         hasDetail:false,hasOk:false,hasNew:false,hasImport:false,hasUserDraft:false};
@@ -1619,7 +1625,7 @@ class Component extends DCLogic {
     const visible=lead?s.reqs:com?[]:s.reqs.filter(r=>r.analista===me.id);
     const scope=visible.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&mondayOf(r.fecha)===CUR));
     // tabs
-    const tabDefs=com?[['solnueva','Nueva solicitud'],['solmias','Mis solicitudes']]:lead?[['tablero','Tablero'],['bandeja','Solicitudes nuevas'],['plan','Planificación semanal'],['scripts','Scripts'],['resumen','Resumen'],['historico','Histórico'],['atrasos','Motivos de atraso'],['notif','Notificaciones'],['usuarios','Usuarios'],...(s.reqs.some(r=>r.analista===me.id&&r.estado!=='ok')?[['lista','Mis asignaciones']]:[])]:[['tablero','Mi tablero'],['lista','Mi semana']];
+    const tabDefs=com?[['solnueva','Nueva solicitud'],['solmias','Mis solicitudes']]:lead?[['tablero','Tablero'],['bandeja','Solicitudes nuevas'],['plan','Planificación semanal'],['scripts','Scripts'],['resumen','Resumen'],['historico','Histórico'],['atrasos','Motivos de atraso'],['notif','Notificaciones'],...(this.canAdminUsers()?[['usuarios','Usuarios']]:[]),...(s.reqs.some(r=>r.analista===me.id&&r.estado!=='ok')?[['lista','Mis asignaciones']]:[])]:[['tablero','Mi tablero'],['lista','Mi semana']];
     const tab=tabDefs.some(t=>t[0]===s.tab)?s.tab:tabDefs[0][0];
     const ICONS={atrasos:'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',bandeja:'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',solnueva:'M12 5v14M5 12h14',solmias:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',tablero:'M3 3h18v18H3zM9 3v18M15 3v18',lista:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',plan:'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4',scripts:'m16 18 6-6-6-6M8 6l-6 6 6 6',resumen:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',historico:'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2',notif:'M3 5h18v14H3zM3 7l9 6 9-6',usuarios:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'};
     const lateN=scope.filter(late).length;
@@ -1693,7 +1699,7 @@ class Component extends DCLogic {
     const capCards=procA.map(a=>{
       const m=weekAll.filter(r=>r.analista===a.id),n=m.length,nS=m.filter(r=>r.tipo==='script').length;
       let label='Equilibrado',tagClass='be be-success',bar='var(--teal)';
-      if(a.rol==='lider'){label='Líder';tagClass='be be-navy';bar='var(--navy)';}
+      if(isGestor(a)){label=a.rol==='admin'?'Administrador':'Líder';tagClass='be be-navy';bar='var(--navy)';}
       else if(n>cap){label='Sobre capacidad';tagClass='be be-danger';bar='var(--danger)';}
       else if(n-mean>=2){label='Sobrecargado';tagClass='be be-warning';bar='var(--warning)';}
       else if(mean-n>=2){label='Subutilizado';tagClass='be be-info';bar='var(--color-accent-300)';}
@@ -1797,7 +1803,7 @@ class Component extends DCLogic {
     const queueBlocks=Object.values(qb).map(g=>{
       const f=g.items[0],sel=(s.qPick||{})[g.key]||(top?top.a.id:''),fechas=g.items.map(r=>r.fecha).sort();
       return {titulo:`${f.solId?f.solId+' · ':''}${f.proyecto}`,sub:`${f.cliente} · Job ${f.job} · ${g.items.length} entregable(s) · para ${fmtD(fechas[0])}`,ents:g.items.map(r=>r.entregable).join(' · '),
-        options:[...ranking.map((x,i)=>({id:x.a.id,nombre:`${x.a.nombre} · ${x.active}/${wip} activos${i===0?' · recomendado':''}`})),...this.leads().map(l=>({id:l.id,nombre:l.nombre+' (líder)'}))],sel,
+        options:[...ranking.map((x,i)=>({id:x.a.id,nombre:`${x.a.nombre} · ${x.active}/${wip} activos${i===0?' · recomendado':''}`})),...this.leads().map(l=>({id:l.id,nombre:respLabel(l)}))],sel,
         pick:e=>this.setState(st=>({qPick:{...(st.qPick||{}),[g.key]:e.target.value}})),
         assign:()=>{if(!sel)return;const ids=g.items.map(r=>r.id);this.setState(st=>({reqs:st.reqs.map(r=>ids.includes(r.id)?{...r,analista:sel,actualizado:nowStr()}:r)}));
           const n=this.notifyAssign(g.items.map(r=>({...r,analista:sel})));this.flash(`${ids.length} entregable(s) asignados a ${this.nameOf(sel)}${n?' · correo enviado':''}`);}};
@@ -1805,7 +1811,7 @@ class Component extends DCLogic {
     // summary
     const leadScope=s.reqs.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&mondayOf(r.fecha)===CUR));
     const pendingList=leadScope.filter(r=>r.estado!=='ok').sort((a,b)=>byDate(a,b)||(a.estado==='pendiente'?0:1)-(b.estado==='pendiente'?0:1)).map((r,i)=>({...deco(r),rank:String(i+1)}));
-    const perAnalyst=s.users.filter(u=>u.activo&&(u.rol==='analista'||(u.rol==='lider'&&leadScope.some(r=>r.analista===u.id)))).map(a=>{const m=leadScope.filter(r=>r.analista===a.id);const l=m.filter(late).length;return {nombre:a.nombre,equipoLabel:eqLabel(a),pend:String(m.filter(r=>r.estado==='pendiente').length),curso:String(m.filter(r=>r.estado==='en_curso').length),ok:String(m.filter(r=>r.estado==='ok').length),late:String(l),lateWeight:l?'700':'400'};});
+    const perAnalyst=s.users.filter(u=>u.activo&&(u.rol==='analista'||(isGestor(u)&&leadScope.some(r=>r.analista===u.id)))).map(a=>{const m=leadScope.filter(r=>r.analista===a.id);const l=m.filter(late).length;return {nombre:a.nombre,equipoLabel:eqLabel(a),pend:String(m.filter(r=>r.estado==='pendiente').length),curso:String(m.filter(r=>r.estado==='en_curso').length),ok:String(m.filter(r=>r.estado==='ok').length),late:String(l),lateWeight:l?'700':'400'};});
     const sco=leadScope.filter(r=>r.tipo==='cod'),sp=leadScope.filter(r=>r.tipo==='proc'),ss=leadScope.filter(r=>r.tipo==='script');
     const kpis=[
       {label:'Pendientes de OK',value:String(pendingList.length),note:`${pendingList.filter(late).length} atrasados`},
@@ -1815,7 +1821,8 @@ class Component extends DCLogic {
       {label:'OK scripts',value:`${ss.filter(r=>r.estado==='ok').length}/${ss.length}`,note:'Activos + cerrados esta semana'}];
     // users
     const roleCards=[
-      {label:'Líder de equipo',count:String(s.users.filter(u=>u.rol==='lider'&&u.activo).length),desc:'Ve tablero, planificación de procesamiento y scripting completos. Asigna, balancea, importa, administra usuarios.'},
+      {label:'Administrador',count:String(s.users.filter(u=>u.rol==='admin'&&u.activo).length),desc:'Ve y hace todo lo que hace un líder y es el único que administra usuarios y aprueba accesos. Solo recibe correos de lo que le asignan, el resumen diario de atrasados y las solicitudes de acceso.'},
+      {label:'Líder de equipo',count:String(s.users.filter(u=>u.rol==='lider'&&u.activo).length),desc:'Ve tablero, planificación de procesamiento y scripting completos. Asigna, balancea e importa. Administra usuarios solo mientras no exista un administrador activo.'},
       {label:'Comercial',count:String(s.users.filter(u=>u.rol==='comercial'&&u.activo).length),desc:'Ingresa solicitudes a Operaciones y sigue su estado. No ve la carga de los equipos. Sus solicitudes llegan sin analista al líder del equipo.'},
       {label:'PM de Operaciones',count:String(s.users.filter(u=>u.rol==='pm'&&u.activo).length),desc:'Project managers de Operaciones: ingresan solicitudes a Procesamiento, Codificación y Scripting y siguen su estado, igual que un área comercial. No ven la carga de los equipos.'},
       {label:'Analista DP',count:String(this.active('proc').length),desc:'Solo ve su carga asignada (semana actual y siguiente). Actualiza estado, da OK y descarga su semana.'},
@@ -1834,9 +1841,10 @@ class Component extends DCLogic {
     const onUd={};['nombre','email'].forEach(k=>onUd[k]=e=>{const v=e.target.value;this.setState(st=>({ud:{...st.ud,[k]:v},udErr:''}));});
     const saveUser=()=>{const u=s.ud;if(!u.nombre.trim()||!u.email.trim()){this.setState({udErr:'Nombre y correo son obligatorios.'});return;}
       if(s.users.some(x=>x.id!==u.id&&norm(x.email)===norm(u.email))){this.setState({udErr:'Ya existe un usuario con ese correo.'});return;}
-      if(u.id===me.id&&u.rol!=='lider'){this.setState({udErr:'No puedes quitarte el rol de líder.'});return;}
+      if(u.id===me.id&&u.rol!==me.rol){this.setState({udErr:'No puedes quitarte tu propio rol.'});return;}
+      const prev=s.users.find(x=>x.id===u.id);if(prev&&prev.rol==='admin'&&prev.activo&&u.rol!=='admin'&&!s.users.some(x=>x.id!==u.id&&x.rol==='admin'&&x.activo)){this.setState({udErr:'Es el único administrador activo: asigna antes el rol Administrador a otra persona.'});return;}
       if(u.rol==='analista'&&!(u.equipos||[]).length){this.setState({udErr:'Selecciona al menos un equipo.'});return;}
-      const clean={...u,nombre:u.nombre.trim(),email:u.email.trim(),equipos:isSol(u)?[]:(u.equipos||[])};delete clean.equipo;
+      const clean={...u,nombre:u.nombre.trim(),email:u.email.trim(),equipos:isSol(u)||u.rol==='admin'?[]:(u.equipos||[])};delete clean.equipo;
       this.setState(st=>({users:u.id?st.users.map(x=>x.id===u.id?clean:x):[...st.users,{...clean,id:'u'+Date.now(),activo:true}],ud:null}));this.flash('Usuario guardado');};
     // detail
     const det=s.reqs.find(r=>r.id===s.detailId&&(lead||r.analista===me.id));
@@ -1865,10 +1873,10 @@ class Component extends DCLogic {
       ...(res.unknown.size?[`Analistas no reconocidos (quedarán sin asignar): ${[...res.unknown].join(', ')}`]:[])];
 
     return {...base,
-      me:{nombre:me.nombre,ini:iniOf(me.nombre),rolLabel:lead?'Líder · '+eqLabel(me):com?(me.rol==='pm'?'PM de Operaciones':'Área comercial'):'Analista '+(me.equipos||[]).map(t=>({proc:'DP',script:'Scripting',cod:'Codificación'})[t]).join(' + '),equipoLabel:eqLabel(me)},
+      me:{nombre:me.nombre,ini:iniOf(me.nombre),rolLabel:me.rol==='admin'?'Administrador':lead?'Líder · '+eqLabel(me):com?(me.rol==='pm'?'PM de Operaciones':'Área comercial'):'Analista '+(me.equipos||[]).map(t=>({proc:'DP',script:'Scripting',cod:'Codificación'})[t]).join(' + '),equipoLabel:eqLabel(me)},
       openPublic:()=>this.setState({publicView:true}),
       anFilter:s.anFilter,planAn:s.planFilter.an==='*'?'':s.planFilter.an,onAnFilter:e=>{const v=e.target.value;this.setState({anFilter:v,planFilter:{an:v,day:''}});},
-      allAnalysts:[...s.users.filter(u=>u.rol==='analista'&&u.activo),...s.users.filter(u=>u.rol==='lider'&&u.activo).map(u=>({...u,nombre:u.nombre+' (líder)'}))],
+      allAnalysts:[...s.users.filter(u=>u.rol==='analista'&&u.activo),...this.leads().map(u=>({...u,nombre:respLabel(u)}))],
       isAtr:tab==='atrasos',atrKpis,atrStack,atrEmpty:!aLate.length,atrUnits,atrMotivos,atrComerciales,atrComEmpty:!atrComerciales.length,atrCampo,atrCampoEmpty:!atrCampo.length,atrList,
       atrListNote:aSorted.length>100?`· mostrando 100 de ${aSorted.length}`:`· ${aSorted.length}`,respList:RESP_LIST,
       atrUnitOpts:[['all','Todas'],['proc','Procesamiento'],['script','Scripting'],['cod','Codificación']].map(([id,label])=>({label,active:s.atrUnit===id,pick:()=>this.setState({atrUnit:id})})),
@@ -1922,9 +1930,9 @@ class Component extends DCLogic {
       copySummary:()=>{const t=this.buildSummary();const done=()=>this.flash('Resumen copiado al portapapeles');(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(done,()=>this.flash('No se pudo copiar — selecciona el texto manualmente'));},
       roleCards,userRows,openNewUser:()=>this.setState({ud:{id:'',nombre:'',email:'',rol:'analista',equipos:['proc'],activo:true},udErr:''}),
       hasUserDraft:!!ud,ud:ud||{},onUd,userDraftTitle:ud&&ud.id?'Editar usuario':'Nuevo usuario',closeUser:()=>this.setState({ud:null}),saveUser,
-      udRolOpts:[['lider','Líder de equipo'],['analista','Analista'],['comercial','Comercial'],['pm','PM de Operaciones']].map(([id,label])=>({label,active:!!ud&&ud.rol===id,pick:()=>this.setState(st=>({ud:{...st.ud,rol:id}}))})),
+      udRolOpts:[['lider','Líder de equipo'],['analista','Analista'],['comercial','Comercial'],['pm','PM de Operaciones'],['admin','Administrador']].map(([id,label])=>({label,active:!!ud&&ud.rol===id,pick:()=>this.setState(st=>({ud:{...st.ud,rol:id}}))})),
       udEqOpts:[['proc','Procesamiento (DP)'],['cod','Codificación'],['script','Scripting']].map(([id,label])=>{const on=!!ud&&(ud.equipos||[]).includes(id);return {label,active:on,mark:on?'✓':'',pick:()=>this.setState(st=>{const e=st.ud.equipos||[];return {ud:{...st.ud,equipos:e.includes(id)?e.filter(x=>x!==id):[...e,id]},udErr:''};})};}),
-      udIsAnalyst:!!ud&&ud.rol==='analista',udShowEq:!!ud&&!isSol(ud),udEqTitle:ud&&ud.rol==='lider'?'Equipos a cargo (recibe sus solicitudes; ninguno = todos)':'Equipos (uno o más)',hasUdErr:!!s.udErr,udErr:s.udErr,
+      udIsAnalyst:!!ud&&ud.rol==='analista',udShowEq:!!ud&&!isSol(ud)&&ud.rol!=='admin',udEqTitle:ud&&ud.rol==='lider'?'Equipos a cargo (recibe sus solicitudes; ninguno = todos)':'Equipos (uno o más)',hasUdErr:!!s.udErr,udErr:s.udErr,
       hasDetail:!!det,d,closeDetail:()=>this.setState({detailId:null}),
       hasOk:!!okR,okReq:okR?deco(okR):{},okNota:s.okNota,onOkNota:e=>this.setState({okNota:e.target.value}),
       cancelOk:()=>this.setState({okId:null}),

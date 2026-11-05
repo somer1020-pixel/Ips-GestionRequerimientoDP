@@ -121,6 +121,7 @@
         var act = (await Users.ListAsync()).Where(u => u.Activo).ToList();
         Groups =
         [
+            ("Administradores", act.Where(u => u.Rol == Rol.Admin).ToList()),
             ("Líderes de equipo", act.Where(u => u.Rol == Rol.Lider).ToList()),
             ("Analistas de procesamiento (DP)", act.Where(u => u.Rol == Rol.Analista && u.Equipos.Count == 1 && u.Tiene(Equipo.Procesamiento)).ToList()),
             ("Analistas de scripting", act.Where(u => u.Rol == Rol.Analista && u.Equipos.Count == 1 && u.Tiene(Equipo.Script)).ToList()),

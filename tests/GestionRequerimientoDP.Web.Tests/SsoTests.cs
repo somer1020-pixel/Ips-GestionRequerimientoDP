@@ -273,14 +273,14 @@ public class SsoFlowTests : IClassFixture<SsoFlowTests.Factory>
     }
 
     [Fact]
-    public async Task Administrador_configurado_entra_como_lider_sin_aprobacion()
+    public async Task Administrador_configurado_entra_como_administrador_sin_aprobacion()
     {
         var r = await Sso(@"IPSOSGROUP\jefa.ops");
         Assert.Equal("/", r.Headers.Location!.OriginalString);
         Assert.True(ConSesion(r));
         await using var db = _f.App.Factory.Create();
         var u = await db.Usuarios.Include(x => x.Equipos).SingleAsync(x => x.Email == "jefa.ops@empresa.cl");
-        Assert.Equal(Rol.Lider, u.Rol);
+        Assert.Equal(Rol.Admin, u.Rol);
         Assert.True(u.Activo);
         Assert.False(u.Pendiente);
         Assert.Empty(u.Equipos);

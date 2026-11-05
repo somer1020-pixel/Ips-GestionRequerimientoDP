@@ -7,6 +7,7 @@
 @inject IRequerimientoService Reqs
 @inject ISolicitudService Sols
 @inject IAccesoService Acceso
+@inject IUsuarioService Users
 
 @if (Me is null)
 {
@@ -106,12 +107,14 @@
     sealed record Tab(string Id, string Label, string Href, int Count);
 
     UsuarioActual? Me;
+    bool _adminUsuarios;
     int _late, _solsMine, _solsTotal, _myNext, _accesos, _misAbiertos, _misAtrasados;
     string _mineLine = "";
 
     string RolLabel => Me!.Rol switch
     {
         Rol.Lider => "Líder · " + EquipoLabel,
+        Rol.Admin => "Administrador",
         Rol.Comercial => "Área comercial",
         Rol.PM => "PM de Operaciones",
         _ => "Analista " + string.Join(" + ", Me.Equipos.Select(e => e switch { Equipo.Script => "Scripting", Equipo.Codificacion => "Codificación", _ => "DP" })),
@@ -122,12 +125,12 @@
     List<Tab> Tabs => Me!.Rol switch
     {
         Rol.Comercial or Rol.PM => [new("solnueva", "Nueva solicitud", "/solicitar", 0), new("solmias", "Mis solicitudes", "/mis-solicitudes", 0)],
-        Rol.Lider =>
+        Rol.Lider or Rol.Admin =>
         [
             new("tablero", "Tablero", "/", 0), new("bandeja", "Solicitudes nuevas", "/solicitudes", _solsTotal),
             new("plan", "Planificación semanal", "/planificacion", 0), new("scripts", "Scripts", "/scripts", 0), new("resumen", "Resumen", "/resumen", _late),
             new("historico", "Histórico", "/historico", 0), new("atrasos", "Motivos de atraso", "/atrasos", 0), new("notif", "Notificaciones", "/notificaciones", 0),
-            new("usuarios", "Usuarios", "/usuarios", _accesos),
+            .. (_adminUsuarios ? [new Tab("usuarios", "Usuarios", "/usuarios", _accesos)] : Array.Empty<Tab>()),
             .. (_misAbiertos > 0 ? [new Tab("lista", "Mis asignaciones", "/mi-semana", _misAtrasados)] : Array.Empty<Tab>()),
         ],
         _ => [new("tablero", "Mi tablero", "/", 0), new("lista", "Mi semana", "/mi-semana", _late)],
@@ -157,7 +160,8 @@
         (_solsMine, _solsTotal) = await Sols.PendientesAsync(Me);
         if (Me.EsLider)
         {
-            _accesos = (await Acceso.PendientesAsync(Me)).Count;
+            _adminUsuarios = await Users.PuedeAdministrarAsync(Me);
+            _accesos = _adminUsuarios ? (await Acceso.PendientesAsync(Me)).Count : 0;
             var mios = await Reqs.PropiosAsync(Me);
             _misAbiertos = mios.Count(r => r.Estado != Estado.Ok);
             _misAtrasados = mios.Count(r => Reglas.Atrasado(r, Clock.Today));

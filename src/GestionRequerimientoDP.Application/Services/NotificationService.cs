@@ -63,7 +63,8 @@ public sealed class NotificationService(IAppDbContextFactory factory, IClock clo
         if (cand.Count == 0) return 0;
 
         var users = await db.UsuariosMapAsync(ct);
-        var leaders = users.Values.Where(u => u.Rol == Rol.Lider && u.Activo).OrderBy(u => u.Id).ToList();
+        // Líderes y administradores reciben (en copia) el aviso diario de todos los atrasados.
+        var leaders = users.Values.Where(u => Reglas.EsGestor(u.Rol) && u.Activo).OrderBy(u => u.Id).ToList();
         var n = 0;
         foreach (var g in cand.OrderBy(r => r.Fecha).GroupBy(r => r.AnalistaId))
         {

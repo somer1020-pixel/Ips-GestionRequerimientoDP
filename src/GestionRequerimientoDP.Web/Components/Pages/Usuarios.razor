@@ -7,11 +7,16 @@
 
 <PageTitle>Usuarios · @AppInfo.Nombre</PageTitle>
 
+@if (Loaded && !_puede)
+{
+    <section class="stack"><div class="empty">Solo el administrador gestiona usuarios y accesos.</div></section>
+    return;
+}
 <section data-screen-label="Usuarios" class="stack">
     <div class="page-head">
         <div>
             <h2 style="margin:0">Usuarios y roles</h2>
-            <div class="sub">Líder de equipo: ve y administra toda la planificación. Analista: solo ve y actualiza su carga asignada (puede pertenecer a Procesamiento, Scripting, Codificación o varios). Los usuarios inactivos no reciben asignaciones.</div>
+            <div class="sub">Administrador: ve y hace todo, y es el único que administra usuarios. Líder de equipo: ve y administra toda la planificación. Analista: solo ve y actualiza su carga asignada (puede pertenecer a Procesamiento, Scripting, Codificación o varios). Los usuarios inactivos no reciben asignaciones.</div>
         </div>
         <div class="page-actions">
             <a class="btn btn-outline-secondary" href="usuarios/auditoria"><Icon Name="historico" />Auditoría de accesos</a>
@@ -68,7 +73,7 @@
                     <tr @key="u.Id" style="opacity:@(u.Activo ? "1" : "0.55")">
                         <td style="font-weight:500;white-space:nowrap">@u.Nombre</td>
                         <td style="font-size:13px">@u.Email@if (!string.IsNullOrEmpty(u.Rut)) {<br /><span class="sub">@Rut.Format(u.Rut)</span>}</td>
-                        <td><span class="@(u.Rol switch { Rol.Lider => "be be-info", Rol.Comercial or Rol.PM => "be be-navy", _ => "be be-neutral" })">@Reglas.RolLabel(u.Rol)</span></td>
+                        <td><span class="@(u.Rol switch { Rol.Admin => "be be-success", Rol.Lider => "be be-info", Rol.Comercial or Rol.PM => "be be-navy", _ => "be be-neutral" })">@Reglas.RolLabel(u.Rol)</span></td>
                         <td>@Reglas.EquipoLabel(u)</td>
                         <td>@(u.Rol switch { Rol.Analista => _carga.GetValueOrDefault(u.Id).ToString(), Rol.Comercial or Rol.PM => $"{_sols.GetValueOrDefault(u.Id)} solicitudes", _ => "—" })</td>
                         <td class="nowrap" style="font-size:13px">@(u.UltimoAcceso is null ? "—" : Fechas.FmtDT(u.UltimoAcceso))</td>
@@ -97,18 +102,19 @@
     Dictionary<int, int> _carga = [], _sols = [];
     HashSet<int> _historial = [];
     UsuarioInput? _edit;
-    bool _aprobar;
+    bool _aprobar, _puede;
 
     protected override ChangeKind[] ReloadOn => [ChangeKind.Usuarios, ChangeKind.Requerimientos, ChangeKind.Solicitudes];
 
-    IEnumerable<Usuario> Sorted => _users.Where(u => !u.Pendiente).OrderBy(u => u.Rol switch { Rol.Lider => 0, Rol.Analista => 1, Rol.Comercial => 2, _ => 3 })
+    IEnumerable<Usuario> Sorted => _users.Where(u => !u.Pendiente).OrderBy(u => u.Rol switch { Rol.Admin => 0, Rol.Lider => 1, Rol.Analista => 2, Rol.Comercial => 3, _ => 4 })
         .ThenBy(u => string.Join(",", u.EquiposOrdenados), StringComparer.Ordinal).ThenBy(u => u.Nombre, StringComparer.CurrentCulture);
 
     int Act(Equipo e) => _users.Count(u => u.Rol == Rol.Analista && u.Activo && u.Tiene(e));
 
     IEnumerable<(string, string, string)> RoleCards =>
     [
-        ("Líder de equipo", _users.Count(u => u.Rol == Rol.Lider && u.Activo).ToString(), "Ve tablero, planificación de procesamiento, codificación y scripting completos. Asigna, balancea, importa, administra usuarios."),
+        ("Administrador", _users.Count(u => u.Rol == Rol.Admin && u.Activo).ToString(), "Ve y hace todo lo que hace un líder y es el único que administra usuarios y aprueba accesos. Solo recibe correos de lo que le asignan, el resumen diario de atrasados y las solicitudes de acceso."),
+        ("Líder de equipo", _users.Count(u => u.Rol == Rol.Lider && u.Activo).ToString(), "Ve tablero, planificación de procesamiento, codificación y scripting completos. Asigna, balancea e importa. Administra usuarios solo mientras no exista un administrador activo."),
         ("Comercial", _users.Count(u => u.Rol == Rol.Comercial && u.Activo).ToString(), "Ingresa solicitudes a Operaciones y sigue su estado. No ve la carga de los equipos. Sus solicitudes llegan sin analista al líder del equipo."),
         ("PM de Operaciones", _users.Count(u => u.Rol == Rol.PM && u.Activo).ToString(), "Project managers de Operaciones: ingresan solicitudes a Procesamiento, Codificación y Scripting y siguen su estado, igual que un área comercial. No ven la carga de los equipos."),
         ("Analista DP", Act(Equipo.Procesamiento).ToString(), "Solo ve su carga asignada (semana actual y siguiente). Actualiza estado, da OK y descarga su semana."),
@@ -119,6 +125,8 @@
 
     protected override async Task LoadAsync()
     {
+        _puede = await Users.PuedeAdministrarAsync(Me);
+        if (!_puede) return;
         _users = await Users.ListAsync();
         _pendientes = await Acceso.PendientesAsync(Me);
         _carga = await Users.CargaActivaAsync();

@@ -40,6 +40,8 @@ public interface IUsuarioService
     Task<Dictionary<int, int>> CargaActivaAsync(CancellationToken ct = default);
     Task<Dictionary<int, int>> SolicitudesPorComercialAsync(CancellationToken ct = default);
     Task<Usuario> SaveAsync(UsuarioActual me, UsuarioInput input, CancellationToken ct = default);
+    /// <summary>¿Puede administrar usuarios? (administrador; o líder mientras no haya ningún administrador activo)</summary>
+    Task<bool> PuedeAdministrarAsync(UsuarioActual me, CancellationToken ct = default);
     /// <summary>Activa o desactiva. Devuelve un aviso si quedan requerimientos activos por reasignar.</summary>
     Task<string?> ToggleActivoAsync(UsuarioActual me, int id, CancellationToken ct = default);
     /// <summary>Ids de usuarios con historial (entregables terminados, OK dados o solicitudes): no se pueden eliminar.</summary>
@@ -99,16 +101,32 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         return await db.Solicitudes.GroupBy(s => s.SolicitanteId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, ct);
     }
 
+    public async Task<bool> PuedeAdministrarAsync(UsuarioActual me, CancellationToken ct = default)
+    {
+        await using var db = factory.Create();
+        return await Guard.AdministraUsuariosAsync(db, me, ct);
+    }
+
+    /// <summary>No dejar la aplicación sin administrador activo.</summary>
+    static async Task NoDejarSinAdministrador(IAppDbContext db, int id, CancellationToken ct)
+    {
+        if (!await db.Usuarios.AnyAsync(x => x.Rol == Rol.Admin && x.Activo && x.Id != id, ct))
+            throw new ReglaException("Es el único administrador activo: asigna antes el rol Administrador a otra persona.");
+    }
+
     public async Task<Usuario> SaveAsync(UsuarioActual me, UsuarioInput u, CancellationToken ct = default)
     {
         Guard.Lider(me);
         if (string.IsNullOrWhiteSpace(u.Nombre) || string.IsNullOrWhiteSpace(u.Email)) throw new ReglaException("Nombre y correo son obligatorios.");
         var email = u.Email.Trim();
         await using var db = factory.Create();
+        await Guard.AdministraUsuarios(db, me, ct);
         var lower = email.ToLowerInvariant();
         if (await db.Usuarios.AnyAsync(x => x.Id != u.Id && x.Email.ToLower() == lower, ct)) throw new ReglaException("Ya existe un usuario con ese correo.");
-        if (u.Id == me.Id && u.Rol != Rol.Lider) throw new ReglaException("No puedes quitarte el rol de líder.");
-        var equipos = Reglas.EsSolicitante(u.Rol) ? [] : u.Equipos.Distinct().ToList();
+        if (u.Id == me.Id && u.Rol != me.Rol) throw new ReglaException($"No puedes quitarte el rol de {Reglas.RolLabel(me.Rol).ToLowerInvariant()}.");
+        if (u.Id != 0 && u.Rol != Rol.Admin && await db.Usuarios.AnyAsync(x => x.Id == u.Id && x.Rol == Rol.Admin && x.Activo, ct))
+            await NoDejarSinAdministrador(db, u.Id, ct);
+        var equipos = Reglas.EsSolicitante(u.Rol) || u.Rol == Rol.Admin ? [] : u.Equipos.Distinct().ToList(); // el administrador ve todos los equipos
         if (u.Rol == Rol.Analista && equipos.Count == 0) throw new ReglaException("Selecciona al menos un equipo.");
         string? rut = null;
         if (!string.IsNullOrWhiteSpace(u.Rut))
@@ -155,6 +173,7 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
     public async Task<int> EliminarAsync(UsuarioActual me, int id, CancellationToken ct = default)
     {
         Guard.Lider(me);
+        await using (var check = factory.Create()) await Guard.AdministraUsuarios(check, me, ct);
         if (id == me.Id) throw new ReglaException("No puedes eliminar tu propio usuario.");
         if ((await ConHistorialAsync(ct)).Contains(id))
             throw new ReglaException("El usuario tiene historial (entregables terminados, OK registrados o solicitudes). Desactívalo en vez de eliminarlo.");
@@ -174,8 +193,10 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         Guard.Lider(me);
         if (id == me.Id) throw new ReglaException("No puedes desactivar tu propio usuario");
         await using var db = factory.Create();
+        await Guard.AdministraUsuarios(db, me, ct);
         var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ReglaException("El usuario ya no existe.");
         if (u.Pendiente) throw new ReglaException("La solicitud de acceso está pendiente: apruébala o recházala en Solicitudes de acceso.");
+        if (u.Activo && u.Rol == Rol.Admin) await NoDejarSinAdministrador(db, u.Id, ct);
         u.Activo = !u.Activo;
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Usuarios);

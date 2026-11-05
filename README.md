@@ -46,7 +46,7 @@ GestionRequerimientoDP.slnx
 
 - **Ingreso con correo o RUT** y contraseña. Con una clave incorrecta el mensaje es siempre el mismo: no revela si la cuenta existe, está pendiente o desactivada.
 - **Política de contraseñas:** 8 a 100 caracteres, con mayúscula, minúscula, número y símbolo, y sin el nombre ni la parte inicial del correo. Se aplica al crear usuarios, al solicitar acceso y al restablecer.
-- **Solicitar acceso** (`/cuenta/registro`, se desactiva con `Auth:RegistroHabilitado = false`): la persona deja nombre, correo, RUT opcional, motivo y contraseña. La cuenta queda **pendiente** e inactiva, y los líderes reciben un correo. En **Usuarios → Solicitudes de acceso** el líder asigna rol y equipos y la aprueba, o la rechaza. En ambos casos se avisa por correo.
+- **Solicitar acceso** (`/cuenta/registro`, se desactiva con `Auth:RegistroHabilitado = false`): la persona deja nombre, correo, RUT opcional, motivo y contraseña. La cuenta queda **pendiente** e inactiva, y el administrador recibe un correo (los líderes, si aún no hay administrador). En **Usuarios → Solicitudes de acceso** el administrador asigna rol y equipos y la aprueba, o la rechaza. En ambos casos se avisa por correo.
 - **Recuperar contraseña** (`/cuenta/recuperar`): envía un enlace de un solo uso que vence en 60 minutos. Solo se guarda el hash SHA-256 del token, vale solo el último enlace y hay un máximo de 3 por hora. La respuesta es la misma exista o no la cuenta. Las cuentas que entran solo con Windows se derivan a TI. En Development sin SMTP, el enlace se muestra en pantalla para poder probar.
 - **Protección contra fuerza bruta:**
   - 5 intentos fallidos para un mismo correo o RUT, en cualquier formato, bloquean el ingreso con contraseña de esa cuenta por 15 minutos. Queda `LOGIN_BLOQUEADO_INTENTOS` en la auditoría.
@@ -62,7 +62,7 @@ Adaptado del proyecto Ipsos.Bhe.Auth. Los colaboradores en la red interna o la V
 
 - **Quién entra:** usuarios registrados, aprobados y activos en **Usuarios**. La cuenta `DOMINIO\usuario` se busca primero en "Cuenta de dominio" y luego por el correo `usuario@<Sso:EmailDomain>`.
 - **Cuenta corporativa sin usuario** (`Sso:SolicitudAutomatica`, activo por defecto): se crea una solicitud de acceso pendiente con el nombre y el correo de Active Directory, y se avisa a los líderes una sola vez. La persona ve "Registramos tu solicitud…".
-- **Administradores** (`Sso:Administradores`): cuentas de Windows o correos que entran como líder sin aprobación la primera vez. Sirve para arrancar con una base vacía. Configúralo en el servidor, no en el repositorio. Si después un líder desactiva esa cuenta, sigue desactivada.
+- **Administradores** (`Sso:Administradores`): cuentas de Windows o correos que entran como **Administrador** sin aprobación la primera vez. Sirve para arrancar con una base vacía. Configúralo en el servidor, no en el repositorio. Si después se desactiva esa cuenta, sigue desactivada.
 - **Intento automático:** desde una IP interna (`Sso:InternalIpPrefixes`), la pantalla de ingreso va sola a `/cuenta/sso`. En ventanas InPrivate o incógnito, o si no hay respuesta en 3,5 s, muestra el formulario. `?manual=1` o `?external=1` fuerzan el formulario. Al salir se vuelve al ingreso manual para poder cambiar de cuenta.
 - **Un solo servidor** (`Sso:InternalHost` vacío): la misma app negocia Kerberos/NTLM y abre la sesión.
 - **Dos servidores** (sitio público detrás de un proxy + IIS interno con Windows Authentication): el host interno emite un ticket HMAC-SHA256 de un solo uso (60 s) hacia `Sso:PublicHost/cuenta/sso/consumir`. Ambos hosts deben compartir `Sso:TicketSecret` (mínimo 32 caracteres) y `DataProtection:ApplicationName`. El formato del ticket es compatible con Ipsos.Bhe.Auth.
@@ -176,6 +176,8 @@ En Development (`Auth:DemoMode = true`), la pantalla de ingreso muestra botones 
 | Mixtos | José Miguel Carreño (DP + Cod), Cristian Gómez y Luis Ruiz (DP + Script) |
 | Comercial | Maria Paz Ayala, Wiliam Muñoz, Lorena Montalvo Rosado |
 | PM de Operaciones | Paula Orellana (solicita a DP, Codificación y Scripting como un área comercial) |
+
+**Rol Administrador** (no hay uno en los datos semilla; se crea desde Usuarios o entra por `Sso:Administradores`): ve y hace todo lo que hace un líder y es el único que administra usuarios, aprueba accesos y ve la auditoría. Mientras no exista un administrador activo, los líderes conservan esa capacidad. Por correo solo recibe lo que le asignan, el aviso diario de atrasados (en copia, todos) y las solicitudes de acceso; no recibe las nuevas solicitudes ni las asignaciones de terceros. El rol se guarda como texto: no requiere migración de base de datos.
 
 Los datos semilla reproducen la planilla `Prog DP.xlsx` (49 entregables), 8 semanas de historia, scripts, codificación y 4 solicitudes comerciales. Las fechas se desplazan por semanas completas para que la semana de la planilla coincida con la semana actual al momento de cargar.
 

@@ -164,6 +164,24 @@ public class MenuTests : AppComponentTest
         if (email.StartsWith("asalinas")) Assert.DoesNotContain("Usuarios", cut.Find(".side").TextContent);
         Assert.Equal(email.StartsWith("cmendez"), cut.Markup.Contains("Nuevo requerimiento"));
     }
+
+    [Theory]
+    [InlineData("cmendez@empresa.cl", false)]
+    [InlineData("admin.ops@empresa.cl", true)]
+    public async Task Con_administrador_solo_el_ve_Usuarios(string email, bool ve)
+    {
+        await using (var db = App.Factory.Create())
+        {
+            db.Usuarios.Add(new Usuario { Nombre = "Admin Ops", Email = "admin.ops@empresa.cl", Rol = Rol.Admin, Activo = true });
+            await db.SaveChangesAsync();
+        }
+        LoginAs(email);
+        var cut = Render<MainLayout>(p => p.Add(x => x.Body, (RenderFragment)(b => b.AddContent(0, "contenido"))));
+        cut.WaitForAssertion(() => Assert.Equal(ve ? 9 : 8, cut.FindAll(".side .nav-i").Count));
+        Assert.Equal(ve, cut.Find(".side").TextContent.Contains("Usuarios"));
+        Assert.Contains("Nuevo requerimiento", cut.Markup);
+        if (ve) Assert.Contains("Administrador", cut.Markup);
+    }
 }
 
 public class ConsultaTests : AppComponentTest
