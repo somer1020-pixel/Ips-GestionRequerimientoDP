@@ -129,6 +129,22 @@ public class Notificacion
     static IEnumerable<string> Split(string s) => s.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
 
+/// <summary>Comentario en el hilo de un requerimiento. Las menciones (@Nombre) avisan por correo a los mencionados.</summary>
+public class Comentario
+{
+    public int Id { get; set; }
+    public int RequerimientoId { get; set; }
+    public int AutorId { get; set; }
+    public Usuario? Autor { get; set; }
+    public string Texto { get; set; } = "";
+    /// <summary>Ids de los usuarios mencionados, separados por coma (",3,8,"), para buscar con Contains.</summary>
+    public string Menciones { get; set; } = "";
+    public DateTimeOffset CreadoAt { get; set; }
+
+    public IEnumerable<int> MencionIds => Menciones.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse);
+    public static string Codificar(IEnumerable<int> ids) { var l = ids.Distinct().ToList(); return l.Count == 0 ? "" : "," + string.Join(",", l) + ","; }
+}
+
 public class OkLog
 {
     public long Id { get; set; }

@@ -991,6 +991,20 @@
           </div>
         </div>
         <div class="field"><label>Notas</label><textarea class="input" value="{{ d.nota }}" onChange="{{ d.setNota }}" placeholder="Contexto, bloqueos, entregables…" style="min-height:70px"></textarea></div>
+        <div class="field"><label>Comentarios {{ d.comCount }}</label>
+          <sc-for list="{{ d.coms }}" as="c" hint-placeholder-count="2">
+            <div style="display:flex;gap:var(--space-2);align-items:flex-start"><span class="avatar" style="background:var(--navy);color:#fff;width:28px;height:28px;font-size:11px">{{ c.ini }}</span>
+              <div style="flex:1;background:var(--neutral-50);border-radius:6px;padding:var(--space-2) var(--space-3)"><div style="font-size:13px"><strong>{{ c.autor }}</strong> <span class="sub">{{ c.when }}</span></div><div style="font-size:14px;white-space:pre-wrap">{{ c.texto }}</div></div>
+            </div>
+          </sc-for>
+          <textarea class="input" value="{{ d.comDraft }}" onChange="{{ d.setComDraft }}" placeholder="Escribe un comentario… usa @ para mencionar a alguien y avisarle por correo" style="min-height:60px"></textarea>
+          <sc-if value="{{ d.hasSug }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;padding:4px;max-width:360px">
+              <sc-for list="{{ d.sugs }}" as="u" hint-placeholder-count="2"><button class="btn btn-ghost" style="text-align:left;font-size:13px" onClick="{{ u.pick }}"><b>{{ u.nombre }}</b> · {{ u.rol }}</button></sc-for>
+            </div>
+          </sc-if>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="sub" style="font-size:12px">Los mencionados reciben un correo con el comentario y el enlace a este requerimiento.</span><button class="btn btn-outline-secondary" onClick="{{ d.postCom }}">Comentar</button></div>
+        </div>
         <sc-if value="{{ d.isOk }}" hint-placeholder-val="{{ false }}">
           <div style="font-size:13px;color:var(--success);background:var(--success-50);border-radius:6px;padding:var(--space-2) var(--space-3)">✓ OK de término registrado por {{ d.okByNombre }} el {{ d.okLine }}{{ d.okSuffix }}{{ d.okNotaLine }}</div>
         </sc-if>
@@ -1355,7 +1369,7 @@ function toISODate(v){
 
 class Component extends DCLogic {
   constructor(p){super(p);const s=load();let sess=null;try{sess=localStorage.getItem(SKEY);}catch(e){}
-    this.state={okCampo:'',atrUnit:'all',okResp:'',okMotivo:'',okDetalle:'',inboxUnit:'all',inboxState:'pend',sd:null,sdErr:'',reqs:s.reqs,users:s.users,mails:s.mails,anFilter:'',histMode:'semana',histRef:addDays(CUR,-7),mailOpen:null,session:s.users.some(u=>u.id===sess&&u.activo)?sess:null,loginEmail:'',loginErr:'',
+    this.state={okCampo:'',atrUnit:'all',okResp:'',okMotivo:'',okDetalle:'',inboxUnit:'all',inboxState:'pend',sd:null,sdErr:'',reqs:s.reqs,users:s.users,mails:s.mails,anFilter:'',histMode:'semana',histRef:addDays(CUR,-7),mailOpen:null,coms:[],comDraft:'',session:s.users.some(u=>u.id===sess&&u.activo)?sess:null,loginEmail:'',loginErr:'',
       planUnit:'proc',okHoras:'',okRegistros:'',okMetodo:'',okMat:'',okErr:'',tab:'tablero',team:'all',q:'',planWeek:CUR,myWeek:CUR,planFilter:{an:'',day:''},planQ:'',detailId:null,okId:null,okNota:'',draft:null,err:'',
       importOpen:false,importText:'',importMatrix:null,importFile:'',balance:null,toast:'',dragId:null,dragOver:null,ud:null,udErr:'',publicView:false,pubQ:''};}
   componentDidMount(){setTimeout(()=>{try{this.checkOverdue(false);}catch(e){console.warn('overdue',e&&e.message);}},0);const h=location.hash||'';if(h.startsWith('#consulta')){const m=h.match(/job=([^&]+)/);this.setState({publicView:true,pubQ:m?decodeURIComponent(m[1]):''});}}
@@ -1779,7 +1793,7 @@ class Component extends DCLogic {
       matLabel2:r.materialesAt?fmtD(r.materialesAt)+(mt?' · tarde':''):'Sin registrar',matColor:mt?'var(--warning)':'var(--ink-muted)',matWeight:mt?'600':'400',
       respLabel:respLabelOf(r),respColor:RESPX[effResp(r)].color,motivoLabel:(r.atrasoMotivo||'—')+(r.atrasoDetalle?' — '+r.atrasoDetalle:'')};});
     // notificaciones
-    const mailRows=s.mails.map(m=>({...m,when:fmtDT(m.at),kindLabel:({asignacion:'Asignación',atraso:'Atraso sin gestión',solicitud:'Nueva solicitud',asignada:'Solicitud asignada'})[m.kind],kindClass:({asignacion:'be be-neutral',atraso:'be be-danger',solicitud:'be be-warning',asignada:'be be-success'})[m.kind],toLabel:m.to.join(', '),ccLabel:m.cc.length?m.cc.join(', '):'—',isOpen:s.mailOpen===m.id,rowDisplay:s.mailOpen===m.id?'table-row':'none',toggle:()=>this.setState({mailOpen:s.mailOpen===m.id?null:m.id})}));
+    const mailRows=s.mails.map(m=>({...m,when:fmtDT(m.at),kindLabel:({asignacion:'Asignación',atraso:'Atraso sin gestión',solicitud:'Nueva solicitud',asignada:'Solicitud asignada',mencion:'Mención'})[m.kind],kindClass:({asignacion:'be be-neutral',atraso:'be be-danger',solicitud:'be be-warning',asignada:'be be-success',mencion:'be be-navy'})[m.kind],toLabel:m.to.join(', '),ccLabel:m.cc.length?m.cc.join(', '):'—',isOpen:s.mailOpen===m.id,rowDisplay:s.mailOpen===m.id?'table-row':'none',toggle:()=>this.setState({mailOpen:s.mailOpen===m.id?null:m.id})}));
     const nA=P.notifyAssign??true,nO=P.notifyOverdue??true,stale=P.staleDays??2;
     const notifRules=[{title:'Asignación',state:nA?'Activa':'Desactivada',tagClass:nA?'tag tag-accent':'tag tag-neutral',desc:'Al asignar o reasignar (manual, balanceo, importación, nuevo script) se envía un correo al analista con el detalle. Las acciones masivas envían un solo correo por analista. Si los entregables vienen de una solicitud, el solicitante (comercial o PM) recibe un aviso de quién la gestionará, consolidado por Job.'},
       {title:'Atraso sin gestión',state:nO?'Activa':'Desactivada',tagClass:nO?'tag tag-accent':'tag tag-neutral',desc:`Revisión diaria: si un requerimiento pasó su día de entrega sin OK y sigue pendiente o lleva ${stale}+ días sin actualización, se avisa al analista con copia al líder (máximo un aviso por día).`},
@@ -1854,6 +1868,19 @@ class Component extends DCLogic {
       fechaLabel:det.tipo==='script'?'Fecha compromiso':'Día de entrega',
       options:this.assignable(det.tipo),setFecha:e=>this.upd(det.id,{fecha:e.target.value||det.fecha}),
       setNota:e=>this.upd(det.id,{nota:e.target.value}),
+      // Hilo de comentarios: "@" + parte del nombre sugiere personas activas; al publicar se avisa por correo (tipo 'mencion') a los mencionados, con copia al responsable.
+      ...(()=>{const cs=s.coms.filter(c=>c.req===det.id),draft=s.comDraft||'',m=/(^|\s)@([^\s@]{0,30})$/.exec(draft),q=m?norm(m[2]):null;
+        const otros=s.users.filter(u=>u.activo&&u.id!==me.id),sugs=q===null?[]:otros.filter(u=>norm(u.nombre).split(' ').some(w=>w.startsWith(q))||norm(u.nombre).startsWith(q)).slice(0,6);
+        return {coms:cs.map(c=>({...c,autor:nameOf(c.by),ini:iniOf(nameOf(c.by)),when:fmtDT(c.at)})),comCount:cs.length?`(${cs.length})`:'',comDraft:draft,
+          setComDraft:e=>this.setState({comDraft:e.target.value}),hasSug:sugs.length>0,
+          sugs:sugs.map(u=>({nombre:u.nombre,rol:({lider:'Líder',analista:'Analista',comercial:'Comercial',pm:'PM de Operaciones',admin:'Administrador'})[u.rol],pick:()=>this.setState({comDraft:draft.slice(0,draft.length-m[2].length-1)+'@'+u.nombre+' '})})),
+          postCom:()=>{const t=draft.trim();if(!t){this.flash('Escribe un comentario');return;}
+            const men=[...otros].sort((a,b)=>b.nombre.length-a.nombre.length).filter(u=>norm(t).includes('@'+norm(u.nombre)));
+            const resp=s.users.find(u=>u.id===det.analista),cc=resp&&resp.id!==me.id&&!men.some(u=>u.id===resp.id)?[resp.email]:[];
+            const mail=men.length?[{id:'M'+Date.now(),at:nowStr(),kind:'mencion',to:men.map(u=>u.email),cc,subject:`[Carga Ops] ${me.nombre} te mencionó en ${det.job} · ${det.proyecto}`,
+              body:[`Hola ${men.map(u=>u.nombre.split(' ')[0]).join(', ')},`,'',`${me.nombre} te mencionó en un comentario:`,'','  '+t,'',`• ${TIPO[det.tipo].label} · Job ${det.job} · ${det.proyecto} (${det.cliente})`,`• ${det.entregable}: ${det.descripcion||'—'}`,`• Entrega ${fmtD(det.fecha)} · Responsable: ${nameOf(det.analista)}`,'','Ver y responder: <enlace a /r/'+det.id+'>'].join('\n')}]:[];
+            this.setState(st=>({coms:[...st.coms,{id:'C'+Date.now(),req:det.id,by:me.id,texto:t,at:nowStr()}],comDraft:'',mails:[...mail,...st.mails].slice(0,300)}));
+            this.flash(men.length?'Comentario publicado · se avisó por correo a '+men.map(u=>u.nombre).join(', '):'Comentario publicado');}};})(),
       estados:ESTADOS.map(e=>({label:e.label,active:det.estado===e.id,pick:()=>this.moveTo(det.id,e.id)})),
       copyLink:()=>{const url=location.href.split('#')[0]+'#consulta?job='+encodeURIComponent(det.job);(navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>this.flash('Enlace de consulta copiado'),()=>this.flash(url));},
       askOk:()=>this.askOk(det.id),canReopen:det.estado==='ok'&&lead,

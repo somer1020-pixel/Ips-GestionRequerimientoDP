@@ -305,6 +305,11 @@ interface Requerimiento {
   - Para: el analista, con CC a los líderes y administradores activos. Si el requerimiento no tiene analista, va solo a ellos.
   - Un aviso por requerimiento por día (`alertAt = hoy`), agrupado por analista.
   - En producción, un cron diario (por ejemplo 09:00) en lugar de la revisión al cargar. El botón "Enviar recordatorios de atraso ahora" fuerza el envío.
+- **Mención en comentario** (tipo `mencion`, siempre activa):
+  - Se envía cuando alguien publica un comentario con una o más menciones `@Nombre Apellido` (ver §3.3f).
+  - Para: los mencionados activos (no el autor). CC: el responsable asignado, si no escribió ni fue mencionado.
+  - Asunto: `[Carga Ops] <autor> te mencionó en <job> · <proyecto>`. Cuerpo: el comentario, tipo, Job, proyecto, cliente, entregable, día de entrega, responsable, estado y el enlace "Ver y responder" a `/r/<id>`.
+  - El administrador también la recibe cuando lo mencionan (es un aviso dirigido a él).
 - **Registro de gestión:** cualquier cambio (estado, nota, fecha, analista) actualiza `actualizado`.
 - **En la UI:** las tarjetas muestran "Atrasado sin gestión · <día>".
 - **Tab Notificaciones:** reglas activas y log de correos (fecha, tipo, para, asunto). Un clic en una fila despliega CC y cuerpo.
@@ -312,6 +317,14 @@ interface Requerimiento {
   - Asunto `[Carga Ops] Nuevo requerimiento asignado: <job> · <proyecto>`, `[Carga Ops] Tienes N requerimientos nuevos asignados` o `[Carga Ops] N requerimiento(s) atrasado(s) sin gestión`.
   - Cuerpo en texto plano con una línea por entregable: `• día · job · proyecto — entregable: descripción (tipo)`.
 - **Producción:** usar un servicio transaccional (SES, SendGrid o Microsoft Graph/Outlook) con una cola. Guardar en una tabla `notificaciones` (id, kind, to, cc, subject, body, req_ids, sent_at, status) y no enviar si el usuario está inactivo.
+
+### 3.3f Comentarios y menciones
+- Cada requerimiento tiene un **hilo de comentarios** (debajo de Notas en el detalle). Cada comentario guarda autor, fecha y hora y texto (máx. 2000 caracteres); no se editan ni se borran. "Notas" sigue siendo un texto libre editable.
+- **Menciones:** al escribir `@` y parte del nombre aparece una lista de personas (todos los usuarios activos menos uno mismo, con su rol). Flechas + Enter/Tab o clic insertan `@Nombre Apellido`; Escape cierra. En el hilo las menciones se resaltan.
+- **Quién participa** (ve el hilo y comenta): líderes y administrador, el responsable asignado, el solicitante (comercial o PM) de la solicitud de origen y quien haya sido mencionado antes en ese requerimiento.
+- **Dónde:** en el detalle del requerimiento; en **Mis solicitudes**, cada entregable tiene "💬 Comentar" o "Comentarios (n)"; y en la página `/r/<id>` (destino del enlace del correo: resumen del requerimiento + hilo, con "Abrir detalle" para quien lo puede ver). Sin sesión, pide ingresar y vuelve al requerimiento.
+- Al publicar con menciones se envía el correo `mencion` (§3.3d). Sin menciones no hay correo.
+- Un usuario con comentarios tiene historial: no se puede eliminar (solo desactivar). Al eliminar un requerimiento se borra su hilo.
 
 ### 3.3e Motivos de atraso
 - **Entrega atrasada** = `estado==='ok' && okAt.slice(0,10) > fecha` (`isLateOk`). Días de atraso = días corridos entre `fecha` y la fecha del OK.

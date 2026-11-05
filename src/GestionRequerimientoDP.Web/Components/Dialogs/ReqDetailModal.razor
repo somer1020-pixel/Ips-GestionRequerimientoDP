@@ -90,6 +90,7 @@
                 <label>Notas</label>
                 <textarea class="form-control" @onchange="SetNota" disabled="@(!canEdit)" placeholder="Contexto, bloqueos, entregables…" style="min-height:70px">@r.Nota</textarea>
             </div>
+            <ComentariosHilo ReqId="r.Id" />
             @if (r.Estado == Estado.Ok)
             {
                 <div style="font-size:13px;color:var(--success);background:var(--success-50);border-radius:6px;padding:var(--space-2) var(--space-3)">

@@ -65,6 +65,42 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
                     b.ToTable("AuditoriaAccesos", (string)null);
                 });
 
+            modelBuilder.Entity("GestionRequerimientoDP.Domain.Comentario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AutorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreadoAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Menciones")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("RequerimientoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AutorId");
+
+                    b.HasIndex("RequerimientoId", "CreadoAt");
+
+                    b.ToTable("Comentarios", (string)null);
+                });
+
             modelBuilder.Entity("GestionRequerimientoDP.Domain.Notificacion", b =>
                 {
                     b.Property<int>("Id")
@@ -485,6 +521,23 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
                     b.HasKey("UsuarioId", "Equipo");
 
                     b.ToTable("UsuarioEquipos", (string)null);
+                });
+
+            modelBuilder.Entity("GestionRequerimientoDP.Domain.Comentario", b =>
+                {
+                    b.HasOne("GestionRequerimientoDP.Domain.Usuario", "Autor")
+                        .WithMany()
+                        .HasForeignKey("AutorId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("GestionRequerimientoDP.Domain.Requerimiento", null)
+                        .WithMany()
+                        .HasForeignKey("RequerimientoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Autor");
                 });
 
             modelBuilder.Entity("GestionRequerimientoDP.Domain.PasswordResetToken", b =>

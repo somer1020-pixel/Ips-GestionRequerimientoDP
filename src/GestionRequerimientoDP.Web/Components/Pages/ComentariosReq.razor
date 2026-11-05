@@ -1,0 +1,59 @@
+@page "/r/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+@inject IComentarioService Comentarios
+@* Destino del enlace de los correos de mención: resumen del requerimiento y su hilo de comentarios. Sirve para cualquier
+   participante (también un comercial o PM, o alguien mencionado que no tiene el requerimiento asignado). *@
+
+<PageTitle>Comentarios · @AppInfo.Nombre</PageTitle>
+
+<section data-screen-label="Comentarios" class="stack" style="max-width:760px">
+    @if (!Loaded)
+    {
+        <div class="empty">Cargando…</div>
+    }
+    else if (_hilo is not { } h)
+    {
+        <div class="empty">El requerimiento no existe o no participas en él.</div>
+    }
+    else
+    {
+        var r = h.Req;
+        var (est, css) = Reglas.EstadoPublico(r);
+        <div class="page-head">
+            <div>
+                <span class="card-kicker" style="color:var(--color-accent-700)">@Reglas.Tipo(r.Tipo).Label · @r.Job</span>
+                <h2 style="margin:0">@r.Proyecto</h2>
+                <div class="sub">@r.Cliente · @r.Entregable@(string.IsNullOrEmpty(r.Descripcion) ? "" : " — " + r.Descripcion)</div>
+            </div>
+            <div class="page-actions">
+                @if (h.VeDetalle)
+                {
+                    <button class="btn btn-outline-secondary" @onclick="() => Ui.OpenDetail(r.Id)">Abrir detalle</button>
+                }
+                else if (Me.EsSolicitante)
+                {
+                    <a class="btn btn-outline-secondary" href="mis-solicitudes">← Mis solicitudes</a>
+                }
+            </div>
+        </div>
+        <div class="card" style="gap:var(--space-4)">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-3);font-size:13px">
+                @foreach (var (k, v) in new[] { ("Día de entrega", Fechas.FmtD(r.Fecha)), ("Responsable", h.Responsable), ("Solicitado por", h.Solicitante ?? "—") })
+                {
+                    <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:var(--color-neutral-700)">@k</span><span>@v</span></div>
+                }
+                <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:var(--color-neutral-700)">Estado</span><span><span class="@css">@est</span></span></div>
+            </div>
+            <ComentariosHilo ReqId="Id" />
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    HiloComentarios? _hilo;
+
+    protected override ChangeKind[] ReloadOn => [ChangeKind.Requerimientos, ChangeKind.Usuarios];
+    protected override async Task LoadAsync() => _hilo = await Comentarios.HiloAsync(Me, Id);
+}

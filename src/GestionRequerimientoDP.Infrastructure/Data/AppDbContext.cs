@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<OkLog> OkLogs => Set<OkLog>();
     public DbSet<AuditoriaAcceso> Auditoria => Set<AuditoriaAcceso>();
     public DbSet<PasswordResetToken> ResetTokens => Set<PasswordResetToken>();
+    public DbSet<Comentario> Comentarios => Set<Comentario>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder b)
     {
@@ -115,6 +116,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.TokenHash).IsUnique();
             e.Property(x => x.RowVersion).IsRowVersion();
             e.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Comentario>(e =>
+        {
+            e.ToTable("Comentarios");
+            e.Property(x => x.Texto).HasMaxLength(Reglas.ComentarioMax).IsRequired();
+            e.Property(x => x.Menciones).HasMaxLength(1000);
+            e.HasOne<Requerimiento>().WithMany().HasForeignKey(x => x.RequerimientoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Autor).WithMany().HasForeignKey(x => x.AutorId).OnDelete(DeleteBehavior.NoAction);
+            e.HasIndex(x => new { x.RequerimientoId, x.CreadoAt });
+            e.Ignore(x => x.MencionIds);
         });
 
         b.Entity<OkLog>(e =>

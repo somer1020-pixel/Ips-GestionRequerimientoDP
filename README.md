@@ -177,6 +177,8 @@ En Development (`Auth:DemoMode = true`), la pantalla de ingreso muestra botones 
 | Comercial | Maria Paz Ayala, Wiliam Muñoz, Lorena Montalvo Rosado |
 | PM de Operaciones | Paula Orellana (solicita a DP, Codificación y Scripting como un área comercial) |
 
+**Comentarios y menciones:** cada requerimiento tiene un hilo de comentarios (en el detalle, en Mis solicitudes y en `/r/<id>`). Al escribir `@` se elige a una persona; al publicar, los mencionados reciben un correo con el comentario, los datos del requerimiento y el enlace para responder (copia al responsable). Participan líderes, administrador, el responsable, el solicitante y quienes hayan sido mencionados. Requiere la migración `Comentarios` (tabla nueva).
+
 **Rol Administrador** (no hay uno en los datos semilla; se crea desde Usuarios o entra por `Sso:Administradores`): ve y hace todo lo que hace un líder y es el único que administra usuarios, aprueba accesos y ve la auditoría. Mientras no exista un administrador activo, los líderes conservan esa capacidad. Por correo solo recibe lo que le asignan, el aviso diario de atrasados (en copia, todos) y las solicitudes de acceso; no recibe las nuevas solicitudes ni las asignaciones de terceros. El rol se guarda como texto: no requiere migración de base de datos.
 
 Los datos semilla reproducen la planilla `Prog DP.xlsx` (49 entregables), 8 semanas de historia, scripts, codificación y 4 solicitudes comerciales. Las fechas se desplazan por semanas completas para que la semana de la planilla coincida con la semana actual al momento de cargar.

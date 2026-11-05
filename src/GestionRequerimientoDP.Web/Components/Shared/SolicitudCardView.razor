@@ -17,12 +17,12 @@
     }
     <div class="scroll-x">
         <table class="table">
-            <thead><tr><th>Entregable</th><th>Descripción</th><th>Día de entrega</th><th>Asignado a</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Entregable</th><th>Descripción</th><th>Día de entrega</th><th>Asignado a</th><th>Estado</th>@if (ConComentarios){<th></th>}</tr></thead>
             <tbody>
                 @foreach (var r in C.Items)
                 {
                     var (est, css) = Reglas.EstadoPublico(r);
-                    <tr><td>@r.Entregable</td><td>@(string.IsNullOrEmpty(r.Descripcion) ? "—" : r.Descripcion)</td><td class="nowrap">@Fechas.FmtD(r.Fecha)</td><td class="nowrap">@(r.AnalistaId is { } a && Names.TryGetValue(a, out var n) ? n : "Por asignar")</td><td><span class="@css">@est</span></td></tr>
+                    <tr><td>@r.Entregable</td><td>@(string.IsNullOrEmpty(r.Descripcion) ? "—" : r.Descripcion)</td><td class="nowrap">@Fechas.FmtD(r.Fecha)</td><td class="nowrap">@(r.AnalistaId is { } a && Names.TryGetValue(a, out var n) ? n : "Por asignar")</td><td><span class="@css">@est</span></td>@if (ConComentarios){<td class="nowrap"><a class="btn btn-ghost" href="r/@r.Id" style="font-size:13px;padding:2px 8px">💬 @(Comentarios.TryGetValue(r.Id, out var nc) && nc > 0 ? $"Comentarios ({nc})" : "Comentar")</a></td>}</tr>
                 }
             </tbody>
         </table>
@@ -39,4 +39,7 @@
     [Parameter, EditorRequired] public SolicitudCard C { get; set; } = default!;
     [Parameter] public IReadOnlyDictionary<int, string> Names { get; set; } = new Dictionary<int, string>();
     [Parameter] public EventCallback<SolicitudCard> OnPlan { get; set; }
+    /// <summary>Muestra por entregable el enlace al hilo de comentarios (Mis solicitudes).</summary>
+    [Parameter] public bool ConComentarios { get; set; }
+    [Parameter] public IReadOnlyDictionary<int, int> Comentarios { get; set; } = new Dictionary<int, int>();
 }

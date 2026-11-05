@@ -98,3 +98,68 @@ document.addEventListener('DOMContentLoaded', async () => {
   setTimeout(show, 3500);
   window.location.replace(el.dataset.ssoUrl);
 });
+
+// Menciones en comentarios: en un textarea con data-mencion (JSON [{n: nombre, d: detalle}]), escribir "@" y parte del
+// nombre abre la lista de personas; flechas + Enter/Tab o clic la eligen e insertan "@Nombre Apellido ". Escape la cierra.
+(function () {
+  const sinTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  let menu = null, estado = null; // estado: { ta, ini, opciones, sel }
+  function cerrar() { if (menu) menu.remove(); menu = null; estado = null; }
+  function consulta(ta) {
+    const pos = ta.selectionStart, antes = ta.value.slice(0, pos);
+    const m = /(^|[\s(])@([^\s@]{0,30})$/.exec(antes);
+    return m ? { ini: pos - m[2].length - 1, q: sinTildes(m[2]) } : null;
+  }
+  function personas(ta) { try { return JSON.parse(ta.dataset.mencion || '[]'); } catch (e) { return []; } }
+  function pintar() {
+    if (!estado) return;
+    if (!menu) { menu = document.createElement('div'); menu.className = 'mencion-menu'; menu.setAttribute('role', 'listbox'); document.body.appendChild(menu); }
+    menu.innerHTML = '';
+    estado.opciones.forEach((p, i) => {
+      const o = document.createElement('div');
+      o.className = 'mencion-opt' + (i === estado.sel ? ' activa' : ''); o.setAttribute('role', 'option');
+      const b = document.createElement('strong'); b.textContent = p.n; const s = document.createElement('span'); s.textContent = p.d || '';
+      o.append(b, s);
+      o.addEventListener('mousedown', ev => { ev.preventDefault(); elegir(i); });
+      menu.appendChild(o);
+    });
+    const r = estado.ta.getBoundingClientRect();
+    const abajo = window.innerHeight - r.bottom > 220;
+    menu.style.left = Math.max(8, r.left) + 'px';
+    menu.style.width = Math.min(360, r.width) + 'px';
+    if (abajo) { menu.style.top = (r.bottom + 4) + 'px'; menu.style.bottom = ''; }
+    else { menu.style.bottom = (window.innerHeight - r.top + 4) + 'px'; menu.style.top = ''; }
+  }
+  function elegir(i) {
+    const { ta, ini, opciones } = estado || {};
+    if (!ta || !opciones[i]) return cerrar();
+    const fin = ta.selectionStart, txt = '@' + opciones[i].n + ' ';
+    ta.value = ta.value.slice(0, ini) + txt + ta.value.slice(fin);
+    const c = ini + txt.length; ta.setSelectionRange(c, c); ta.focus();
+    cerrar();
+  }
+  function actualizar(ta) {
+    const c = consulta(ta);
+    if (!c) return cerrar();
+    const op = personas(ta).filter(p => { const n = sinTildes(p.n); return !c.q || n.startsWith(c.q) || n.split(/\s+/).some(w => w.startsWith(c.q)); }).slice(0, 8);
+    if (!op.length) return cerrar();
+    estado = { ta, ini: c.ini, opciones: op, sel: 0 };
+    pintar();
+  }
+  document.addEventListener('input', e => { const ta = e.target; if (ta && ta.matches && ta.matches('textarea[data-mencion]')) actualizar(ta); }, true);
+  document.addEventListener('keydown', e => {
+    if (!estado || e.target !== estado.ta) return;
+    const n = estado.opciones.length;
+    if (e.key === 'ArrowDown') { estado.sel = (estado.sel + 1) % n; pintar(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { estado.sel = (estado.sel + n - 1) % n; pintar(); e.preventDefault(); }
+    else if (e.key === 'Enter' || e.key === 'Tab') { elegir(estado.sel); e.preventDefault(); e.stopPropagation(); }
+    else if (e.key === 'Escape') { cerrar(); e.preventDefault(); e.stopPropagation(); }
+  }, true);
+  document.addEventListener('focusout', e => { if (estado && e.target === estado.ta) setTimeout(cerrar, 120); }, true);
+  window.addEventListener('scroll', () => { if (estado) pintar(); }, true);
+  window.addEventListener('resize', cerrar);
+  window.grdp.mencion = {
+    valor(id) { const el = document.getElementById(id); return el ? el.value : ''; },
+    limpiar(id) { const el = document.getElementById(id); if (el) el.value = ''; cerrar(); },
+  };
+})();

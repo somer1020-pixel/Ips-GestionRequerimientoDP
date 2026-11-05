@@ -167,7 +167,8 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         var ok = await db.Requerimientos.Where(r => r.OkById != null).Select(r => r.OkById!.Value).Distinct().ToListAsync(ct);
         var hechos = await db.Requerimientos.Where(r => r.AnalistaId != null && r.Estado == Estado.Ok).Select(r => r.AnalistaId!.Value).Distinct().ToListAsync(ct);
         var sols = await db.Solicitudes.Select(s => s.SolicitanteId).Distinct().ToListAsync(ct);
-        return [.. ok, .. hechos, .. sols];
+        var autores = await db.Comentarios.Select(c => c.AutorId).Distinct().ToListAsync(ct);
+        return [.. ok, .. hechos, .. sols, .. autores];
     }
 
     public async Task<int> EliminarAsync(UsuarioActual me, int id, CancellationToken ct = default)
@@ -176,7 +177,7 @@ public sealed class UsuarioService(IAppDbContextFactory factory, IChangeNotifier
         await using (var check = factory.Create()) await Guard.AdministraUsuarios(check, me, ct);
         if (id == me.Id) throw new ReglaException("No puedes eliminar tu propio usuario.");
         if ((await ConHistorialAsync(ct)).Contains(id))
-            throw new ReglaException("El usuario tiene historial (entregables terminados, OK registrados o solicitudes). Desactívalo en vez de eliminarlo.");
+            throw new ReglaException("El usuario tiene historial (entregables terminados, OK registrados, solicitudes o comentarios). Desactívalo en vez de eliminarlo.");
         await using var db = factory.Create();
         var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ReglaException("El usuario ya no existe.");
         var abiertos = await db.Requerimientos.Where(r => r.AnalistaId == id).ToListAsync(ct);

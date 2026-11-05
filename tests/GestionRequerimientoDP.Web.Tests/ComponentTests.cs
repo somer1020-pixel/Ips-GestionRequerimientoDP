@@ -92,6 +92,7 @@ public abstract class AppComponentTest : BunitContext
         s.AddScoped<IConsultaService, ConsultaService>();
         s.AddScoped<IAccesoService, AccesoService>();
         s.AddScoped<IAuditoriaService, AuditoriaService>();
+        s.AddScoped<IComentarioService, ComentarioService>();
     }
 
     protected UsuarioActual LoginAs(string email)
@@ -201,6 +202,28 @@ public class ConsultaTests : AppComponentTest
 
 public class DialogosTests : AppComponentTest
 {
+    [Fact]
+    public async Task Detalle_muestra_el_hilo_y_publicar_menciona_y_avisa()
+    {
+        LoginAs("cmendez@empresa.cl");
+        int reqId; string nombre;
+        await using (var db = App.Factory.Create())
+        {
+            var r = await db.Requerimientos.FirstAsync(x => x.AnalistaId != null);
+            reqId = r.Id;
+            nombre = (await db.Usuarios.SingleAsync(u => u.Id == r.AnalistaId)).Nombre;
+        }
+        JSInterop.Setup<string>("grdp.mencion.valor", _ => true).SetResult($"@{nombre} ¿cómo vas?");
+        var cut = Render<ReqDetailModal>(p => p.Add(x => x.Id, reqId));
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("textarea[data-mencion]")));
+        Assert.Contains(nombre, cut.Find("textarea[data-mencion]").GetAttribute("data-mencion"));
+        cut.FindAll("button").First(b => b.TextContent.Contains("Comentar")).Click();
+        cut.WaitForAssertion(() => Assert.Equal("@" + nombre, cut.Find(".com .mencion").TextContent));
+        Assert.Contains("¿cómo vas?", cut.Find(".com-texto").TextContent);
+        await using var db2 = App.Factory.Create();
+        Assert.Single(await db2.Notificaciones.Where(n => n.Kind == NotificacionKind.Mencion).ToListAsync());
+    }
+
     [Fact]
     public void Nuevo_requerimiento_no_sugiere_una_fecha_pasada_y_al_pasar_a_Script_la_recalcula()
     {

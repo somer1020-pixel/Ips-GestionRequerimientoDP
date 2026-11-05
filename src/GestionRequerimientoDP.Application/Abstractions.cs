@@ -13,6 +13,7 @@ public interface IAppDbContext : IDisposable, IAsyncDisposable
     DbSet<OkLog> OkLogs { get; }
     DbSet<AuditoriaAcceso> Auditoria { get; }
     DbSet<PasswordResetToken> ResetTokens { get; }
+    DbSet<Comentario> Comentarios { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
 
@@ -42,7 +43,7 @@ public interface IChangeNotifier
     void Publish(ChangeKind kind);
 }
 
-public enum ChangeKind { Requerimientos, Solicitudes, Notificaciones, Usuarios }
+public enum ChangeKind { Requerimientos, Solicitudes, Notificaciones, Usuarios, Comentarios }
 
 public sealed class ChangeNotifier : IChangeNotifier
 {

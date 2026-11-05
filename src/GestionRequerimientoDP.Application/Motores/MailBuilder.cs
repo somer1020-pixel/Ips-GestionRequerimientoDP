@@ -121,6 +121,29 @@ public static class MailBuilder
         return new(NotificacionKind.SolicitudAsignada, [solicitante.Email], [], subject, string.Join('\n', lines), asignados.Select(r => r.Id).ToList());
     }
 
+    /// <summary>
+    /// Aviso a los mencionados (@Nombre) en un comentario, con el texto, los datos del requerimiento y el enlace para responder.
+    /// Copia al responsable asignado si no escribió ni fue mencionado.
+    /// </summary>
+    public static MailDraft Mencion(Usuario autor, IReadOnlyList<Usuario> mencionados, Usuario? copia, Requerimiento r, string responsable, string texto, string enlace)
+    {
+        var lines = new List<string>
+        {
+            $"Hola {string.Join(", ", mencionados.Select(u => First(u.Nombre)))},", "",
+            $"{autor.Nombre} te mencionó en un comentario:", "",
+        };
+        lines.AddRange(texto.Split('\n').Select(l => "  " + l.TrimEnd('\r')));
+        lines.AddRange([
+            "",
+            $"• {Reglas.Tipo(r.Tipo).Label} · Job {r.Job} · {r.Proyecto} ({r.Cliente})",
+            $"• {r.Entregable}{(string.IsNullOrEmpty(r.Descripcion) ? "" : ": " + r.Descripcion)}",
+            $"• Entrega {Fechas.FmtD(r.Fecha)} · Responsable: {responsable} · Estado: {Reglas.EstadoLabel(r.Estado)}",
+            "", $"Ver y responder: {enlace}", "", $"Mensaje automático de {AppInfo.Nombre}.",
+        ]);
+        return new(NotificacionKind.Mencion, mencionados.Select(u => u.Email).ToList(), copia is null ? [] : [copia.Email],
+            $"{P} {autor.Nombre} te mencionó en {r.Job} · {r.Proyecto}", string.Join('\n', lines), [r.Id]);
+    }
+
     /// <summary>Un correo por analista con todos sus requerimientos (acciones masivas).</summary>
     public static List<MailDraft> AsignacionPorAnalista(IEnumerable<Requerimiento> asignados, IReadOnlyDictionary<int, Usuario> usuarios) =>
         asignados.Where(r => r.AnalistaId != null)

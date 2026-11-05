@@ -3,6 +3,7 @@
 @inherits AppPage
 @inject ISolicitudService Sols
 @inject IUsuarioService Users
+@inject IComentarioService Comentarios
 
 <PageTitle>Mis solicitudes · @AppInfo.Nombre</PageTitle>
 
@@ -10,13 +11,13 @@
     <div class="page-head">
         <div>
             <h2 style="margin:0">Mis solicitudes</h2>
-            <div class="sub">Estado de asignación y día de entrega de cada entregable. Solo lectura.</div>
+            <div class="sub">Estado de asignación y día de entrega de cada entregable. En "Comentar" puedes escribirle al equipo y mencionar con @@ a quien quieras avisar.</div>
         </div>
         <a class="btn btn-primary" href="solicitar"><Icon Name="plus" Stroke="2" />Nueva solicitud</a>
     </div>
     @foreach (var c in _mine)
     {
-        <SolicitudCardView @key="c.Solicitud.Id" C="c" Names="_names" />
+        <SolicitudCardView @key="c.Solicitud.Id" C="c" Names="_names" ConComentarios="true" Comentarios="_coms" />
     }
     @if (Loaded && _mine.Count == 0)
     {
@@ -27,12 +28,14 @@
 @code {
     List<SolicitudCard> _mine = [];
     Dictionary<int, string> _names = [];
+    Dictionary<int, int> _coms = [];
 
-    protected override ChangeKind[] ReloadOn => [ChangeKind.Requerimientos, ChangeKind.Solicitudes, ChangeKind.Usuarios];
+    protected override ChangeKind[] ReloadOn => [ChangeKind.Requerimientos, ChangeKind.Solicitudes, ChangeKind.Usuarios, ChangeKind.Comentarios];
 
     protected override async Task LoadAsync()
     {
         _names = (await Users.ListAsync()).ToDictionary(u => u.Id, u => u.Nombre);
         _mine = await Sols.MiasAsync(Me);
+        _coms = await Comentarios.ConteoAsync(_mine.SelectMany(c => c.Items).Select(r => r.Id));
     }
 }

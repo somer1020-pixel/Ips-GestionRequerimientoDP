@@ -418,3 +418,51 @@ END;
 
 COMMIT;
 GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105023653_Comentarios'
+)
+BEGIN
+    CREATE TABLE [Comentarios] (
+        [Id] int NOT NULL IDENTITY,
+        [RequerimientoId] int NOT NULL,
+        [AutorId] int NOT NULL,
+        [Texto] nvarchar(2000) NOT NULL,
+        [Menciones] nvarchar(1000) NOT NULL,
+        [CreadoAt] datetimeoffset NOT NULL,
+        CONSTRAINT [PK_Comentarios] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_Comentarios_Requerimientos_RequerimientoId] FOREIGN KEY ([RequerimientoId]) REFERENCES [Requerimientos] ([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_Comentarios_Usuarios_AutorId] FOREIGN KEY ([AutorId]) REFERENCES [Usuarios] ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105023653_Comentarios'
+)
+BEGIN
+    CREATE INDEX [IX_Comentarios_AutorId] ON [Comentarios] ([AutorId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105023653_Comentarios'
+)
+BEGIN
+    CREATE INDEX [IX_Comentarios_RequerimientoId_CreadoAt] ON [Comentarios] ([RequerimientoId], [CreadoAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105023653_Comentarios'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261105023653_Comentarios', N'10.0.13');
+END;
+
+COMMIT;
+GO
+

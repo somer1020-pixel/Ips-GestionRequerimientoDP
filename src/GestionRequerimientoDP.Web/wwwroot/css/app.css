@@ -210,3 +210,18 @@ pre{font-size:13px}
 .card .card-body{padding:0;flex:1}
 .card .card-title{margin:0}
 .card > .card-kicker{overflow:hidden;text-overflow:ellipsis}
+
+/* Comentarios y menciones */
+.com-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-3)}
+.com{display:flex;gap:var(--space-2);align-items:flex-start}
+.com-av{flex:none;width:28px;height:28px;font-size:11px;background:var(--navy);color:#fff}
+.com-cuerpo{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;background:var(--neutral-50);border-radius:6px;padding:var(--space-2) var(--space-3)}
+.com-cab{display:flex;gap:var(--space-2);align-items:baseline;flex-wrap:wrap;font-size:13px}
+.com-cab .sub{font-size:12px}
+.com-texto{font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.com-nuevo{display:flex;flex-direction:column;gap:var(--space-2)}
+.mencion{color:var(--color-accent-700);font-weight:600;background:var(--teal-50);border-radius:3px;padding:0 2px}
+.mencion-menu{position:fixed;z-index:2000;background:var(--color-bg,#fff);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 24px rgba(16,24,64,.18);max-height:240px;overflow:auto;padding:4px}
+.mencion-opt{display:flex;flex-direction:column;gap:1px;padding:6px 8px;border-radius:4px;cursor:pointer;font-size:14px}
+.mencion-opt span{font-size:12px;color:var(--color-neutral-700)}
+.mencion-opt.activa,.mencion-opt:hover{background:var(--teal-50)}

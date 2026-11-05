@@ -1,0 +1,86 @@
+@inherits AppPage
+@inject IComentarioService Comentarios
+@* Hilo de comentarios de un requerimiento. Escribir "@" abre la lista de personas (app.js, data-mencion); al publicar, los
+   mencionados reciben un correo con el comentario y el enlace para responder. El cuadro de texto no está enlazado a Blazor
+   (así no se pierden letras mientras se escribe): el texto se lee con JS al publicar. *@
+
+@if (_hilo is { } h)
+{
+    <div class="field comentarios" data-screen-label="Comentarios">
+        <label for="@_inputId">Comentarios @(h.Comentarios.Count > 0 ? $"({h.Comentarios.Count})" : "")</label>
+        @if (h.Comentarios.Count > 0)
+        {
+            <ol class="com-lista" aria-label="Comentarios">
+                @foreach (var c in h.Comentarios)
+                {
+                    var autor = h.Usuarios.TryGetValue(c.AutorId, out var au) ? au.Nombre : "Usuario eliminado";
+                    var mencionados = c.MencionIds.Where(h.Usuarios.ContainsKey).Select(i => h.Usuarios[i]).ToList();
+                    <li class="com" @key="c.Id">
+                        <span class="avatar com-av" aria-hidden="true">@Reglas.Iniciales(autor)</span>
+                        <div class="com-cuerpo">
+                            <div class="com-cab"><strong>@autor</strong><span class="sub">@Fechas.FmtDT(c.CreadoAt)</span></div>
+                            <div class="com-texto">@foreach (var t in Reglas.Trozos(c.Texto, mencionados))
+                                {
+                                    if (t.UsuarioId is null)
+                                    {
+                                        @t.Texto
+                                    }
+                                    else
+                                    {
+                                        <span class="mencion">@t.Texto</span>
+                                    }
+                                }</div>
+                        </div>
+                    </li>
+                }
+            </ol>
+        }
+        <div class="com-nuevo">
+            <textarea id="@_inputId" class="form-control" data-mencion="@_usuariosJson" maxlength="@Reglas.ComentarioMax"
+                      placeholder="Escribe un comentario… usa @@ para mencionar a alguien y avisarle por correo" style="min-height:60px"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);flex-wrap:wrap">
+                <span class="sub" style="font-size:12px">Los mencionados reciben un correo con el comentario y el enlace a este requerimiento.</span>
+                <button class="btn btn-outline-secondary" @onclick="Publicar" disabled="@_enviando">@(_enviando ? "Publicando…" : "Comentar")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public int ReqId { get; set; }
+
+    readonly string _inputId = "com-" + Guid.NewGuid().ToString("N")[..8];
+    HiloComentarios? _hilo;
+    string _usuariosJson = "[]";
+    bool _enviando;
+
+    protected override ChangeKind[] ReloadOn => [ChangeKind.Comentarios, ChangeKind.Usuarios];
+
+    protected override async Task LoadAsync()
+    {
+        _hilo = await Comentarios.HiloAsync(Me, ReqId);
+        if (_hilo is null) return;
+        var personas = await Comentarios.MencionablesAsync(Me);
+        _usuariosJson = System.Text.Json.JsonSerializer.Serialize(personas.Select(u => new { n = u.Nombre, d = Detalle(u) }));
+    }
+
+    static string Detalle(Usuario u) => Reglas.RolLabel(u.Rol) + (u.Rol == Rol.Analista ? " · " + Reglas.EquipoLabel(u) : "");
+
+    async Task Publicar()
+    {
+        if (_enviando) return;
+        var texto = await JS.InvokeAsync<string>("grdp.mencion.valor", _inputId);
+        if (string.IsNullOrWhiteSpace(texto)) { Ui.Flash("Escribe un comentario"); return; }
+        _enviando = true;
+        try
+        {
+            var avisados = await Comentarios.AgregarAsync(Me, ReqId, texto, $"{Nav.BaseUri}r/{ReqId}");
+            await JS.InvokeVoidAsync("grdp.mencion.limpiar", _inputId);
+            Ui.Flash(avisados.Count == 0 ? "Comentario publicado" : $"Comentario publicado · se avisó por correo a {string.Join(", ", avisados.Select(u => u.Nombre))}");
+            await LoadAsync();
+        }
+        catch (ReglaException ex) { Ui.Flash(ex.Message); }
+        catch (PermisoException ex) { Ui.Flash(ex.Message); }
+        finally { _enviando = false; }
+    }
+}

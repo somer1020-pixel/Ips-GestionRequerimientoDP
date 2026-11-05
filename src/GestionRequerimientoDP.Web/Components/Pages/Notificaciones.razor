@@ -109,8 +109,8 @@
         }
     }
 
-    static string KindLabel(NotificacionKind k) => k switch { NotificacionKind.Atraso => "Atraso sin gestión", NotificacionKind.Solicitud => "Nueva solicitud", NotificacionKind.Acceso => "Acceso", NotificacionKind.SolicitudAsignada => "Solicitud asignada", _ => "Asignación" };
-    static string KindCss(NotificacionKind k) => k switch { NotificacionKind.Atraso => "be be-danger", NotificacionKind.Solicitud => "be be-warning", NotificacionKind.Acceso => "be be-info", NotificacionKind.SolicitudAsignada => "be be-success", _ => "be be-neutral" };
+    static string KindLabel(NotificacionKind k) => k switch { NotificacionKind.Atraso => "Atraso sin gestión", NotificacionKind.Solicitud => "Nueva solicitud", NotificacionKind.Acceso => "Acceso", NotificacionKind.SolicitudAsignada => "Solicitud asignada", NotificacionKind.Mencion => "Mención", _ => "Asignación" };
+    static string KindCss(NotificacionKind k) => k switch { NotificacionKind.Atraso => "be be-danger", NotificacionKind.Solicitud => "be be-warning", NotificacionKind.Acceso => "be be-info", NotificacionKind.SolicitudAsignada => "be be-success", NotificacionKind.Mencion => "be be-navy", _ => "be be-neutral" };
     static string StatusLabel(Notificacion m) => m.Status switch
     {
         NotificacionStatus.Enviado => m.Error.Length > 0 ? "Enviado (simulado)" : "Enviado",

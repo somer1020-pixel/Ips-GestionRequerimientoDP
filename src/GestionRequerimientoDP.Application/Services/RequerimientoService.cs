@@ -183,6 +183,8 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
         await using var db = factory.Create();
         var r = await db.Requerimientos.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (r is null) return;
+        // La base borra en cascada; se hace explícito para que también aplique con el proveedor en memoria de los tests.
+        db.Comentarios.RemoveRange(await db.Comentarios.Where(c => c.RequerimientoId == r.Id).ToListAsync(ct));
         db.Requerimientos.Remove(r);
         await db.SaveAsync(ct);
         changes.Publish(ChangeKind.Requerimientos);
