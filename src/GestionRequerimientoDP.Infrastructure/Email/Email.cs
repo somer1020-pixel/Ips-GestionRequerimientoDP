@@ -75,13 +75,44 @@ public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSende
         foreach (var t in to) msg.To.Add(MailboxAddress.Parse(t));
         foreach (var c in cc) msg.Cc.Add(MailboxAddress.Parse(c));
         msg.Subject = subject;
-        msg.Body = new TextPart("plain") { Text = body };
+        msg.Body = CuerpoCorreo.Construir(body);
         using var smtp = new SmtpClient();
         await smtp.ConnectAsync(o.Host, o.Port, o.Socket, ct);
         if (!string.IsNullOrEmpty(o.User)) await smtp.AuthenticateAsync(o.User, o.Password, ct);
         await smtp.SendAsync(msg, ct);
         await smtp.DisconnectAsync(true, ct);
     }
+}
+
+/// <summary>
+/// Cuerpo del correo en texto y en HTML (multipart/alternative). Outlook, en los correos de solo texto, "quita los saltos de
+/// línea extra" y junta en un párrafo las líneas que no están separadas por una línea en blanco (por ejemplo, la lista de
+/// requerimientos). En la versión HTML cada línea es un salto real (&lt;br&gt;), los enlaces se pueden pulsar y se conserva
+/// la sangría.
+/// </summary>
+public static partial class CuerpoCorreo
+{
+    public static MimeEntity Construir(string texto)
+    {
+        var b = new BodyBuilder { TextBody = texto, HtmlBody = Html(texto) };
+        return b.ToMessageBody();
+    }
+
+    public static string Html(string texto)
+    {
+        var lineas = (texto ?? "").Replace("\r\n", "\n").Split('\n').Select(l =>
+        {
+            var e = System.Net.WebUtility.HtmlEncode(l);
+            e = Url().Replace(e, m => $"<a href=\"{m.Value}\">{m.Value}</a>");
+            var sangria = l.Length - l.TrimStart(' ').Length;
+            return sangria > 0 ? string.Concat(Enumerable.Repeat("&nbsp;", sangria)) + e.TrimStart(' ') : e;
+        });
+        return "<!DOCTYPE html><html><body style=\"font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1f2937\">"
+               + string.Join("<br>\n", lineas) + "</body></html>";
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"https?://[^\s<>""]+")]
+    private static partial System.Text.RegularExpressions.Regex Url();
 }
 
 /// <summary>Sin SMTP configurado: registra el correo en el log y lo da por enviado (simulado).</summary>

@@ -32,7 +32,7 @@ public static class MailBuilder
         var body = string.Join('\n', new[]
         {
             $"Hola {First(analista.Nombre)},", "",
-            one ? "Se te asignó el siguiente requerimiento:" : "Se te asignaron los siguientes requerimientos:",
+            one ? "Se te asignó el siguiente requerimiento:" : "Se te asignaron los siguientes requerimientos:", "",
         }.Concat(items.Select(r => Line(r, false))).Concat([
             "", $"Revisa el detalle en {AppInfo.Nombre} → Mi semana y marca \"Iniciar\" al comenzar.", "", $"Mensaje automático de {AppInfo.Nombre}.",
         ]));
@@ -47,7 +47,7 @@ public static class MailBuilder
         var body = string.Join('\n', new[]
         {
             analista is null ? "Hola equipo líder," : $"Hola {First(analista.Nombre)},", "",
-            "Los siguientes requerimientos ya pasaron su día de entrega y no registran gestión (sin iniciar o sin actualización reciente):",
+            "Los siguientes requerimientos ya pasaron su día de entrega y no registran gestión (sin iniciar o sin actualización reciente):", "",
         }.Concat(items.Select(r => Line(r, true))).Concat([
             "", "Actualiza el estado o deja una nota con el motivo. Si ya terminaste, registra el OK de término.", "", $"Mensaje automático de {AppInfo.Nombre}.",
         ]));
@@ -61,7 +61,7 @@ public static class MailBuilder
         var lines = new List<string>
         {
             $"Hola {string.Join(", ", lideres.Select(l => First(l.Nombre)))},", "",
-            $"{(solicitante is null ? "Un área comercial" : NombreSolicitante(solicitante))} ingresó una nueva solicitud para {unidad}:",
+            $"{(solicitante is null ? "Un área comercial" : NombreSolicitante(solicitante))} ingresó una nueva solicitud para {unidad}:", "",
             $"• Cliente: {f.Cliente} · Job {f.Job}", $"• Proyecto: {f.Proyecto}", $"• Requerida para: {Fechas.FmtD(f.Fecha)}", $"• Entregables ({items.Count}):",
         };
         lines.AddRange(items.Select(r => $"   - {r.Entregable}{(string.IsNullOrEmpty(r.Descripcion) ? "" : ": " + r.Descripcion)}"));
@@ -108,7 +108,7 @@ public static class MailBuilder
         var lines = new List<string>
         {
             $"Hola {First(solicitante.Nombre)},", "",
-            $"Tu solicitud {cod} ({f.Proyecto} · {f.Cliente} · Job {f.Job}) ya tiene quién la gestione:",
+            $"Tu solicitud {cod} ({f.Proyecto} · {f.Cliente} · Job {f.Job}) ya tiene quién la gestione:", "",
         };
         lines.AddRange(asignados.Select(r => $"• {r.Entregable}{(string.IsNullOrEmpty(r.Descripcion) ? "" : ": " + r.Descripcion)} — {Nombre(r.AnalistaId)} · entrega {Fechas.FmtD(r.Fecha)}"));
         if (pendientes.Count > 0)

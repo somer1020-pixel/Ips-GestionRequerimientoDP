@@ -315,7 +315,8 @@ interface Requerimiento {
 - **Tab Notificaciones:** reglas activas y log de correos (fecha, tipo, para, asunto). Un clic en una fila despliega CC y cuerpo.
 - **Formato de los correos:**
   - Asunto `[Carga Ops] Nuevo requerimiento asignado: <job> · <proyecto>`, `[Carga Ops] Tienes N requerimientos nuevos asignados` o `[Carga Ops] N requerimiento(s) atrasado(s) sin gestión`.
-  - Cuerpo en texto plano con una línea por entregable: `• día · job · proyecto — entregable: descripción (tipo)`.
+  - Cuerpo con una línea por entregable (`• día · job · proyecto — entregable: descripción (tipo)`) y una línea en blanco antes y después de la lista.
+  - Se envía como texto **y** HTML (multipart/alternative): Outlook junta las líneas de los correos de solo texto ("quitar saltos de línea extra"); en HTML cada línea es un salto real y los enlaces se pueden pulsar.
 - **Producción:** usar un servicio transaccional (SES, SendGrid o Microsoft Graph/Outlook) con una cola. Guardar en una tabla `notificaciones` (id, kind, to, cc, subject, body, req_ids, sent_at, status) y no enviar si el usuario está inactivo.
 
 ### 3.3f Comentarios y menciones
