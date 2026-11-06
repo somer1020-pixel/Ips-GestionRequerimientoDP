@@ -124,21 +124,25 @@ public class ImportParserTests
     public void Encabezados_duplicados_y_analistas()
     {
         var team = new[] { new Usuario { Id = 7, Nombre = "Andrés Salinas", Rol = Rol.Analista } };
-        var existing = new[] { new Requerimiento { Fecha = new DateOnly(2026, 10, 19), Job = "J0", Entregable = "BD", Descripcion = "x", AnalistaId = 7 } };
+        var existing = new[] { new Requerimiento { Fecha = new DateOnly(2026, 10, 19), Cliente = "C1", Proyecto = "P1", Job = "J0", Entregable = "BD", Descripcion = "x", AnalistaId = 7 } };
         var matrix = ImportParser.FromText(
             "DÍA\tCliente\tEstudio\tJOB\tEntregable\tDescripción\tAnalista\n" +
             "19-10-2026\tC1\tP1\tJ0\tBD\tx\tandres salinas\n" +   // duplicado contra la BD
+            "19-10-2026\tc1\tp1 \tJ0\tbd\tX\tAndrés Salinas\n" +   // también: sin mayúsculas, tildes ni espacios
+            "19-10-2026\tOtro cliente\tP1\tJ0\tBD\tx\tandres salinas\n" + // otro cliente: no es duplicado
+            "19-10-2026\tC1\tOtro proyecto\tJ0\tBD\tx\tandres salinas\n" + // otro proyecto: no es duplicado
             "20/10/2026\tC1\tP1\tJ1\tBD\ty\tAndres Salinas\n" +
             "20/10/2026\tC1\tP1\tJ1\tBD\ty\tAndrés Salinas\n" +   // duplicado en el lote
             "21/10/2026\tC2\tP2\tJ2\tSPSS\tz\tNadie Conocido\n" +
             "\tC3\tP3\tJ3\tBD\tz\t\n");                          // sin DIA
         var res = ImportParser.Parse(matrix, team, existing);
-        Assert.Equal(2, res.Rows.Count);
-        Assert.Equal(2, res.Duplicados);
+        Assert.Equal(4, res.Rows.Count);
+        Assert.Equal(3, res.Duplicados);
         Assert.Equal(1, res.Invalidas);
         Assert.Equal(["Nadie Conocido"], res.NoReconocidos);
+        Assert.Equal(["Otro cliente", "C1", "C1", "C2"], res.Rows.Select(r => r.Cliente));
         Assert.Equal(7, res.Rows[0].AnalistaId);
-        Assert.Null(res.Rows[1].AnalistaId);
+        Assert.Null(res.Rows[3].AnalistaId);
         Assert.Equal("P1", res.Rows[0].Proyecto); // ESTUDIO → PROYECTO
         Assert.Equal([new DateOnly(2026, 10, 19)], res.Semanas);
     }

@@ -36,8 +36,12 @@ public static partial class ImportParser
             .Select(l => l.Split('\t', ';').Cast<object?>().ToArray())
             .ToList();
 
-    public static string DupKey(DateOnly fecha, string job, string entregable, string descripcion, int? analista) =>
-        string.Join('|', Fechas.Iso(fecha), Reglas.Norm(job), Reglas.Norm(entregable), Reglas.Norm(descripcion), analista?.ToString() ?? "");
+    /// <summary>
+    /// Clave de duplicado: día, cliente, proyecto, job, entregable, descripción y analista. Los textos se comparan sin
+    /// mayúsculas, tildes ni espacios de más.
+    /// </summary>
+    public static string DupKey(DateOnly fecha, string cliente, string proyecto, string job, string entregable, string descripcion, int? analista) =>
+        string.Join('|', Fechas.Iso(fecha), Reglas.Norm(cliente), Reglas.Norm(proyecto), Reglas.Norm(job), Reglas.Norm(entregable), Reglas.Norm(descripcion), analista?.ToString() ?? "");
 
     /// <param name="matrix">Celdas: DateTime, número (serial de Excel) o texto.</param>
     /// <param name="teamAnalysts">Analistas del equipo de la unidad (para reconocer ANALISTA).</param>
@@ -53,7 +57,7 @@ public static partial class ImportParser
         if (h.Contains("job")) { map = h.Select(c => Hdr.GetValueOrDefault(c)).ToArray(); start = 1; }
 
         var team = teamAnalysts.ToList();
-        var seen = existentes.Select(r => DupKey(r.Fecha, r.Job, r.Entregable, r.Descripcion, r.AnalistaId)).ToHashSet();
+        var seen = existentes.Select(r => DupKey(r.Fecha, r.Cliente, r.Proyecto, r.Job, r.Entregable, r.Descripcion, r.AnalistaId)).ToHashSet();
 
         for (var i = start; i < matrix.Count; i++)
         {
@@ -79,7 +83,7 @@ public static partial class ImportParser
                 else if (!res.NoReconocidos.Contains(S("analista"))) res.NoReconocidos.Add(S("analista"));
             }
 
-            var key = DupKey(fecha.Value, job, S("entregable"), S("descripcion"), an);
+            var key = DupKey(fecha.Value, S("cliente"), proyecto, job, S("entregable"), S("descripcion"), an);
             if (!seen.Add(key)) { res.Duplicados++; continue; }
             res.Semanas.Add(Fechas.MondayOf(fecha.Value));
             res.Rows.Add(new ImportRow(fecha.Value, S("pais") is { Length: > 0 } p ? p : "CL", S("bu"), S("tecnica"), S("cliente"), proyecto, job,

@@ -177,7 +177,7 @@ interface Requerimiento {
   - DIA acepta fecha de Excel (Date o serial), `YYYY-MM-DD` o `d/m/yyyy`. Si el segundo número es mayor que 12, se interpreta como `m/d`.
   - La semana se calcula desde DIA.
   - ANALISTA se compara con los analistas DP y los líderes por nombre normalizado (exacto o contenido). Los no reconocidos quedan sin asignar y se listan en la vista previa.
-  - **Duplicados** (`fecha|job|entregable|descripcion|analista`, contra la base y dentro del mismo lote) se omiten; la planilla real tiene filas repetidas.
+  - **Duplicados** (`fecha|cliente|proyecto|job|entregable|descripcion|analista`, textos sin mayúsculas, tildes ni espacios de más; contra los requerimientos de la misma unidad en la base, de cualquier semana y estado, y dentro del mismo lote) se omiten sin modificar el existente; la planilla real tiene filas repetidas.
   - La vista previa muestra filas nuevas, semanas detectadas, duplicados, inválidas y analistas no reconocidos.
   - Al importar, todo entra como `pendiente` y se navega a la semana importada.
 
@@ -476,7 +476,7 @@ Los nombres en el mockup → C#:
 | --- | --- | --- |
 | `IScriptAssignmentService` | `rank`, `autoAssignScripts` | Ranking: menos activos → menos entregables DP abiertos hoy → último OK más antiguo. |
 | `IBalanceService` | `suggestBalance`, `applyBalance` | Mueve jobs completos solo si todo el job está pendiente. Devuelve la propuesta y aplica en una transacción. |
-| `IImportService` | `parseMatrix`, `toISODate`, `doImport` | ClosedXML, normalización de encabezados, duplicados por `fecha|job|entregable|descripcion|analista`. |
+| `IImportService` | `parseMatrix`, `toISODate`, `doImport` | ClosedXML, normalización de encabezados, duplicados por `fecha|cliente|proyecto|job|entregable|descripcion|analista`. |
 | `IExportService` | `download` | Hojas `agenda` + `resumen`; columnas de §3.4. |
 | `IOkService` | `confirmOk`, `reopen`, `moveTo` | Valida horas, o registros + método, materiales ≤ hoy y motivo de atraso. Registra en `OkLog`. |
 | `ISolicitudService` | `submitSol`, `downloadInbox` | Crea la solicitud y sus entregables sin analista, y notifica a `teamLeadersOf`. |

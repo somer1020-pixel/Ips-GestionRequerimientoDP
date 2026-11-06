@@ -1530,7 +1530,7 @@ class Component extends DCLogic {
     const h=matrix[0].map(c=>norm(c));
     if(h.includes('job')){map=h.map(c=>HDR[c]||null);start=1;}
     const unit=this.state.planUnit,proc=this.state.users.filter(u=>(u.rol==='analista'&&has(u,unit))||isGestor(u));
-    const seen=new Set(this.state.reqs.filter(r=>r.tipo===unit).map(r=>[r.fecha,norm(r.job),norm(r.entregable),norm(r.descripcion),r.analista].join('|')));
+    const seen=new Set(this.state.reqs.filter(r=>r.tipo===unit).map(r=>[r.fecha,norm(r.cliente),norm(r.proyecto),norm(r.job),norm(r.entregable),norm(r.descripcion),r.analista].join('|')));
     for(let i=start;i<matrix.length;i++){
       const o={};map.forEach((k,j)=>{if(k)o[k]=matrix[i][j];});
       Object.keys(o).forEach(k=>{if(k!=='fecha')o[k]=String(o[k]??'').trim();});
@@ -1539,7 +1539,7 @@ class Component extends DCLogic {
       if(!o.fecha||!o.job){res.invalid++;continue;}
       const q=norm(o.analista);let an='';
       if(q){const u=proc.find(u=>norm(u.nombre)===q)||proc.find(u=>norm(u.nombre).includes(q)||q.includes(norm(u.nombre)));if(u)an=u.id;else res.unknown.add(o.analista);}
-      const key=[o.fecha,norm(o.job),norm(o.entregable),norm(o.descripcion),an].join('|');
+      const key=[o.fecha,norm(o.cliente),norm(o.proyecto),norm(o.job),norm(o.entregable),norm(o.descripcion),an].join('|');
       if(seen.has(key)){res.dup++;continue;}seen.add(key);
       res.weeks.add(mondayOf(o.fecha));
       res.rows.push({tipo:unit,fecha:o.fecha,pais:o.pais||'CL',bu:o.bu||'',tecnica:o.tecnica||'',cliente:o.cliente||'',proyecto:o.proyecto||'',job:o.job,entregable:o.entregable||'',descripcion:o.descripcion||'',comercial:o.comercial||'',analista:an});
