@@ -179,6 +179,7 @@
                     <span class="card-kicker" style="color:var(--color-accent-700);overflow:hidden;text-overflow:ellipsis">{{ c.job }} · {{ c.entregable }}</span>
                     <span style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;color:{{ c.dateColor }};font-weight:{{ c.dateWeight }}"><sc-if value="{{ c.isDue }}" hint-placeholder-val="{{ false }}"><span title="{{ c.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--danger)"></circle><path d="M12 6.5v7M12 17.2v.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"></path></svg></span></sc-if><sc-if value="{{ c.isWarn }}" hint-placeholder-val="{{ false }}"><span title="{{ c.alertTitle }}" style="display:inline-flex;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="oklch(0.86 0.17 92)"></circle><path d="M12 6.5V12l3.5 2" stroke="#1d1f20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg></span></sc-if>{{ c.dateLabel }}</span>
                   </div>
+                  <sc-if value="{{ c.isCarry }}" hint-placeholder-val="{{ false }}"><span class="be be-warning" style="align-self:flex-start;font-size:11px">↩ De la semana {{ c.carryWeek }}</span></sc-if>
                   <div class="card-title">{{ c.proyecto }}</div>
                   <sc-if value="{{ showMeta }}" hint-placeholder-val="{{ true }}">
                     <div class="card-body" style="opacity:1;color:var(--color-neutral-800)">{{ c.descripcion }}</div>
@@ -1618,7 +1619,7 @@ class Component extends DCLogic {
       analistaNombre:nameOf(r.analista),ini:iniOf(r.analista?nameOf(r.analista):''),
       tipoLabel:TIPO[r.tipo].label,
       estadoLabel:EST_LABEL[r.estado],estadoClass:EST_CLASS[r.estado],
-      dia:fmtD(r.fecha),dateLabel:late(r)?(this.sinGestion(r)?`Atrasado sin gestión · ${fmtD(r.fecha)}`:`Atrasado · ${fmtD(r.fecha)}`):fmtD(r.fecha),
+      dia:fmtD(r.fecha),isCarry:r.tipo!=='script'&&r.estado!=='ok'&&r.fecha<CUR,carryWeek:weekLabel(mondayOf(r.fecha)),dateLabel:late(r)?(this.sinGestion(r)?`Atrasado sin gestión · ${fmtD(r.fecha)}`:`Atrasado · ${fmtD(r.fecha)}`):fmtD(r.fecha),
       dateColor:late(r)?'var(--danger)':'var(--ink-muted)',dateWeight:late(r)?'700':'400',
       isOk:r.estado==='ok',notOk:r.estado!=='ok',isPend:r.estado==='pendiente',canQuickOk:r.estado==='en_curso',
       okLine:r.okAt?fmtDT(r.okAt):'',
@@ -1637,7 +1638,7 @@ class Component extends DCLogic {
     const byDate=(a,b)=>a.fecha.localeCompare(b.fecha)||a.job.localeCompare(b.job);
     const com=isSol(me);
     const visible=lead?s.reqs:com?[]:s.reqs.filter(r=>r.analista===me.id);
-    const scope=visible.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&mondayOf(r.fecha)===CUR));
+    const scope=visible.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&(mondayOf(r.fecha)===CUR||(r.estado!=='ok'&&r.fecha<CUR))));// proc/cod de la semana + los de semanas anteriores aún sin OK
     // tabs
     const tabDefs=com?[['solnueva','Nueva solicitud'],['solmias','Mis solicitudes']]:lead?[['tablero','Tablero'],['bandeja','Solicitudes nuevas'],['plan','Planificación semanal'],['scripts','Scripts'],['resumen','Resumen'],['historico','Histórico'],['atrasos','Motivos de atraso'],['notif','Notificaciones'],...(this.canAdminUsers()?[['usuarios','Usuarios']]:[]),...(s.reqs.some(r=>r.analista===me.id&&r.estado!=='ok')?[['lista','Mis asignaciones']]:[])]:[['tablero','Mi tablero'],['lista','Mi semana']];
     const tab=tabDefs.some(t=>t[0]===s.tab)?s.tab:tabDefs[0][0];
@@ -1823,7 +1824,7 @@ class Component extends DCLogic {
           const n=this.notifyAssign(g.items.map(r=>({...r,analista:sel})));this.flash(`${ids.length} entregable(s) asignados a ${this.nameOf(sel)}${n?' · correo enviado':''}`);}};
     });
     // summary
-    const leadScope=s.reqs.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&mondayOf(r.fecha)===CUR));
+    const leadScope=s.reqs.filter(r=>(r.tipo==='script'&&(r.estado!=='ok'||mondayOf(r.fecha)===CUR||(r.okAt||'').slice(0,10)>=CUR))||(r.tipo!=='script'&&(mondayOf(r.fecha)===CUR||(r.estado!=='ok'&&r.fecha<CUR))));// proc/cod de la semana + los de semanas anteriores aún sin OK
     const pendingList=leadScope.filter(r=>r.estado!=='ok').sort((a,b)=>byDate(a,b)||(a.estado==='pendiente'?0:1)-(b.estado==='pendiente'?0:1)).map((r,i)=>({...deco(r),rank:String(i+1)}));
     const perAnalyst=s.users.filter(u=>u.activo&&(u.rol==='analista'||(isGestor(u)&&leadScope.some(r=>r.analista===u.id)))).map(a=>{const m=leadScope.filter(r=>r.analista===a.id);const l=m.filter(late).length;return {nombre:a.nombre,equipoLabel:eqLabel(a),pend:String(m.filter(r=>r.estado==='pendiente').length),curso:String(m.filter(r=>r.estado==='en_curso').length),ok:String(m.filter(r=>r.estado==='ok').length),late:String(l),lateWeight:l?'700':'400'};});
     const sco=leadScope.filter(r=>r.tipo==='cod'),sp=leadScope.filter(r=>r.tipo==='proc'),ss=leadScope.filter(r=>r.tipo==='script');

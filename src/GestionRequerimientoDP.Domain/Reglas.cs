@@ -192,12 +192,19 @@ public static partial class Reglas
         return m.Count > 0 ? m : l;
     }
 
-    /// <summary>Alcance "semana actual": entregables proc/cod de la semana, scripts abiertos y scripts cerrados en la semana.</summary>
+    /// <summary>
+    /// Alcance "semana actual" (tablero, resumen, contador de atrasados): entregables proc/cod de la semana más los de semanas
+    /// anteriores que siguen sin OK (no se pierden de vista al cambiar de semana), scripts abiertos y scripts cerrados en la semana.
+    /// </summary>
     public static bool EnSemanaActual(Requerimiento r, DateOnly today)
     {
         var cur = Fechas.MondayOf(today);
         if (r.Tipo == Equipo.Script)
             return r.Estado != Estado.Ok || Fechas.MondayOf(r.Fecha) == cur || (r.OkAt is { } ok && Fechas.LocalDate(ok) >= cur);
-        return Fechas.MondayOf(r.Fecha) == cur;
+        return Fechas.MondayOf(r.Fecha) == cur || DeSemanaAnterior(r, today);
     }
+
+    /// <summary>Entregable de procesamiento o codificación de una semana ya cerrada que sigue sin OK (arrastrado a la semana actual).</summary>
+    public static bool DeSemanaAnterior(Requerimiento r, DateOnly today) =>
+        r.Tipo != Equipo.Script && r.Estado != Estado.Ok && r.Fecha < Fechas.MondayOf(today);
 }

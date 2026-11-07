@@ -8,6 +8,10 @@
             <DueMark R="R" Today="Today" />@DateLabel
         </span>
     </div>
+    @if (Reglas.DeSemanaAnterior(R, Today))
+    {
+        <span class="be be-warning" style="align-self:flex-start;font-size:11px" title="Quedó sin OK en una semana ya cerrada: sigue visible hasta que se termine o se cambie su día de entrega">↩ De la semana @Fechas.WeekLabel(Fechas.MondayOf(R.Fecha))</span>
+    }
     <div class="card-title">@R.Proyecto</div>
     @if (!Compact)
     {

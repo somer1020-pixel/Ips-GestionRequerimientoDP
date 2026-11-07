@@ -15,6 +15,10 @@
                 @(Me.EsLider ? $"Procesamiento y codificación semana {Fechas.WeekLabel(Cur)} + scripts. Arrastra las tarjetas para cambiar su estado."
                              : "Solo ves lo que tienes asignado. Arrastra tus tarjetas para actualizar el estado; soltar en OK pide confirmación.")
             </div>
+            @if (Arrastrados > 0)
+            {
+                <div class="sub" style="color:var(--warning);font-weight:600">↩ @Arrastrados entregable(s) de semanas anteriores siguen sin OK y se muestran aquí hasta terminarlos o cambiar su día de entrega.</div>
+            }
             <DueLegend />
         </div>
         <div class="page-actions">
@@ -66,6 +70,7 @@
     Estado? _dragOver;
 
     string Title => Me.EsLider ? "Tablero de requerimientos" : "Mi tablero";
+    int Arrastrados => _scope.Count(r => Reglas.DeSemanaAnterior(r, Today));
     string Name(int? id) => id is { } i && _names.TryGetValue(i, out var n) ? n : "Sin asignar";
     static string Dot(Estado e) => e switch { Estado.Ok => "var(--color-accent)", Estado.EnCurso => "var(--color-accent-400)", _ => "var(--color-neutral-400)" };
 

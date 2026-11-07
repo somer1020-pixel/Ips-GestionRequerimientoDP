@@ -47,7 +47,8 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
         var curStart = Fechas.FromLocal(cur, 0, 0);
         await using var db = factory.Create();
         return await db.Visibles(me).AsNoTracking()
-            .Where(r => (r.Tipo != Equipo.Script && r.Fecha >= cur && r.Fecha <= end)
+            // Mismo alcance que Reglas.EnSemanaActual: proc/cod de la semana + los de semanas anteriores aún sin OK.
+            .Where(r => (r.Tipo != Equipo.Script && ((r.Fecha >= cur && r.Fecha <= end) || (r.Estado != Estado.Ok && r.Fecha < cur)))
                         || (r.Tipo == Equipo.Script && (r.Estado != Estado.Ok || (r.Fecha >= cur && r.Fecha <= end) || r.OkAt >= curStart)))
             .OrderBy(r => r.Fecha).ThenBy(r => r.Job).ToListAsync(ct);
     }
