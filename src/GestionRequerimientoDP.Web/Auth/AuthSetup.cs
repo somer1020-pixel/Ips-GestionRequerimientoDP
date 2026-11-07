@@ -115,6 +115,13 @@ public static class AuthSetup
                     var users = ctx.HttpContext.RequestServices.GetRequiredService<IUsuarioService>();
                     var u = me is null ? null : await users.GetAsync(me.Id);
                     if (u is null || !u.Activo) { ctx.RejectPrincipal(); await ctx.HttpContext.SignOutAsync(); return; }
+                    // Auditoría: quien vuelve con la sesión recordada no pasa por el ingreso; se registra su primer acceso de cada día.
+                    var hoy = ctx.HttpContext.RequestServices.GetRequiredService<IClock>().Today;
+                    if (u.UltimoAcceso is null || Fechas.LocalDate(u.UltimoAcceso.Value) < hoy)
+                    {
+                        var sso = ctx.HttpContext.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<SsoOptions>>().CurrentValue;
+                        await ctx.HttpContext.RequestServices.GetRequiredService<IAccesoService>().RegistrarActividadAsync(u.Id, SsoRules.ClientIp(ctx.HttpContext, sso));
+                    }
                     var fresh = UsuarioActual.From(u);
                     if (fresh.Rol != me!.Rol || fresh.Nombre != me.Nombre || !fresh.Equipos.SequenceEqual(me.Equipos))
                     {

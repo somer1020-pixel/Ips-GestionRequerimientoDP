@@ -70,7 +70,7 @@
     static bool EsFallo(string accion) => accion.Contains("FALLIDO") || accion.Contains("BLOQUEADO") || accion.Contains("FALLO") || accion.Contains("RECHAZADO");
 
     static string Css(string accion) =>
-        EsFallo(accion) ? "be be-danger" : accion.StartsWith("LOGIN_OK") ? "be be-success" : accion.Contains("SOLICITADO") ? "be be-warning" : "be be-neutral";
+        EsFallo(accion) ? "be be-danger" : accion.StartsWith("LOGIN_OK") || accion == "ACCESO_SESION" ? "be be-success" : accion.Contains("SOLICITADO") ? "be be-warning" : "be be-neutral";
 
     protected override async Task LoadAsync()
     {

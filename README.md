@@ -53,7 +53,7 @@ GestionRequerimientoDP.slnx
   - Además hay un límite de envíos de formularios de cuenta por IP (`Seguridad:FormulariosPorMinutoPorIp`, por defecto 30).
   - Una cuenta inexistente tarda lo mismo en responder que una real, así que el tiempo no revela qué correos existen.
 - **Modo demostración:** los accesos sin contraseña (`Auth:DemoMode`) solo funcionan en Development. En el servidor se ignoran aunque estén activados por error.
-- **Auditoría de accesos** (**Usuarios → Auditoría de accesos**, solo líderes): ingresos, fallos, bloqueos, salidas, SSO, solicitudes, aprobaciones, recuperaciones y cambios de usuarios, con IP y detalle.
+- **Auditoría de accesos** (**Usuarios → Auditoría de accesos**, solo el administrador): ingresos, fallos, bloqueos, salidas, SSO, solicitudes, aprobaciones, recuperaciones y cambios de usuarios, con IP y detalle. Como la sesión queda recordada 14 días, el primer acceso de cada día de quien vuelve sin ingresar de nuevo se registra como `ACCESO_SESION` (y actualiza "Último acceso").
 - **Búsqueda en Active Directory** al crear un usuario (servidor Windows con `ActiveDirectory:Enabled = true`): busca por nombre, usuario o correo y completa nombre, correo y cuenta de dominio. Usa la identidad del App Pool o una cuenta de servicio (`ActiveDirectory:Usuario` / `Clave`, en variables de entorno).
 
 ## Single Sign-On con Active Directory

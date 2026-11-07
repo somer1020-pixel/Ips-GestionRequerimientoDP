@@ -64,12 +64,13 @@ public static class AccountEndpoints
             return Results.Redirect(In(http, ret != "/" ? ret : Reglas.EsSolicitante(u.Rol) ? "/solicitar" : "/"));
         }).WithMetadata(new RequireAntiforgeryTokenAttribute(true));
 
-        g.MapPost("/salir", async (HttpContext http, IOptionsMonitor<SsoOptions> sso, IAuditoriaService audit) =>
+        g.MapPost("/salir", async (HttpContext http, IOptionsMonitor<SsoOptions> sso, IAuditoriaService audit, IUsuarioService users) =>
         {
             if (FormularioVencido(http, "/") is { } vencido) return vencido;
             var me = Claims.ToUsuario(http.User);
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            if (me != null) await audit.RegistrarAsync(me.Nombre, "LOGOUT", "Cookie", SsoRules.ClientIp(http, sso.CurrentValue));
+            // Se registra con el correo (igual que el resto de la auditoría) para poder filtrar por usuario.
+            if (me != null) await audit.RegistrarAsync((await users.GetAsync(me.Id))?.Email ?? me.Nombre, "LOGOUT", "Cookie", SsoRules.ClientIp(http, sso.CurrentValue), me.Nombre);
             // Con SSO, volver al ingreso manual: si no, la cuenta Windows volvería a entrar sola.
             return Results.Redirect(In(http, sso.CurrentValue.Enabled ? "/cuenta/ingresar?manual=1" : "/cuenta/ingresar"));
         }).WithMetadata(new RequireAntiforgeryTokenAttribute(true));

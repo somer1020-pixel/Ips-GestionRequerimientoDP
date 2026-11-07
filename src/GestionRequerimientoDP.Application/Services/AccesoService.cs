@@ -79,6 +79,11 @@ public interface IAccesoService
     /// <param name="sinClave">Accesos de demostración: no se valida la contraseña.</param>
     Task<LoginResultado> ValidarAsync(string login, string password, bool sinClave, CancellationToken ct = default);
     Task RegistrarIngresoAsync(int usuarioId, CancellationToken ct = default);
+    /// <summary>
+    /// Primera actividad del día con una sesión recordada (cookie de 14 días, sin pasar por el ingreso): registra en la
+    /// auditoría "ACCESO_SESION" y actualiza el último acceso. Una vez por usuario y día. Devuelve true si registró.
+    /// </summary>
+    Task<bool> RegistrarActividadAsync(int usuarioId, string ip, CancellationToken ct = default);
     /// <summary>¿Se superó el máximo de intentos fallidos recientes para este correo/RUT? (bloqueo temporal contra fuerza bruta)</summary>
     Task<bool> DemasiadosIntentosAsync(string login, CancellationToken ct = default);
     Task<Usuario> SolicitarAsync(RegistroInput input, CancellationToken ct = default);
@@ -155,6 +160,24 @@ public sealed class AccesoService(IAppDbContextFactory factory, IClock clock, IC
         u.UltimoAcceso = clock.Now;
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { } // otro ingreso simultáneo ya lo actualizó: no es crítico
+    }
+
+    public async Task<bool> RegistrarActividadAsync(int usuarioId, string ip, CancellationToken ct = default)
+    {
+        var hoy = clock.Today;
+        await using var db = factory.Create();
+        var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == usuarioId, ct);
+        if (u is null || (u.UltimoAcceso is { } ua && Fechas.LocalDate(ua) >= hoy)) return false;
+        u.UltimoAcceso = clock.Now;
+        db.Auditoria.Add(new AuditoriaAcceso
+        {
+            At = clock.Now, Usuario = u.Email, Accion = "ACCESO_SESION", Metodo = "Cookie", Ip = ip.Length > 60 ? ip[..60] : ip,
+            Detalle = $"Sesión recordada (sin volver a ingresar) · {u.Nombre} · {u.Rol}",
+        });
+        try { await db.SaveChangesAsync(ct); return true; }
+        // Usuario tiene RowVersion: si llegan varias solicitudes a la vez en el primer acceso del día, solo una guarda
+        // (el último acceso y el registro van en la misma transacción) y las demás no duplican el registro.
+        catch (DbUpdateConcurrencyException) { return false; }
     }
 
     static bool EmailValido(string e)

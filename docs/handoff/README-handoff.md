@@ -67,6 +67,7 @@ interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos
   - **"¿Olvidaste tu contraseña?":** enlace de un solo uso que vence en 60 min. Solo se guarda su hash, máximo 3 por hora, y no pasa por el registro de Notificaciones.
   - **Fuerza bruta:** 5 intentos fallidos para un mismo correo o RUT bloquean el ingreso con contraseña por 15 min. Hay además un límite de envíos por IP.
   - **Auditoría de accesos** (`/usuarios/auditoria`, solo quien administra usuarios) con filtros Todo / Fallos y bloqueos / Administración.
+  - La sesión dura 14 días y se renueva con el uso, así que quien vuelve no pasa por el ingreso: su **primer acceso de cada día** con la sesión recordada se registra como `ACCESO_SESION` (método Cookie, con IP) y actualiza "Último acceso". Ingresar con contraseña o SSO ya cuenta como acceso del día. Todas las acciones se registran con el correo del usuario (también `LOGOUT`).
   - El formulario de usuario agrega **RUT** y, en servidores Windows con AD, **búsqueda en Active Directory**.
 - **Asignar a líderes:**
   - Un requerimiento se puede asignar a cualquier **líder activo** (otro líder o uno mismo), además de los analistas activos del equipo del tipo.

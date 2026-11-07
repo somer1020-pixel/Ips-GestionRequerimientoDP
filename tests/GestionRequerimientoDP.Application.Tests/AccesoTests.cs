@@ -208,3 +208,37 @@ public class AccesoServiceTests
         await Assert.ThrowsAsync<PermisoException>(() => audit.ListAsync(analista, null));
     }
 }
+
+public class ActividadSesionTests
+{
+    [Fact]
+    public async Task Sesion_recordada_registra_un_acceso_por_dia_y_actualiza_el_ultimo_acceso()
+    {
+        var app = new TestApp(new DateOnly(2026, 10, 20));
+        await app.SeedAsync();
+        var svc = new AccesoService(app.Factory, app.Clock, app.Changes, new PasswordService());
+        var u = await app.UserAsync("asalinas@empresa.cl");
+
+        Assert.True(await svc.RegistrarActividadAsync(u.Id, "10.0.0.5"));
+        Assert.False(await svc.RegistrarActividadAsync(u.Id, "10.0.0.5")); // mismo día: no se repite
+        app.Time.Value = app.Time.Value.AddDays(1);
+        Assert.True(await svc.RegistrarActividadAsync(u.Id, "10.0.0.5"));
+
+        await using var db = app.Factory.Create();
+        var reg = await db.Auditoria.Where(a => a.Accion == "ACCESO_SESION").ToListAsync();
+        Assert.Equal(2, reg.Count);
+        Assert.All(reg, a => { Assert.Equal("asalinas@empresa.cl", a.Usuario); Assert.Equal("Cookie", a.Metodo); Assert.Equal("10.0.0.5", a.Ip); });
+        Assert.Equal(app.Clock.Today, Fechas.LocalDate((await db.Usuarios.SingleAsync(x => x.Id == u.Id)).UltimoAcceso!.Value));
+    }
+
+    [Fact]
+    public async Task Tras_ingresar_con_contrasena_no_se_duplica_el_acceso_del_dia()
+    {
+        var app = new TestApp(new DateOnly(2026, 10, 20));
+        await app.SeedAsync();
+        var svc = new AccesoService(app.Factory, app.Clock, app.Changes, new PasswordService());
+        var u = await app.UserAsync("asalinas@empresa.cl");
+        await svc.RegistrarIngresoAsync(u.Id);
+        Assert.False(await svc.RegistrarActividadAsync(u.Id, "10.0.0.5"));
+    }
+}
