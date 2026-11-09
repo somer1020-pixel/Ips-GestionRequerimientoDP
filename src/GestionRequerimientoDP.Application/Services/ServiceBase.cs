@@ -47,6 +47,24 @@ internal static class DbExtensions
         _ => db.Requerimientos.Where(_ => false),
     };
 
+    /// <summary>
+    /// Lo vigente de una consulta (lo abierto de cualquier fecha, lo terminado con día en esta semana o más adelante y lo
+    /// cerrado desde el lunes), en consultas que aprovechan los índices. Con años de historia, una sola condición con
+    /// varios "o" obliga a recorrer todo lo terminado. Los conjuntos no se repiten (se separan por estado).
+    /// </summary>
+    public static async Task<List<Requerimiento>> VigentesAsync(this IQueryable<Requerimiento> q, DateOnly today, CancellationToken ct)
+    {
+        var cur = Fechas.MondayOf(today);
+        var curStart = Fechas.FromLocal(cur, 0, 0);
+        // Primero los Id (los índices los cubren por completo, así SQL Server no recorre la tabla) y después las filas por
+        // clave primaria. Pedir todas las columnas de una vez hace que el optimizador prefiera leer la tabla entera.
+        var ids = await q.Where(r => r.Estado != Estado.Ok).Select(r => r.Id).ToListAsync(ct);
+        ids.AddRange(await q.Where(r => r.Estado == Estado.Ok && r.Fecha >= cur).Select(r => r.Id).ToListAsync(ct));
+        ids.AddRange(await q.Where(r => r.Estado == Estado.Ok && r.Fecha < cur && r.OkAt >= curStart).Select(r => r.Id).ToListAsync(ct));
+        if (ids.Count == 0) return [];
+        return await q.Where(r => ids.Contains(r.Id)).ToListAsync(ct);
+    }
+
     public static void Log(this IAppDbContext db, Requerimiento r, OkAccion accion, int? usuarioId, DateTimeOffset at, object payload) =>
         db.OkLogs.Add(new OkLog { ReqId = r.Id, Accion = accion, UsuarioId = usuarioId, At = at, Payload = JsonSerializer.Serialize(payload) });
 

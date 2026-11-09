@@ -29,8 +29,12 @@ public sealed record SolicitudCard(Solicitud Solicitud, List<Requerimiento> Item
 public interface ISolicitudService
 {
     Task<Solicitud> EnviarAsync(UsuarioActual me, SolicitudInput input, CancellationToken ct = default);
-    Task<List<SolicitudCard>> TodasAsync(UsuarioActual me, CancellationToken ct = default);
-    Task<List<SolicitudCard>> MiasAsync(UsuarioActual me, CancellationToken ct = default);
+    /// <summary>Solicitudes vigentes: con algo sin asignar o sin terminar (de cualquier fecha) y las ingresadas en los últimos <paramref name="dias"/> días.</summary>
+    Task<List<SolicitudCard>> TodasAsync(UsuarioActual me, int dias = DiasVigentes, CancellationToken ct = default);
+    Task<List<SolicitudCard>> MiasAsync(UsuarioActual me, int dias = DiasVigentes, CancellationToken ct = default);
+    /// <summary>¿Hay solicitudes más antiguas que la ventana de <paramref name="dias"/> días (para ofrecer "Ver más antiguas")?</summary>
+    Task<bool> HayAnterioresAsync(UsuarioActual me, int dias, bool soloMias, CancellationToken ct = default);
+    const int DiasVigentes = 90;
     /// <summary>Solicitudes sin asignar de los equipos a cargo del líder (banner) y total sin asignar (contador).</summary>
     Task<(int MisEquipos, int Total)> PendientesAsync(UsuarioActual me, CancellationToken ct = default);
     Task<string> DestinoAsync(Equipo tipo, CancellationToken ct = default);
@@ -69,7 +73,8 @@ public sealed class SolicitudService(IAppDbContextFactory factory, IClock clock,
 
         await using var db = factory.Create();
         var users = await db.UsuariosMapAsync(ct);
-        var codigos = await db.Solicitudes.Select(s => s.Codigo).ToListAsync(ct);
+        // Solo los últimos códigos (los más recientes tienen el correlativo mayor); no hace falta leer toda la historia.
+        var codigos = await db.Solicitudes.OrderByDescending(s => s.Id).Select(s => s.Codigo).Take(200).ToListAsync(ct);
         var num = codigos.Select(c => int.TryParse(new string(c.Where(char.IsDigit).ToArray()), out var n) ? n : 0).Append(1044).Max() + 1;
         var now = clock.Now;
         var sol = new Solicitud { Codigo = $"S-{num}", SolicitanteId = me.Id, CreadaAt = now, Nota = d.Nota.Trim() };
@@ -98,19 +103,42 @@ public sealed class SolicitudService(IAppDbContextFactory factory, IClock clock,
         return sols.Where(s => s.Requerimientos.Count > 0).Select(s => Card(s, users)).ToList();
     }
 
-    public async Task<List<SolicitudCard>> TodasAsync(UsuarioActual me, CancellationToken ct = default)
+    async Task<IQueryable<Solicitud>> Vigentes(IAppDbContext db, int dias, CancellationToken ct)
+    {
+        var desde = Fechas.FromLocal(clock.Today.AddDays(-Math.Max(1, dias)), 0, 0);
+        // Las que tienen algo abierto se calculan aparte (un EXISTS por solicitud recorre la historia completa).
+        var abiertas = await OpenSolicitudIds(db, ct);
+        return db.Solicitudes.Where(s => s.CreadaAt >= desde || abiertas.Contains(s.Id));
+    }
+
+    internal static async Task<List<int>> OpenSolicitudIds(IAppDbContext db, CancellationToken ct)
+    {
+        // Dos consultas (sin terminar / sin asignar), cada una con su índice filtrado, en vez de un "o" que recorre la historia.
+        var sinTerminar = await db.Requerimientos.Where(r => r.Estado != Domain.Estado.Ok && r.SolicitudId != null).Select(r => r.SolicitudId!.Value).Distinct().ToListAsync(ct);
+        var sinAsignar = await db.Requerimientos.Where(r => r.AnalistaId == null && r.SolicitudId != null).Select(r => r.SolicitudId!.Value).Distinct().ToListAsync(ct);
+        return sinTerminar.Union(sinAsignar).ToList();
+    }
+
+    public async Task<List<SolicitudCard>> TodasAsync(UsuarioActual me, int dias = ISolicitudService.DiasVigentes, CancellationToken ct = default)
     {
         Guard.Lider(me);
         await using var db = factory.Create();
-        return (await Cards(db.Solicitudes, db, ct))
+        return (await Cards(await Vigentes(db, dias, ct), db, ct))
             .OrderByDescending(c => c.Abierta).ThenBy(c => c.Items.Min(r => r.Fecha)).ToList();
     }
 
-    public async Task<List<SolicitudCard>> MiasAsync(UsuarioActual me, CancellationToken ct = default)
+    public async Task<List<SolicitudCard>> MiasAsync(UsuarioActual me, int dias = ISolicitudService.DiasVigentes, CancellationToken ct = default)
     {
         if (!me.EsSolicitante) throw new PermisoException();
         await using var db = factory.Create();
-        return (await Cards(db.Solicitudes.Where(s => s.SolicitanteId == me.Id), db, ct)).OrderByDescending(c => c.Solicitud.CreadaAt).ToList();
+        return (await Cards((await Vigentes(db, dias, ct)).Where(s => s.SolicitanteId == me.Id), db, ct)).OrderByDescending(c => c.Solicitud.CreadaAt).ToList();
+    }
+
+    public async Task<bool> HayAnterioresAsync(UsuarioActual me, int dias, bool soloMias, CancellationToken ct = default)
+    {
+        var desde = Fechas.FromLocal(clock.Today.AddDays(-Math.Max(1, dias)), 0, 0);
+        await using var db = factory.Create();
+        return await db.Solicitudes.AnyAsync(s => s.CreadaAt < desde && (!soloMias || s.SolicitanteId == me.Id), ct);
     }
 
     public async Task<(int MisEquipos, int Total)> PendientesAsync(UsuarioActual me, CancellationToken ct = default)

@@ -466,3 +466,112 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    DROP INDEX [IX_Solicitudes_SolicitanteId] ON [Solicitudes];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    DROP INDEX [IX_Requerimientos_AnalistaId] ON [Requerimientos];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    CREATE INDEX [IX_Solicitudes_CreadaAt] ON [Solicitudes] ([CreadaAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    CREATE INDEX [IX_Solicitudes_SolicitanteId_CreadaAt] ON [Solicitudes] ([SolicitanteId], [CreadaAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    EXEC(N'CREATE INDEX [IX_Requerimientos_Abiertos] ON [Requerimientos] ([Tipo], [Fecha]) INCLUDE ([AnalistaId], [Estado], [SolicitudId]) WHERE [Estado] <> N''Ok''');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    EXEC(N'CREATE INDEX [IX_Requerimientos_AbiertosPorAnalista] ON [Requerimientos] ([AnalistaId], [Fecha]) WHERE [Estado] <> N''Ok''');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    CREATE INDEX [IX_Requerimientos_AnalistaId_Fecha] ON [Requerimientos] ([AnalistaId], [Fecha]) INCLUDE ([Estado], [OkAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    CREATE INDEX [IX_Requerimientos_Fecha] ON [Requerimientos] ([Fecha]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    EXEC(N'CREATE INDEX [IX_Requerimientos_OkAt] ON [Requerimientos] ([OkAt]) WHERE [OkAt] IS NOT NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    EXEC(N'CREATE INDEX [IX_Requerimientos_SinAsignar] ON [Requerimientos] ([SolicitudId]) INCLUDE ([Tipo]) WHERE [AnalistaId] IS NULL AND [SolicitudId] IS NOT NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    CREATE INDEX [IX_Requerimientos_Tipo_Analista] ON [Requerimientos] ([Tipo], [AnalistaId]) INCLUDE ([OkAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    CREATE INDEX [IX_Notificaciones_CreatedAt] ON [Notificaciones] ([CreatedAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261109120314_IndicesHistoria'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261109120314_IndicesHistoria', N'10.0.13');
+END;
+
+COMMIT;
+GO
+

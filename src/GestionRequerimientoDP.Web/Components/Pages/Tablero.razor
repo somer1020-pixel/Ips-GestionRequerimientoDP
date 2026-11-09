@@ -44,10 +44,14 @@
                     </div>
                     <span class="tag tag-neutral">@cards.Count</span>
                 </div>
-                @foreach (var r in cards)
+                @foreach (var r in cards.Take(Limite(col)))
                 {
                     <ReqCard @key="r.Id" R="r" Today="Today" AnalistaNombre="@Name(r.AnalistaId)" StaleDays="Opts.CurrentValue.StaleDays" Compact="Opts.CurrentValue.CompactCards"
                              Dragging="_dragId == r.Id" OnOpen="Ui.OpenDetail" OnQuickOk="Ui.AskOk" OnDragStart="id => _dragId = id" OnDragEnd="() => { _dragId = null; _dragOver = null; }" />
+                }
+                @if (cards.Count > Limite(col))
+                {
+                    <button class="btn btn-outline-secondary" @onclick="() => _limite[col] = Limite(col) + PorPagina">Mostrar @Math.Min(PorPagina, cards.Count - Limite(col)) más (@(cards.Count - Limite(col)) restantes)</button>
                 }
                 @if (cards.Count == 0)
                 {
@@ -60,6 +64,12 @@
 
 @code {
     static readonly Estado[] Estados = [Estado.Pendiente, Estado.EnCurso, Estado.Ok];
+
+    // Con mucho volumen (p. ej. 1.000 entregables por semana) dibujar todas las tarjetas hace la página muy pesada: se
+    // muestran de a 50 por columna. El contador indica el total; la búsqueda y los filtros siempre recorren todo.
+    const int PorPagina = 50;
+    readonly Dictionary<Estado, int> _limite = [];
+    int Limite(Estado col) => _limite.GetValueOrDefault(col, PorPagina);
     static readonly IReadOnlyList<(string, string)> TeamOpts = [("all", "Todos"), ("proc", "Procesamiento"), ("cod", "Codificación"), ("script", "Scripting")];
 
     List<Requerimiento> _scope = [];

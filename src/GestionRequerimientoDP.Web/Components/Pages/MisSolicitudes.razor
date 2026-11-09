@@ -23,6 +23,13 @@
     {
         <div class="empty">Aún no has enviado solicitudes.</div>
     }
+    @if (_hayAnteriores)
+    {
+        <div style="display:flex;justify-content:center;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+            <span class="sub">Se muestran las solicitudes abiertas y las de los últimos @_dias días.</span>
+            <button class="btn btn-outline-secondary" @onclick="VerMas">Ver 6 meses más antiguas</button>
+        </div>
+    }
 </section>
 
 @code {
@@ -35,7 +42,16 @@
     protected override async Task LoadAsync()
     {
         _names = (await Users.ListAsync()).ToDictionary(u => u.Id, u => u.Nombre);
-        _mine = await Sols.MiasAsync(Me);
+        _mine = await Sols.MiasAsync(Me, _dias);
+        _hayAnteriores = await Sols.HayAnterioresAsync(Me, _dias, soloMias: true);
         _coms = await Comentarios.ConteoAsync(_mine.SelectMany(c => c.Items).Select(r => r.Id));
+    }
+    int _dias = ISolicitudService.DiasVigentes;
+    bool _hayAnteriores;
+
+    async Task VerMas()
+    {
+        _dias += 180;
+        await LoadAsync();
     }
 }

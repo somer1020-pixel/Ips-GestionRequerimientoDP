@@ -20,9 +20,8 @@ public sealed class ConsultaService(IAppDbContextFactory factory, IClock clock) 
         var n = Reglas.Norm(q);
         if (n.Length < 3) return new([], 0, "Escribe al menos 3 caracteres.");
         await using var db = factory.Create();
-        // Coincidencia sin acentos ni mayúsculas, independiente de la intercalación de la BD.
-        var keys = await db.Requerimientos.AsNoTracking().Select(r => new { r.Job, r.Proyecto, r.Cliente }).Distinct().ToListAsync(ct);
-        var jobs = keys.Where(k => Reglas.Norm($"{k.Job} {k.Proyecto} {k.Cliente}").Contains(n)).Select(k => k.Job).Distinct().ToList();
+        // Coincidencia sin acentos ni mayúsculas, independiente de la intercalación de la BD (se resuelve en la base).
+        var jobs = await db.JobsQueContienenAsync(n, 200, ct);
         var total = jobs.Count;
         if (total == 0) return new([], 0, "No encontramos requerimientos con ese criterio. Revisa el número de Job o consulta al líder de Operaciones.");
 

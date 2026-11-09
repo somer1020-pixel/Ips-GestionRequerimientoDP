@@ -155,6 +155,8 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("Notificaciones", (string)null);
@@ -375,15 +377,39 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AnalistaId");
+                    b.HasIndex("Fecha");
 
                     b.HasIndex("Job");
+
+                    b.HasIndex("OkAt")
+                        .HasFilter("[OkAt] IS NOT NULL");
 
                     b.HasIndex("OkById");
 
                     b.HasIndex("SolicitudId");
 
+                    b.HasIndex("AnalistaId", "Fecha");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("AnalistaId", "Fecha"), new[] { "Estado", "OkAt" });
+
                     b.HasIndex("Tipo", "Fecha");
+
+                    b.HasIndex(new[] { "Tipo", "Fecha" }, "IX_Requerimientos_Abiertos")
+                        .HasFilter("[Estado] <> N'Ok'");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "Tipo", "Fecha" }, "IX_Requerimientos_Abiertos"), new[] { "AnalistaId", "Estado", "SolicitudId" });
+
+                    b.HasIndex(new[] { "AnalistaId", "Fecha" }, "IX_Requerimientos_AbiertosPorAnalista")
+                        .HasFilter("[Estado] <> N'Ok'");
+
+                    b.HasIndex(new[] { "SolicitudId" }, "IX_Requerimientos_SinAsignar")
+                        .HasFilter("[AnalistaId] IS NULL AND [SolicitudId] IS NOT NULL");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "SolicitudId" }, "IX_Requerimientos_SinAsignar"), new[] { "Tipo" });
+
+                    b.HasIndex(new[] { "Tipo", "AnalistaId" }, "IX_Requerimientos_Tipo_Analista");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "Tipo", "AnalistaId" }, "IX_Requerimientos_Tipo_Analista"), new[] { "OkAt" });
 
                     b.ToTable("Requerimientos", (string)null);
                 });
@@ -420,7 +446,9 @@ namespace GestionRequerimientoDP.Infrastructure.Data.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.HasIndex("SolicitanteId");
+                    b.HasIndex("CreadaAt");
+
+                    b.HasIndex("SolicitanteId", "CreadaAt");
 
                     b.ToTable("Solicitudes", (string)null);
                 });

@@ -16,7 +16,7 @@
     </div>
     <div class="page-actions">
         <Seg T="string" Options="UnitOpts" @bind-Value="_unit" />
-        <Seg T="string" Options="StateOpts" @bind-Value="_state" />
+        <Seg T="string" Options="StateOpts" @bind-Value="_state" @bind-Value:after="LoadAsync" />
         <span class="sub">@Sel.Count(c => c.Abierta) por asignar · @Sel.SelectMany(c => c.Items).Count(r => _state == "all" || r.AnalistaId == null) entregables en la descarga</span>
     </div>
     @foreach (var c in Sel)
@@ -26,6 +26,13 @@
     @if (Loaded && Sel.Count == 0)
     {
         <div class="empty">No hay solicitudes con este filtro.</div>
+    }
+    @if (_hayAnteriores)
+    {
+        <div style="display:flex;justify-content:center;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+            <span class="sub">Se muestran las solicitudes abiertas y las de los últimos @_dias días.</span>
+            <button class="btn btn-outline-secondary" @onclick="VerMas">Ver 6 meses más antiguas</button>
+        </div>
     }
 </section>
 
@@ -49,8 +56,18 @@
     protected override async Task LoadAsync()
     {
         _names = (await Users.ListAsync()).ToDictionary(u => u.Id, u => u.Nombre);
-        _all = await Sols.TodasAsync(Me);
+        _all = await Sols.TodasAsync(Me, _dias);
+        _hayAnteriores = _state == "all" && await Sols.HayAnterioresAsync(Me, _dias, soloMias: false);
     }
+    int _dias = ISolicitudService.DiasVigentes;
+    bool _hayAnteriores;
+
+    async Task VerMas()
+    {
+        _dias += 180;
+        await LoadAsync();
+    }
+
 
     void GoPlan(SolicitudCard c)
     {

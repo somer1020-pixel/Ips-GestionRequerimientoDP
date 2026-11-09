@@ -385,7 +385,7 @@ interface Requerimiento {
 | **Login** | — | Marca, correo y contraseña, error si el correo no existe o el usuario está inactivo, y accesos de demostración agrupados por rol. |
 | **Header** | todos | Marca, tabs según rol, "Nuevo requerimiento" (solo líder), chip con iniciales, nombre y rol, y "Salir". |
 | **Banda "Mi carga"** | analista | Pendientes, en curso, atrasados y con OK de la semana. Botón "Semana siguiente: N entregables →" para revisar lo planificado el jueves. |
-| **Tablero** | todos | Kanban Pendiente / En curso / OK con drag & drop. Alcance: procesamiento y codificación de la semana actual, **más los de semanas anteriores que siguen sin OK** (marcados "↩ De la semana <semana>", con su día original, hasta que se terminen o se cambie su día de entrega), más scripts abiertos o cerrados en la semana; el analista solo ve lo propio. Esos arrastrados también cuentan en el contador de atrasados y en Resumen. Bajo el título, un aviso indica cuántos hay. Búsqueda; filtro de equipo solo para el líder. Tarjeta: `job · entregable`, día (o "Atrasado · día"), proyecto, descripción, `cliente · comercial`, analista y "Dar OK" o la fecha del OK. Orden por fecha. |
+| **Tablero** | todos | Kanban Pendiente / En curso / OK con drag & drop. Alcance: procesamiento y codificación de la semana actual, **más los de semanas anteriores que siguen sin OK** (marcados "↩ De la semana <semana>", con su día original, hasta que se terminen o se cambie su día de entrega), más scripts abiertos o cerrados en la semana; el analista solo ve lo propio. Esos arrastrados también cuentan en el contador de atrasados y en Resumen. Bajo el título, un aviso indica cuántos hay. **Volumen:** cada columna dibuja 50 tarjetas y un botón "Mostrar 50 más (N restantes)"; el contador de la columna muestra el total y la búsqueda y los filtros recorren todo. Búsqueda; filtro de equipo solo para el líder. Tarjeta: `job · entregable`, día (o "Atrasado · día"), proyecto, descripción, `cliente · comercial`, analista y "Dar OK" o la fecha del OK. Orden por fecha. |
 | **Mi semana** | analista | DP y scripts juntos (columna Tipo), semana actual o siguiente (la actual incluye atrasados abiertos). Acción por fila: Iniciar → Dar OK → ✓ fecha. Las filas con OK van al final. Botón "Descargar mi semana". |
 | **Consulta pública** | sin cuenta | Buscador y tarjetas por Job (ver §3.5). |
 | **Planificación semanal** | líder | Selector de semanas (anterior, actual, siguiente y futuras con datos), tarjetas de capacidad, indicadores, propuesta de balanceo, agenda, tabla de detalle, importar planilla y agregar entregable. |
@@ -581,3 +581,14 @@ En Blazor Server la mayoría son llamadas directas a servicios, no HTTP. Solo se
 - `GET /notificaciones` (líder)
 - `GET|POST|PATCH /usuarios` (líder)
 - `GET /scripts/recomendacion`
+
+## Escala: años de historia
+
+Diseñado y probado para **5 años de historia con 1.000 requerimientos por semana** (~260.000 requerimientos, más sus correos, OK, comentarios y auditoría) y 200 usuarios simultáneos.
+
+- **Ninguna pantalla lee la historia completa.** El tablero, el menú (contadores), Mi semana / Mis asignaciones y el ranking de Scripts leen solo lo vigente: lo abierto de cualquier fecha, lo de la semana actual en adelante y lo cerrado desde el lunes. Histórico, Motivos de atraso y las descargas leen solo el periodo elegido.
+- **Solicitudes nuevas (Todas), Mis solicitudes y la descarga de solicitudes:** muestran las solicitudes con algo sin asignar o sin terminar (de cualquier fecha) y las ingresadas en los **últimos 90 días**. Si hay más antiguas, un botón "Ver 6 meses más antiguas" amplía la ventana.
+- **Tablero:** 50 tarjetas por columna con "Mostrar 50 más". **Resumen:** 100 pendientes priorizados con "Mostrar 100 más" (el texto copiable incluye todos).
+- **Consulta pública:** la búsqueda se resuelve en la base (por número de Job con el índice de Job; por proyecto o cliente sin distinguir tildes ni mayúsculas).
+- **Índices** (migración `IndicesHistoria`): abiertos por tipo y fecha, abiertos por analista, por analista y fecha, por fecha, por fecha de OK, OK de scripts por analista, entregables de solicitudes sin asignar, solicitudes por solicitante y fecha, y correos por fecha.
+

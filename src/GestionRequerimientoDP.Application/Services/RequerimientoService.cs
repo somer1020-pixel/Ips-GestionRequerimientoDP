@@ -42,21 +42,23 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
 {
     public async Task<List<Requerimiento>> TableroAsync(UsuarioActual me, CancellationToken ct = default)
     {
-        var cur = Fechas.MondayOf(clock.Today);
-        var end = cur.AddDays(6);
-        var curStart = Fechas.FromLocal(cur, 0, 0);
+        var today = clock.Today;
         await using var db = factory.Create();
-        return await db.Visibles(me).AsNoTracking()
-            // Mismo alcance que Reglas.EnSemanaActual: proc/cod de la semana + los de semanas anteriores aún sin OK.
-            .Where(r => (r.Tipo != Equipo.Script && ((r.Fecha >= cur && r.Fecha <= end) || (r.Estado != Estado.Ok && r.Fecha < cur)))
-                        || (r.Tipo == Equipo.Script && (r.Estado != Estado.Ok || (r.Fecha >= cur && r.Fecha <= end) || r.OkAt >= curStart)))
-            .OrderBy(r => r.Fecha).ThenBy(r => r.Job).ToListAsync(ct);
+        // Alcance de Reglas.EnSemanaActual: proc/cod de la semana + los de semanas anteriores aún sin OK, scripts abiertos
+        // o cerrados en la semana. Se lee lo vigente con índices y se aplica la regla exacta en memoria.
+        return (await db.Visibles(me).AsNoTracking().VigentesAsync(today, ct))
+            .Where(r => Reglas.EnSemanaActual(r, today))
+            .OrderBy(r => r.Fecha).ThenBy(r => r.Job, StringComparer.Ordinal).ToList();
     }
 
+    /// <summary>
+    /// Lo vigente del usuario: todo lo abierto (de cualquier fecha), lo de esta semana en adelante y lo cerrado desde el lunes.
+    /// No trae la historia terminada (con años de datos serían miles de filas por persona en cada página).
+    /// </summary>
     public async Task<List<Requerimiento>> PropiosAsync(UsuarioActual me, CancellationToken ct = default)
     {
         await using var db = factory.Create();
-        return await db.Requerimientos.AsNoTracking().Where(r => r.AnalistaId == me.Id).ToListAsync(ct);
+        return await db.Requerimientos.AsNoTracking().Where(r => r.AnalistaId == me.Id).VigentesAsync(clock.Today, ct);
     }
 
     public async Task<List<Requerimiento>> PeriodoAsync(UsuarioActual me, DateOnly desde, DateOnly hasta, CancellationToken ct = default)
@@ -80,7 +82,9 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
     {
         if (me.EsSolicitante) return 0;
         var today = clock.Today;
-        return (await TableroAsync(me, ct)).Count(r => Reglas.Atrasado(r, today));
+        // Mismo resultado que contar los atrasados del tablero (todo lo abierto con día pasado está en su alcance), pero en la base.
+        await using var db = factory.Create();
+        return await db.Visibles(me).CountAsync(r => r.Estado != Estado.Ok && r.Fecha < today, ct);
     }
 
     public async Task<(Requerimiento Req, bool Correo)> CrearAsync(UsuarioActual me, NuevoRequerimiento d, CancellationToken ct = default)
@@ -98,8 +102,8 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
             throw new ReglaException("El responsable seleccionado no pertenece al equipo, no es líder o está inactivo.");
         if (d.Tipo == Equipo.Script && analista is null)
         {
-            var reqs = await db.Requerimientos.AsNoTracking().Where(r => r.Tipo == Equipo.Script || (r.Tipo == Equipo.Procesamiento && r.Estado != Estado.Ok)).ToListAsync(ct);
-            analista = ScriptRanking.Rank(users.Values.OrderBy(u => u.Id), reqs, clock.Today).FirstOrDefault()?.Analista.Id;
+            var (reqs, oks) = await ScriptAssignmentService.RankingDatosAsync(db, ct);
+            analista = ScriptRanking.Rank(users.Values.OrderBy(u => u.Id), reqs, clock.Today, oks).FirstOrDefault()?.Analista.Id;
         }
         var now = clock.Now;
         var r = new Requerimiento

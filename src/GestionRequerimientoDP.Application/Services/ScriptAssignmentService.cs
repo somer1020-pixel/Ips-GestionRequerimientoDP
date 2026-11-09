@@ -28,16 +28,28 @@ public interface IScriptAssignmentService
 
 public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock clock, IChangeNotifier changes, INotificationService notif) : IScriptAssignmentService
 {
-    static IQueryable<Requerimiento> RankingSource(IAppDbContext db) =>
-        db.Requerimientos.Where(r => r.Tipo == Equipo.Script || (r.Tipo == Equipo.Procesamiento && r.Estado != Estado.Ok));
+    /// <summary>
+    /// Datos del ranking sin traer la historia: scripts y procesamiento abiertos, más el resumen de OK de scripts por analista
+    /// (cantidad y último), agregado en la base.
+    /// </summary>
+    internal static async Task<(List<Requerimiento> Abiertos, Dictionary<int, OkStats> Oks)> RankingDatosAsync(IAppDbContext db, CancellationToken ct, bool paraModificar = false)
+    {
+        var q = paraModificar ? db.Requerimientos : db.Requerimientos.AsNoTracking();
+        // Id primero (los cubre el índice filtrado de abiertos) y después las filas: así no se recorre la historia terminada.
+        var ids = await db.Requerimientos.Where(r => r.Estado != Estado.Ok && (r.Tipo == Equipo.Script || r.Tipo == Equipo.Procesamiento)).Select(r => r.Id).ToListAsync(ct);
+        var abiertos = ids.Count == 0 ? [] : await q.Where(r => ids.Contains(r.Id)).ToListAsync(ct);
+        var oks = await db.Requerimientos.Where(r => r.Tipo == Equipo.Script && r.AnalistaId != null && r.OkAt != null)
+            .GroupBy(r => r.AnalistaId!.Value).Select(g => new { g.Key, N = g.Count(), Last = g.Max(r => r.OkAt) }).ToListAsync(ct);
+        return (abiertos, oks.ToDictionary(x => x.Key, x => new OkStats(x.N, x.Last)));
+    }
 
     public async Task<ScriptsView> VistaAsync(UsuarioActual me, CancellationToken ct = default)
     {
         Guard.Lider(me);
         await using var db = factory.Create();
         var users = await db.UsuariosConEquipos().OrderBy(u => u.Id).ToListAsync(ct);
-        var reqs = await RankingSource(db).AsNoTracking().ToListAsync(ct);
-        var scripts = reqs.Where(r => r.Tipo == Equipo.Script).ToList();
+        var (reqs, oks) = await RankingDatosAsync(db, ct);
+        var scripts = reqs.Where(r => r.Tipo == Equipo.Script).ToList(); // abiertos: la vista solo muestra la cola y lo activo
         var sinAsignar = scripts.Where(r => r.AnalistaId == null && r.Estado != Estado.Ok).OrderBy(r => r.Fecha).ToList();
         var ids = sinAsignar.Where(r => r.SolicitudId != null).Select(r => r.SolicitudId!.Value).Distinct().ToList();
         var codigos = await db.Solicitudes.AsNoTracking().Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.Codigo, ct);
@@ -45,7 +57,7 @@ public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock
             .Select(g => new ScriptBloque(g.Key, g.First().SolicitudId is { } sid ? codigos.GetValueOrDefault(sid) : null, g.OrderBy(r => r.Id).ToList()))
             .OrderBy(b => b.Fecha).ThenBy(b => b.Primero.Id).ToList();
         var lideres = users.Where(u => Reglas.EsGestor(u.Rol) && u.Activo).OrderBy(u => u.Rol == Rol.Admin).ThenBy(u => u.Nombre, StringComparer.CurrentCulture).ToList();
-        return new(ScriptRanking.Rank(users, reqs, clock.Today), scripts, sinAsignar, cola, lideres);
+        return new(ScriptRanking.Rank(users, reqs, clock.Today, oks), scripts, sinAsignar, cola, lideres);
     }
 
     /// <summary>Entregables que se asignan juntos: los de una misma solicitud comercial o, si no vienen de una, los del mismo Job.</summary>
@@ -81,7 +93,7 @@ public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock
         Guard.Lider(me);
         await using var db = factory.Create();
         var users = await db.UsuariosMapAsync(ct);
-        var reqs = await RankingSource(db).ToListAsync(ct);
+        var (reqs, oks) = await RankingDatosAsync(db, ct, paraModificar: true);
         var cola = reqs.Where(r => r.Tipo == Equipo.Script && r.AnalistaId == null && r.Estado != Estado.Ok).OrderBy(r => r.Id).ToList();
         var now = clock.Now;
         var done = new List<Requerimiento>();
@@ -89,7 +101,7 @@ public sealed class ScriptAssignmentService(IAppDbContextFactory factory, IClock
         // igual que en el balanceo. El ranking se recalcula después de cada bloque.
         foreach (var bloque in cola.GroupBy(BloqueDe).OrderBy(g => g.Min(r => r.Id)))
         {
-            var top = ScriptRanking.Rank(users.Values.OrderBy(u => u.Id), reqs, clock.Today).FirstOrDefault();
+            var top = ScriptRanking.Rank(users.Values.OrderBy(u => u.Id), reqs, clock.Today, oks).FirstOrDefault();
             if (top is null) break;
             foreach (var r in bloque)
             {

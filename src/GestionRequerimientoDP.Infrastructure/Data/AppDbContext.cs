@@ -15,6 +15,28 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PasswordResetToken> ResetTokens => Set<PasswordResetToken>();
     public DbSet<Comentario> Comentarios => Set<Comentario>();
 
+    public async Task<List<string>> JobsQueContienenAsync(string normalizado, int max, CancellationToken ct = default)
+    {
+        if (Database.IsSqlServer())
+        {
+            // Lo habitual es buscar por número de Job: se resuelve con el índice de Job sin leer proyecto y cliente.
+            if (normalizado.Any(char.IsDigit))
+            {
+                // Primero "empieza con" (búsqueda directa en el índice); si no hay, "contiene".
+                var porJob = await Requerimientos.AsNoTracking().Where(r => r.Job.StartsWith(normalizado)).Select(r => r.Job).Distinct().Take(max).ToListAsync(ct);
+                if (porJob.Count == 0)
+                    porJob = await Requerimientos.AsNoTracking().Where(r => r.Job.Contains(normalizado)).Select(r => r.Job).Distinct().Take(max).ToListAsync(ct);
+                if (porJob.Count > 0) return porJob;
+            }
+            return await Requerimientos.AsNoTracking()
+                .Where(r => EF.Functions.Collate(r.Job + " " + r.Proyecto + " " + r.Cliente, "Latin1_General_CI_AI").Contains(normalizado))
+                .Select(r => r.Job).Distinct().Take(max).ToListAsync(ct);
+        }
+        // Otros proveedores (pruebas en memoria): se normaliza en la aplicación.
+        var keys = await Requerimientos.AsNoTracking().Select(r => new { r.Job, r.Proyecto, r.Cliente }).Distinct().ToListAsync(ct);
+        return keys.Where(k => Reglas.Norm($"{k.Job} {k.Proyecto} {k.Cliente}").Contains(normalizado)).Select(k => k.Job).Distinct().Take(max).ToList();
+    }
+
     protected override void ConfigureConventions(ModelConfigurationBuilder b)
     {
         b.Properties<Enum>().HaveConversion<string>().HaveMaxLength(20);
@@ -54,6 +76,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.Codigo).IsUnique();
             e.Property(x => x.Nota).HasMaxLength(2000);
             e.HasOne(x => x.Solicitante).WithMany().HasForeignKey(x => x.SolicitanteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.SolicitanteId, x.CreadaAt });
+            e.HasIndex(x => x.CreadaAt);
         });
 
         b.Entity<Requerimiento>(e =>
@@ -79,7 +103,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne<Usuario>().WithMany().HasForeignKey(x => x.OkById).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.Solicitud).WithMany(s => s.Requerimientos).HasForeignKey(x => x.SolicitudId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.Tipo, x.Fecha });
-            e.HasIndex(x => x.AnalistaId);
+            // Índices para años de historia: lo de cada analista por fecha, lo abierto (tablero, atrasos, ranking, menú) y el
+            // resumen de OK de scripts por analista, sin recorrer los requerimientos ya terminados.
+            e.HasIndex(x => new { x.AnalistaId, x.Fecha }).IncludeProperties(x => new { x.Estado, x.OkAt });
+            e.HasIndex(x => new { x.Tipo, x.Fecha }, "IX_Requerimientos_Abiertos").HasFilter("[Estado] <> N'Ok'").IncludeProperties(x => new { x.AnalistaId, x.Estado, x.SolicitudId });
+            e.HasIndex(x => new { x.AnalistaId, x.Fecha }, "IX_Requerimientos_AbiertosPorAnalista").HasFilter("[Estado] <> N'Ok'");
+            e.HasIndex(x => x.Fecha);
+            e.HasIndex(x => x.OkAt).HasFilter("[OkAt] IS NOT NULL");
+            e.HasIndex(x => new { x.Tipo, x.AnalistaId }, "IX_Requerimientos_Tipo_Analista").IncludeProperties(x => x.OkAt);
+            e.HasIndex(x => x.SolicitudId, "IX_Requerimientos_SinAsignar").HasFilter("[AnalistaId] IS NULL AND [SolicitudId] IS NOT NULL").IncludeProperties(x => x.Tipo);
             e.HasIndex(x => x.Job);
             e.HasIndex(x => x.SolicitudId);
             e.Ignore(x => x.EsComercial);
@@ -93,6 +125,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Subject).HasMaxLength(400);
             e.Property(x => x.Error).HasMaxLength(2000);
             e.HasIndex(x => new { x.Status, x.CreatedAt });
+            e.HasIndex(x => x.CreatedAt);
             e.Ignore(x => x.ToList);
             e.Ignore(x => x.CcList);
         });

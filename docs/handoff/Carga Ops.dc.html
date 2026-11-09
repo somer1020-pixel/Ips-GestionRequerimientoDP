@@ -199,6 +199,7 @@
                   </div>
                 </div>
               </sc-for>
+              <sc-if value="{{ col.hasMore }}" hint-placeholder-val="{{ false }}"><button class="btn btn-outline-secondary" onClick="{{ col.more }}">Mostrar {{ col.moreN }} más ({{ col.rest }} restantes)</button></sc-if>
               <sc-if value="{{ col.empty }}" hint-placeholder-val="{{ false }}">
                 <div style="font-size:13px;color:var(--color-neutral-600);text-align:center;padding:var(--space-6) 0">Sin requerimientos</div>
               </sc-if>
@@ -1687,9 +1688,11 @@ class Component extends DCLogic {
     const q=norm(s.q);
     const boardItems=scope.filter(r=>(!lead||s.team==='all'||r.tipo===s.team)&&(!lead||!s.anFilter||r.analista===s.anFilter)&&(!q||norm([r.cliente,r.proyecto,r.job,r.descripcion,r.comercial,nameOf(r.analista)].join(' ')).includes(q)));
     const columns=ESTADOS.map(e=>{
-      const cards=boardItems.filter(r=>r.estado===e.id).sort(byDate).map(deco);
+      // Con mucho volumen se dibujan de a 50 tarjetas por columna; el contador muestra el total y la búsqueda recorre todo.
+      const all=boardItems.filter(r=>r.estado===e.id).sort(byDate),lim=(s.colLimit||{})[e.id]||50,cards=all.slice(0,lim).map(deco);
       const over=s.dragOver===e.id;
-      return {...e,cards,count:String(cards.length),empty:!cards.length,
+      return {...e,cards,count:String(all.length),empty:!all.length,hasMore:all.length>lim,moreN:String(Math.min(50,all.length-lim)),rest:String(all.length-lim),
+        more:()=>this.setState(st=>({colLimit:{...(st.colLimit||{}),[e.id]:lim+50}})),
         dot:e.id==='ok'?'var(--color-accent)':e.id==='en_curso'?'var(--color-accent-400)':'var(--color-neutral-400)',
         border:over?'var(--teal)':'transparent',bg:over?'var(--teal-50)':'var(--neutral-50)',
         dragOver:ev=>{ev.preventDefault();if(s.dragOver!==e.id)this.setState({dragOver:e.id});},

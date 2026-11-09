@@ -29,7 +29,7 @@
                     <table class="table">
                         <thead><tr><th>#</th><th>Día</th><th>Job</th><th>Proyecto · Entregable</th><th>Analista</th><th>Estado</th></tr></thead>
                         <tbody>
-                            @for (var i = 0; i < v.Pendientes.Count; i++)
+                            @for (var i = 0; i < Math.Min(v.Pendientes.Count, _verPend); i++)
                             {
                                 var r = v.Pendientes[i];
                                 <tr @onclick="() => Ui.OpenDetail(r.Id)" style="cursor:pointer">
@@ -44,6 +44,10 @@
                         </tbody>
                     </table>
                 </div>
+                @if (v.Pendientes.Count > _verPend)
+                {
+                    <button class="btn btn-outline-secondary" style="align-self:flex-start" @onclick="() => _verPend += 100">Mostrar 100 más (@(v.Pendientes.Count - _verPend) restantes)</button>
+                }
             </div>
             <div class="stack-3" style="min-width:0">
                 <h4 style="margin:0">Carga por analista</h4>
@@ -72,6 +76,8 @@
 }
 
 @code {
+    int _verPend = 100; // con mucho volumen se muestran de a 100 (el resumen copiable sigue incluyendo todo)
+
     ResumenView? _v;
     List<Usuario> _users = [];
 

@@ -14,6 +14,11 @@ public interface IAppDbContext : IDisposable, IAsyncDisposable
     DbSet<AuditoriaAcceso> Auditoria { get; }
     DbSet<PasswordResetToken> ResetTokens { get; }
     DbSet<Comentario> Comentarios { get; }
+    /// <summary>
+    /// Jobs cuyo "job proyecto cliente" contiene el texto (ya normalizado: minúsculas y sin tildes), sin distinguir tildes
+    /// ni mayúsculas. En SQL Server se resuelve en la base; así la consulta pública no lee toda la historia.
+    /// </summary>
+    Task<List<string>> JobsQueContienenAsync(string normalizado, int max, CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
 

@@ -50,7 +50,11 @@ public sealed class ImportExportService(IAppDbContextFactory factory, IClock clo
         // Analistas del equipo primero (si un nombre coincide con ambos, gana el analista) y después los líderes.
         var users = await db.UsuariosConEquipos().Where(u => u.Rol != Rol.Comercial && u.Rol != Rol.PM).OrderBy(u => u.Id).ToListAsync(ct);
         var team = users.Where(u => u.Rol == Rol.Analista && u.Tiene(unidad)).Concat(users.Where(u => Reglas.EsGestor(u.Rol)));
-        var existentes = await db.Requerimientos.AsNoTracking().Where(r => r.Tipo == unidad).ToListAsync(ct);
+        // Para los duplicados solo hace falta lo existente en las fechas de la planilla (no toda la historia de la unidad).
+        var fechas = ImportParser.Parse(matrix, team, []).Rows.Select(r => r.Fecha).ToList();
+        if (fechas.Count == 0) return ImportParser.Parse(matrix, team, []);
+        var (desde, hasta) = (fechas.Min(), fechas.Max());
+        var existentes = await db.Requerimientos.AsNoTracking().Where(r => r.Tipo == unidad && r.Fecha >= desde && r.Fecha <= hasta).ToListAsync(ct);
         return ImportParser.Parse(matrix, team, existentes);
     }
 
@@ -153,7 +157,10 @@ public sealed class ImportExportService(IAppDbContextFactory factory, IClock clo
     {
         Guard.Lider(me);
         await using var db = factory.Create();
-        var sols = await db.Solicitudes.Include(s => s.Requerimientos).ToListAsync(ct);
+        // Igual que la pantalla: solicitudes abiertas y las de los últimos 90 días (no toda la historia).
+        var desde = Fechas.FromLocal(clock.Today.AddDays(-ISolicitudService.DiasVigentes), 0, 0);
+        var abiertas = await SolicitudService.OpenSolicitudIds(db, ct);
+        var sols = await db.Solicitudes.Include(s => s.Requerimientos).Where(s => s.CreadaAt >= desde || abiertas.Contains(s.Id)).ToListAsync(ct);
         var sel = sols.Where(s => s.Requerimientos.Count > 0 && (unidad is null || s.Requerimientos[0].Tipo == unidad)
                                   && (!soloPorAsignar || s.Requerimientos.Any(r => r.AnalistaId == null))).ToList();
         var rows = sel.SelectMany(s => s.Requerimientos).Where(r => !soloPorAsignar || r.AnalistaId == null).ToList();

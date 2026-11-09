@@ -66,6 +66,23 @@ public class IntegridadSqlServerTests(SqlServerFixture fx) : IClassFixture<SqlSe
     }
 
     [SkippableFact]
+    public async Task Consulta_publica_busca_en_la_base_sin_tildes_ni_mayusculas()
+    {
+        Skip.If(Sin, "Sin GRDP_TEST_SQL");
+        var app = await App();
+        await using (var db = fx.Db.Create())
+        {
+            db.Requerimientos.Add(new Requerimiento { Tipo = Equipo.Procesamiento, Fecha = Martes, Cliente = "Compañía Ñuñoa", Proyecto = "Evaluación Clínica", Job = "26-777777-01",
+                Entregable = "Base", Creado = app.Clock.Now, Actualizado = app.Clock.Now });
+            await db.SaveChangesAsync();
+        }
+        var consulta = new ConsultaService(fx.Db, app.Clock);
+        foreach (var q in new[] { "EVALUACION clinica", "compania ñuñoa", "777777" })
+            Assert.Equal("26-777777-01", Assert.Single((await consulta.BuscarAsync(q)).Jobs).Job);
+        Assert.Empty((await consulta.BuscarAsync("no existe en ningún lado")).Jobs);
+    }
+
+    [SkippableFact]
     public async Task Edicion_simultanea_del_mismo_requerimiento_la_segunda_recibe_aviso()
     {
         Skip.If(Sin, "Sin GRDP_TEST_SQL");
