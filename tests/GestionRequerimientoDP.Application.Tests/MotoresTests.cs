@@ -162,6 +162,20 @@ public class OkValidatorTests
     static readonly DateOnly Today = new(2026, 10, 21);
 
     [Theory]
+    [InlineData(Equipo.Script, AtrasoResponsable.Comercial, true)]
+    [InlineData(Equipo.Script, AtrasoResponsable.Campo, true)]
+    [InlineData(Equipo.Script, AtrasoResponsable.Operaciones, false)]
+    [InlineData(Equipo.Procesamiento, AtrasoResponsable.Comercial, false)]
+    [InlineData(Equipo.Codificacion, AtrasoResponsable.Campo, false)]
+    public void Validacion_tardia_solo_en_scripting_para_comercial_y_campo(Equipo tipo, AtrasoResponsable resp, bool valido)
+    {
+        Assert.Equal(valido, Catalogos.MotivosDe(resp, tipo).Contains(Catalogos.MotivoValidacionTardia));
+        var r = Make.Req(tipo, Today.AddDays(-3), 1); // atrasado: pide responsable y motivo
+        var (err, _) = OkValidator.Validate(r, new OkInput { Horas = "2", Registros = "100", Metodo = MetodoCodificacion.IA, Resp = resp, Motivo = Catalogos.MotivoValidacionTardia, Campo = "CATI" }, Today);
+        Assert.Equal(valido, err is null);
+    }
+
+    [Theory]
     [InlineData("", false)]
     [InlineData("0", false)]
     [InlineData("201", false)]

@@ -62,7 +62,7 @@ public static class OkValidator
             return ("La entrega está atrasada: indica el responsable y el motivo del atraso.", null);
         if (late && i.Resp == AtrasoResponsable.Campo && string.IsNullOrWhiteSpace(i.Campo))
             return ("Indica el área de campo responsable del atraso.", null);
-        if (late && !Catalogos.MOTIVOS[i.Resp!.Value].Contains(i.Motivo))
+        if (late && !Catalogos.MotivosDe(i.Resp!.Value, r.Tipo).Contains(i.Motivo))
             return ("Selecciona un motivo válido para el responsable indicado.", null);
         if (i.Materiales is { } m && m > today) return ("La fecha de materiales no puede ser posterior a hoy.", null);
 

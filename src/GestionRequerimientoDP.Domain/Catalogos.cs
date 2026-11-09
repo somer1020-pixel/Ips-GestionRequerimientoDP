@@ -29,6 +29,14 @@ public static class Catalogos
     };
 
     public const string MotivoMaterialesTarde = "Materiales entregados tarde";
+    public const string MotivoValidacionTardia = "Validación tardía";
+
+    /// <summary>
+    /// Motivos de atraso para un responsable según la unidad del requerimiento. En Scripting, el área comercial y campo
+    /// también pueden atrasar la entrega por una validación tardía del script.
+    /// </summary>
+    public static IReadOnlyList<string> MotivosDe(AtrasoResponsable resp, Equipo tipo) =>
+        tipo == Equipo.Script && resp is AtrasoResponsable.Comercial or AtrasoResponsable.Campo ? [.. MOTIVOS[resp], MotivoValidacionTardia] : MOTIVOS[resp];
 
     public static IReadOnlyList<string> EntregablesDe(Equipo t) => t switch
     {

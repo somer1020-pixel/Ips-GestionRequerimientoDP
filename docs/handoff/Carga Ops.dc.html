@@ -1216,6 +1216,8 @@ const effResp=r=>r.atrasoResp==='operaciones'?'op_'+r.tipo:(r.atrasoResp||'sin')
 const respLabelOf=r=>r.atrasoResp==='campo'&&r.atrasoCampo?`Campo · ${r.atrasoCampo}`:RESPX[effResp(r)].label;
 const respListFor=t=>RESP_LIST.map(o=>o.id==='operaciones'?{...o,label:TIPO[t].label}:o);
 const MOTIVOS={operaciones:['Sobrecarga del equipo','Error o retrabajo interno','Complejidad subestimada','Problema técnico / sistemas'],comercial:['Materiales entregados tarde','Materiales incompletos o con errores','Cambio de especificaciones'],campo:['Cierre de campo tardío','Base de campo con errores','Cuotas no cumplidas']};
+// En Scripting, el área comercial y campo también pueden atrasar la entrega por una validación tardía del script.
+const motivosFor=(resp,tipo)=>tipo==='script'&&(resp==='comercial'||resp==='campo')?[...MOTIVOS[resp],'Validación tardía']:MOTIVOS[resp];
 const CAMPOS=['CATI','F2F','MS','IDP','IVR','IIS','Online','WhatsApp','EFM'];
 const campoFrom=t=>{const s=norm(t);if(!s)return '';if(s.includes('cati')||s.includes('telef'))return 'CATI';if(s.includes('f2f')||s.includes('intercep')||s.includes('presencial')||s.includes('cara a cara'))return 'F2F';if(s.includes('mystery')||/\bms\b/.test(s))return 'MS';if(s.includes('idp'))return 'IDP';if(s.includes('ivr'))return 'IVR';if(s.includes('iis'))return 'IIS';if(s.includes('whatsapp'))return 'WhatsApp';if(s.includes('efm'))return 'EFM';if(s.includes('online')||s.includes('qualtrics')||s.includes('cawi')||s.includes('web'))return 'Online';return '';};
 const daysBetween=(a,b)=>Math.round((pISO(b)-pISO(a))/864e5);
@@ -1891,7 +1893,7 @@ class Component extends DCLogic {
       reopen:()=>this.upd(det.id,{estado:'en_curso',okAt:null,okBy:'',okNota:'',horas:null,registros:null,metodo:'',atrasoResp:'',atrasoMotivo:'',atrasoDetalle:'',atrasoCampo:''}),
       isCampo:det.atrasoResp==='campo',atrasoCampo:det.atrasoCampo||'',setCampo:e=>this.upd(det.id,{atrasoCampo:e.target.value}),
       isLateOk:isLateOk(det),diasAtrasoLabel:isLateOk(det)?`+${daysBetween(det.fecha,det.okAt.slice(0,10))} días`:'',roMotivo:!this.canEdit(det),atrasoResp:det.atrasoResp||'',atrasoMotivo:det.atrasoMotivo||'',
-      motivoOpts:det.atrasoResp?MOTIVOS[det.atrasoResp]:[],respOpts:respListFor(det.tipo),setResp:e=>{const v=e.target.value;this.upd(det.id,{atrasoResp:v,atrasoMotivo:'',atrasoCampo:v==='campo'?(det.atrasoCampo||campoFrom(det.tecnica)):''});},setMotivo:e=>this.upd(det.id,{atrasoMotivo:e.target.value}),
+      motivoOpts:det.atrasoResp?motivosFor(det.atrasoResp,det.tipo):[],respOpts:respListFor(det.tipo),setResp:e=>{const v=e.target.value;this.upd(det.id,{atrasoResp:v,atrasoMotivo:'',atrasoCampo:v==='campo'?(det.atrasoCampo||campoFrom(det.tecnica)):''});},setMotivo:e=>this.upd(det.id,{atrasoMotivo:e.target.value}),
       remove:()=>{if(confirm(`¿Eliminar ${det.job} · ${det.descripcion}?`)){this.setState(st=>({reqs:st.reqs.filter(r=>r.id!==det.id),detailId:null}));this.flash(`${det.job} eliminado`);}}};}
     const okR=s.reqs.find(r=>r.id===s.okId);
     // new
@@ -1914,7 +1916,7 @@ class Component extends DCLogic {
       downloadAtr:()=>{if(!aSorted.length){this.flash('No hay atrasos en este periodo');return;}this.download(aSorted,`Atrasos_${hFrom}_${hTo}`,`Motivos de atraso · ${histLabel}`);},
       okLate:!!okR&&TODAY>okR.fecha,okLateLine:okR?`comprometido ${fmtD(okR.fecha)}, se cierra hoy (+${daysBetween(okR.fecha,TODAY)} días)`:'',
       okRespOpts:[['operaciones',okR?TIPO[okR.tipo].label:'Operaciones'],['comercial','Área comercial'],['campo','Campo']].map(([id,label])=>({label,active:s.okResp===id,pick:()=>this.setState({okResp:id,okMotivo:id==='comercial'&&s.okMat&&okR&&s.okMat>=okR.fecha?'Materiales entregados tarde':'',okErr:''})})),
-      okMotivoOpts:s.okResp?MOTIVOS[s.okResp]:[],okIsCampo:s.okResp==='campo',okCampo:s.okCampo||'',onOkCampo:e=>this.setState({okCampo:e.target.value,okErr:''}),campos:CAMPOS,okMotivo:s.okMotivo||'',onOkMotivo:e=>this.setState({okMotivo:e.target.value,okErr:''}),okDetalle:s.okDetalle||'',onOkDetalle:e=>this.setState({okDetalle:e.target.value}),
+      okMotivoOpts:s.okResp?motivosFor(s.okResp,okR&&okR.tipo):[],okIsCampo:s.okResp==='campo',okCampo:s.okCampo||'',onOkCampo:e=>this.setState({okCampo:e.target.value,okErr:''}),campos:CAMPOS,okMotivo:s.okMotivo||'',onOkMotivo:e=>this.setState({okMotivo:e.target.value,okErr:''}),okDetalle:s.okDetalle||'',onOkDetalle:e=>this.setState({okDetalle:e.target.value}),
       okHasHint:!!okR&&TODAY>okR.fecha,okHint:!okR?'':!s.okMat?'Registra la fecha de recepción de materiales para respaldar la clasificación.':s.okMat>=okR.fecha?`Los materiales se recibieron el ${fmtD(s.okMat)}, el día de entrega o después: probablemente es un atraso de materiales del área comercial.`:`Los materiales se recibieron el ${fmtD(s.okMat)}, antes del día de entrega.`,
       isHist:tab==='historico',isNotif:tab==='notif',histLabel,histKpis,histRows,histAnalysts,histList,histBucketTitle:hm==='semana'?'Por día':'Por semana',
       histListNote:hSorted.length>100?`· mostrando 100 de ${hSorted.length} (descarga el periodo para ver todo)`:`· ${hSorted.length}`,

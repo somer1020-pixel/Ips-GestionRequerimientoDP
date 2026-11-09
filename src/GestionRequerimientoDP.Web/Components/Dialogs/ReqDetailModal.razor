@@ -63,7 +63,7 @@
                             <option value="">Selecciona…</option>
                             @if (r.AtrasoResp is { } resp)
                             {
-                                foreach (var mo in Catalogos.MOTIVOS[resp])
+                                foreach (var mo in Catalogos.MotivosDe(resp, r.Tipo))
                                 {
                                     <option value="@mo">@mo</option>
                                 }

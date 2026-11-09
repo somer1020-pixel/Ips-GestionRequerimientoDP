@@ -336,6 +336,7 @@ interface Requerimiento {
     - Operaciones: Sobrecarga del equipo · Error o retrabajo interno · Complejidad subestimada · Problema técnico / sistemas.
     - Comercial: Materiales entregados tarde · Materiales incompletos o con errores · Cambio de especificaciones.
     - Campo: Cierre de campo tardío · Base de campo con errores · Cuotas no cumplidas.
+    - **Solo en Scripting**, Comercial y Campo agregan además **Validación tardía** (el área comercial o campo validó el script tarde).
   - **Área de campo** (obligatoria si el responsable es Campo): CATI · F2F · MS · IDP · IVR · IIS · Online · WhatsApp · EFM.
     - Se precarga desde la Técnica con `campoFrom()`: CATI/telefónica → CATI; intercepción/presencial → F2F; mystery → MS; Qualtrics/CAWI/web → Online; el resto por coincidencia de nombre.
     - Migración: al cargar datos guardados, los atrasos de campo sin `atrasoCampo` se completan con `campoFrom(tecnica)`.

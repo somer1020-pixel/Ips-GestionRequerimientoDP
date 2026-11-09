@@ -177,7 +177,7 @@ public sealed class RequerimientoService(IAppDbContextFactory factory, IClock cl
                 r.AtrasoCampo = resp == AtrasoResponsable.Campo ? (r.AtrasoCampo is { Length: > 0 } c ? c : Reglas.CampoFrom(r.Tecnica)) : "";
                 return;
             }
-            if (resp != null && motivo.Length > 0 && !Catalogos.MOTIVOS[resp.Value].Contains(motivo)) throw new ReglaException("Motivo no válido.");
+            if (resp != null && motivo.Length > 0 && !Catalogos.MotivosDe(resp.Value, r.Tipo).Contains(motivo)) throw new ReglaException("Motivo no válido.");
             r.AtrasoMotivo = motivo;
             if (resp == AtrasoResponsable.Campo) r.AtrasoCampo = campo;
         }, ct);

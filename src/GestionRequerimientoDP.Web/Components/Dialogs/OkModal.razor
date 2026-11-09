@@ -42,7 +42,7 @@
                             <option value="">Selecciona un motivo…</option>
                             @if (_in.Resp is { } resp)
                             {
-                                foreach (var mo in Catalogos.MOTIVOS[resp])
+                                foreach (var mo in Catalogos.MotivosDe(resp, r.Tipo))
                                 {
                                     <option value="@mo">@mo</option>
                                 }
