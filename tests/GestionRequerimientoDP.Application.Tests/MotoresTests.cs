@@ -176,6 +176,19 @@ public class OkValidatorTests
     }
 
     [Theory]
+    [InlineData(Equipo.Procesamiento, AtrasoResponsable.Operaciones, true)]
+    [InlineData(Equipo.Procesamiento, AtrasoResponsable.Comercial, false)]
+    [InlineData(Equipo.Codificacion, AtrasoResponsable.Operaciones, false)]
+    [InlineData(Equipo.Script, AtrasoResponsable.Operaciones, false)]
+    public void Priorizacion_solo_en_procesamiento_para_el_equipo(Equipo tipo, AtrasoResponsable resp, bool valido)
+    {
+        Assert.Equal(valido, Catalogos.MotivosDe(resp, tipo).Contains(Catalogos.MotivoPriorizacion));
+        var r = Make.Req(tipo, Today.AddDays(-3), 1);
+        var (err, _) = OkValidator.Validate(r, new OkInput { Horas = "2", Registros = "100", Metodo = MetodoCodificacion.IA, Resp = resp, Motivo = Catalogos.MotivoPriorizacion, Campo = "CATI" }, Today);
+        Assert.Equal(valido, err is null);
+    }
+
+    [Theory]
     [InlineData("", false)]
     [InlineData("0", false)]
     [InlineData("201", false)]
