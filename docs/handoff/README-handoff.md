@@ -78,6 +78,7 @@ interface Usuario { id: string; nombre: string; email: string; rol: Rol; equipos
   - Un líder con requerimientos abiertos asignados ve la pestaña **Mis asignaciones** (la misma vista que "Mi semana" del analista), con contador de atrasados.
   - Si un líder se asigna a sí mismo, no se envía correo de asignación. Si asigna a otro líder, sí.
 - **Diálogos con formulario y borradores:**
+  - Los diálogos tienen alto máximo `100vh - 32px` y hacen scroll si no caben; sus partes **no se encogen** (`.dialog>*{flex-shrink:0}`). Sin esa regla, en pantallas bajas el selector de unidad de "Nuevo requerimiento" quedaba aplastado a una línea.
   - "Nuevo requerimiento", "Dar OK", "Importar planilla" y el formulario de usuario **no se cierran con un clic fuera del recuadro**; solo con Cancelar o al guardar. Al volver de otra aplicación es común hacer clic en cualquier parte, y se perdía lo escrito.
   - El detalle de un requerimiento, que guarda cada cambio al instante, sí se cierra con un clic afuera, pero solo si el clic empieza afuera. Seleccionar texto en las notas y soltar el mouse fuera del recuadro no lo cierra.
   - *Implementación:* "Nuevo requerimiento" guarda un borrador en el navegador en cada cambio. Si el diálogo se cierra o la página se recarga, al abrirlo de nuevo se recupera, con el aviso "Recuperamos lo que estabas ingresando" y la opción "Descartar y empezar de nuevo". Cancelar o guardar lo borra.

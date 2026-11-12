@@ -115,6 +115,9 @@ textarea.input{min-height:90px;resize:vertical}
 /* Diálogos */
 .dialog-backdrop{position:fixed;inset:0;display:grid;place-items:center;padding:16px;background:rgba(12,19,64,.5)}
 .dialog{width:min(440px,100%);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column;gap:14px;padding:20px;border-radius:8px;background:var(--surface-200)!important;border:1px solid var(--border);box-shadow:var(--shadow-lg)}
+/* Si el diálogo no cabe en la ventana, hace scroll: sus partes no se encogen. Sin esto, en pantallas bajas los
+   controles con overflow oculto (p. ej. el selector de unidad .seg) quedaban aplastados a una línea. */
+.dialog>*{flex-shrink:0}
 .dialog-title{font-size:18px;font-weight:600}
 .dialog-body{font-size:14px;color:var(--ink)}
 .dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
